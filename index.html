@@ -3,61 +3,109 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Proyecto Value Invest — CSU · ASML · AMZN</title>
+<title>Proyecto Value Invest — CSU · ASML · AMZN · MSFT · AAPL · GOOGL · META · NVDA</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<!-- TradingView Widget -->
+<script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:13px;background:#f5f4f1;color:#1a1814;}
-:root{--navy:#1e3a5f;--blue:#2563eb;--green:#16a34a;--amber:#d97706;--red:#dc2626;--gold:#b45309;--purple:#7c3aed;--teal:#0891b2;--surface:#fff;--border:#e4e0d8;--muted:#9a958e;--sub:#5a5650;}
+:root{
+  --navy:#1e3a5f;--blue:#2563eb;--green:#16a34a;--amber:#d97706;--red:#dc2626;
+  --gold:#b45309;--purple:#7c3aed;--teal:#0891b2;
+  --surface:#fff;--border:#e4e0d8;--muted:#9a958e;--sub:#5a5650;
+}
+
+/* ── HEADER ── */
 .hdr{background:#fff;border-bottom:1px solid var(--border);padding:10px 20px;position:sticky;top:0;z-index:100;box-shadow:0 1px 8px rgba(0,0,0,.06);}
 .hdr-top{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:8px;}
 .brand{font-weight:700;font-size:15px;color:var(--navy);display:flex;align-items:center;gap:7px;}
 .co-btns{display:flex;gap:6px;}
 .co-btn{padding:4px 14px;border-radius:20px;border:1.5px solid var(--border);background:transparent;cursor:pointer;font-size:12px;font-weight:600;color:var(--sub);transition:all .15s;}
 .co-btn.active{color:#fff;}
-.coinfo{font-size:11px;color:var(--muted);adding-left:10px;border-left:1px solid var(--border);}
+.coinfo{font-size:11px;color:var(--muted);padding-left:10px;border-left:1px solid var(--border);}
 .coname{font-size:14px;font-weight:700;}
-.price-group{display:flex;gap:8px;align-items:center;}
-.price-box{text-align:center;border:1px solid var(--border);border-radius:9px;padding:5px 12px;background:#f9f8f6;}
-.price-lbl{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:1px;}
+.price-group{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+
+/* Price box - real-time aware */
+.price-box{text-align:center;border:1px solid var(--border);border-radius:9px;padding:5px 12px;background:#f9f8f6;position:relative;}
+.price-lbl{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:1px;display:flex;align-items:center;gap:4px;}
 .price-inp{border:none;background:transparent;font-size:20px;font-weight:700;width:100px;text-align:center;outline:none;color:var(--blue);}
+.price-live-badge{font-size:8px;font-weight:700;padding:1px 5px;border-radius:8px;background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0;display:none;}
+.price-live-badge.visible{display:inline-block;}
+.price-change{font-size:10px;font-weight:600;margin-top:2px;min-height:14px;}
+
 .vbox{text-align:center;border-radius:9px;padding:6px 14px;border:1.5px solid var(--border);min-width:90px;}
 .vlbl{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;}
 .vval{font-size:17px;font-weight:800;letter-spacing:.5px;}
 .vms{font-size:10px;font-weight:600;}
+
+/* Earnings badge */
+.earnings-badge{display:none;align-items:center;gap:6px;padding:5px 12px;background:#fffbeb;border:1px solid #fde68a;border-radius:9px;font-size:11px;font-weight:600;color:#92400e;}
+.earnings-badge.visible{display:flex;}
+.earnings-dot{width:7px;height:7px;border-radius:50%;background:#d97706;animation:pulse 1.5s infinite;}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.5;transform:scale(1.3);}}
+
 .tabs{display:flex;gap:0;overflow-x:auto;border-top:1px solid var(--border);scrollbar-width:none;}
 .tabs::-webkit-scrollbar{display:none;}
 .tab{background:transparent;border:none;border-bottom:2.5px solid transparent;padding:7px 14px;cursor:pointer;font-size:11px;font-weight:600;color:var(--muted);white-space:nowrap;transition:all .15s;}
 .tab.active{color:var(--navy);border-bottom-color:var(--navy);}
+
+/* ── CONTENT ── */
 .cnt{padding:16px 20px;max-width:1280px;margin:0 auto;}
 .card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.03);}
 .ctitle{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:11px;}
-.kgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:12px;}
-.kpi{background:#f7f6f3;border-radius:10px;padding:11px 13px;}
-.klbl{font-size:10px;color:var(--muted);margin-bottom:3px;}
+
+/* ── KPI GRID WITH ACCORDION ── */
+.kgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:12px;}
+.kpi{background:#f7f6f3;border-radius:10px;padding:0;overflow:hidden;cursor:pointer;transition:box-shadow .15s;}
+.kpi:hover{box-shadow:0 2px 10px rgba(0,0,0,.08);}
+.kpi-main{padding:11px 13px;}
+.klbl{font-size:10px;color:var(--muted);margin-bottom:3px;display:flex;align-items:center;gap:4px;}
 .kval{font-size:19px;font-weight:700;}
 .ksub{font-size:10px;color:var(--muted);margin-top:2px;}
+.kpi-expand{display:none;padding:10px 13px;border-top:1px solid var(--border);background:#fff;font-size:11px;line-height:1.65;color:var(--sub);}
+.kpi-expand.open{display:block;}
+.kpi-toggle{float:right;font-size:12px;color:var(--muted);margin-top:2px;transition:transform .2s;}
+.kpi-expand-arrow{display:inline-block;transition:transform .2s;font-size:10px;color:var(--muted);}
+.kpi.expanded .kpi-expand-arrow{transform:rotate(180deg);}
+.kpi-def{margin-bottom:7px;}
+.kpi-analysis{padding:8px 10px;border-radius:8px;margin-bottom:7px;font-weight:500;}
+.kpi-bench{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px;}
+.bench-pill{padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600;}
+
+/* ── VALUATION GRID ── */
 .valgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:8px;}
 .valcard{background:#f7f6f3;border-radius:10px;padding:10px;text-align:center;border-top:2.5px solid transparent;}
 .vallbl{font-size:9px;color:var(--muted);margin-bottom:3px;text-transform:uppercase;letter-spacing:.05em;}
 .valval{font-size:18px;font-weight:700;}
 .valup{font-size:10px;font-weight:600;margin-top:2px;}
+
+/* ── TWO COL ── */
 .two-col{display:grid;grid-template-columns:380px 1fr;gap:14px;}
 @media(max-width:900px){.two-col{grid-template-columns:1fr;}}
+
+/* ── SLIDERS ── */
 .slrow{margin-bottom:11px;}
 .sllbl{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;font-size:12px;color:var(--sub);}
 .slnum{font-size:12px;font-weight:700;}
 .numinp{width:60px;border:1.5px solid #e4e0d8;border-radius:6px;padding:2px 6px;font-size:12px;font-weight:700;text-align:center;background:#f7f6f3;outline:none;}
 input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);}
 .sh{font-size:10px;color:var(--muted);margin-top:2px;}
+
+/* ── SCENARIO BUTTONS ── */
 .scenbtns{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;}
 .scenbtn{padding:3px 10px;border-radius:20px;border:1.5px solid;background:transparent;font-size:11px;font-weight:600;cursor:pointer;transition:all .15s;}
+
+/* ── INCOME STATEMENT TABLE ── */
 .is-tbl{width:100%;border-collapse:collapse;font-size:11px;}
 .is-tbl th{padding:5px 6px;font-weight:700;font-size:9px;color:var(--muted);border-bottom:1.5px solid var(--border);text-transform:uppercase;letter-spacing:.05em;}
 .is-tbl td{padding:4px 6px;border-bottom:1px solid #f0ede8;}
 .isinp{width:46px;border:none;background:#fffbeb;border-radius:4px;text-align:right;font-size:11px;font-weight:700;color:#d97706;outline:none;padding:2px 3px;border:1px solid #fde68a;}
 .isres{text-align:right;font-size:11px;font-weight:700;}
 .mpbar{display:flex;justify-content:space-between;align-items:center;border-radius:10px;padding:10px 14px;margin-top:10px;border:1px solid var(--border);}
+
+/* ── VERDICT ── */
 .vdict{border-radius:14px;padding:16px;margin-bottom:12px;}
 .vdict-big{font-size:30px;font-weight:800;letter-spacing:.5px;margin-bottom:6px;}
 .vdict-desc{font-size:12px;line-height:1.7;margin-bottom:12px;color:var(--sub);}
@@ -65,9 +113,13 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
 .minicard{background:rgba(255,255,255,.6);border-radius:9px;padding:9px;text-align:center;}
 .minilbl{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;}
 .minival{font-size:15px;font-weight:700;margin-top:2px;}
+
+/* ── SENSITIVITY TABLE ── */
 .sens-tbl{width:100%;border-collapse:separate;border-spacing:3px;font-size:11px;}
 .sens-tbl th{padding:6px 10px;background:#f7f6f3;color:var(--muted);border-radius:5px;font-size:10px;}
 .sens-td{padding:6px 10px;text-align:center;border-radius:5px;font-size:11px;}
+
+/* ── MOAT ── */
 .moat-bar-wrap{height:16px;background:#f0ede8;border-radius:8px;overflow:hidden;margin-bottom:12px;}
 .moat-fill{height:100%;border-radius:8px;transition:width .5s ease;}
 .crit{border:1px solid var(--border);border-radius:10px;padding:11px 13px;margin-bottom:7px;}
@@ -77,14 +129,20 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
 .crit-prog{flex:1;height:6px;background:#f0ede8;border-radius:3px;overflow:hidden;}
 .crit-fill{height:100%;border-radius:3px;transition:width .4s;}
 .score-badge{font-size:13px;font-weight:700;min-width:40px;text-align:right;}
+
+/* ── ALERTS ── */
 .alrow{display:flex;gap:9px;align-items:flex-start;padding:9px 12px;border-radius:10px;margin-bottom:6px;font-size:12px;line-height:1.55;}
 .albadge{font-size:9px;font-weight:700;padding:2px 7px;border-radius:10px;flex-shrink:0;margin-left:auto;text-transform:uppercase;letter-spacing:.05em;}
+
+/* ── PROJECTIONS TABLE ── */
 .ptbl{width:100%;border-collapse:collapse;font-size:12px;}
 .ptbl th,.ptbl td{padding:7px 10px;border-bottom:1px solid var(--border);}
 .ptbl th{font-weight:700;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;}
 .htbl{width:100%;border-collapse:collapse;font-size:11px;}
 .htbl th,.htbl td{padding:5px 8px;border-bottom:1px solid #f0ede8;}
 .htbl th{font-weight:700;font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;}
+
+/* ── AI BUTTONS ── */
 .aibtn{padding:10px 20px;border-radius:10px;border:none;background:var(--navy);color:#fff;cursor:pointer;font-size:12px;font-weight:700;transition:all .2s;display:inline-flex;align-items:center;gap:8px;}
 .aibtn:hover{background:#2d5a9e;transform:translateY(-1px);box-shadow:0 4px 14px rgba(30,58,95,.3);}
 .aibtn:disabled{background:var(--muted);cursor:not-allowed;transform:none;box-shadow:none;}
@@ -98,6 +156,13 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
 .chk-item{display:flex;gap:9px;padding:10px 12px;border-radius:9px;align-items:flex-start;}
 .chk-title{font-size:12px;font-weight:700;margin-bottom:2px;}
 .chk-desc{font-size:11px;line-height:1.55;}
+
+/* ── NEWS ── */
+.news-item{padding:11px 13px;border-radius:10px;margin-bottom:7px;border:1px solid var(--border);background:#fff;}
+.news-headline{font-size:12px;font-weight:700;margin-bottom:4px;line-height:1.5;}
+.news-meta{display:flex;gap:8px;align-items:center;font-size:10px;color:var(--muted);}
+.news-sentiment{padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;}
+.news-loading{text-align:center;padding:30px;color:var(--muted);font-size:12px;}
 
 /* ── TOOLTIPS ── */
 .tip{border-bottom:1.5px dashed;cursor:pointer;position:relative;display:inline;}
@@ -133,14 +198,31 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
 .ac-bench{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;}
 .ac-bench-item{padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;}
 .ac-ref{font-size:11px;color:#5a5650;line-height:1.6;font-style:italic;}
-.ac-toggle{display:flex;align-items:center;gap:6px;margin-top:10px;font-size:11px;font-weight:700;color:#1e3a5f;cursor:pointer;}
-.ac-toggle svg{transition:transform .2s;}
-.ac-toggle.open svg{transform:rotate(180deg);}
 .ac-filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;}
 .ac-filter{padding:5px 14px;border-radius:20px;border:1.5px solid var(--border);background:transparent;cursor:pointer;font-size:11px;font-weight:600;color:var(--sub);transition:all .15s;}
 .ac-filter.active{background:#1e3a5f;color:#fff;border-color:#1e3a5f;}
 
-</style></head>
+/* ── DCF EXPLANATION TOOLTIP ── */
+.dcf-info-box{background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:11px 14px;margin-bottom:12px;font-size:11px;color:#1e40af;line-height:1.65;}
+.dcf-info-box strong{font-weight:700;}
+
+/* ── ROIC vs WACC chart note ── */
+.chart-note{font-size:10px;color:var(--muted);margin-top:5px;text-align:center;}
+
+/* ── TRADINGVIEW WIDGET ── */
+.tv-widget-wrap{border-radius:10px;overflow:hidden;margin-top:5px;}
+
+/* ── RESPONSIVE ── */
+@media(max-width:600px){
+  .kgrid{grid-template-columns:repeat(2,1fr);}
+  .valgrid{grid-template-columns:repeat(2,1fr);}
+  .price-group{gap:5px;}
+  .price-inp{width:75px;font-size:16px;}
+  .hdr{padding:8px 12px;}
+  .cnt{padding:10px 12px;}
+}
+</style>
+</head>
 <body>
 
 <div class="hdr">
@@ -149,14 +231,23 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
       <div class="brand">📊 Proyecto Value Invest</div>
       <div class="co-btns" id="co-btns"></div>
       <div>
-        <div class="coname" id="co-name">Constellation Software</div>
-        <div class="coinfo" id="co-info">CSU.TO · Software / VMS</div>
+        <div class="coname" id="co-name">Microsoft Corporation</div>
+        <div class="coinfo" id="co-info">MSFT · Cloud / IA / Software</div>
       </div>
     </div>
     <div class="price-group">
+      <!-- Earnings next badge -->
+      <div class="earnings-badge" id="earnings-badge">
+        <span class="earnings-dot"></span>
+        <span id="earnings-text">Earnings próximos</span>
+      </div>
       <div class="price-box">
-        <div class="price-lbl">Precio USD</div>
-        <input class="price-inp" id="price-inp" type="number" value="2663" onchange="recalc()"/>
+        <div class="price-lbl">
+          Precio USD
+          <span class="price-live-badge" id="live-badge">● LIVE</span>
+        </div>
+        <input class="price-inp" id="price-inp" type="number" value="388" onchange="recalc()"/>
+        <div class="price-change" id="price-change"></div>
       </div>
       <div class="vbox" id="vbox">
         <div class="vlbl">Veredicto</div>
@@ -187,17 +278,25 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
 </div>
 
 <script>
+// ═══════════════════════════════════════════════════════════════════
+// DATA
+// ═══════════════════════════════════════════════════════════════════
 const DB={
-  CSU:{name:"Constellation Software",ticker:"CSU.TO",sector:"Software / VMS",shares:21.19,price:2663,equity:3576,color:"#1e3a5f",
+  CSU:{name:"Constellation Software",ticker:"CSU.TO",tvSymbol:"TSX:CSU",finnhubTicker:"CSU.TO",
+    sector:"Software / VMS",shares:21.19,price:2663,equity:3576,color:"#1e3a5f",
+    wacc:9,sectorAvgEbitdaM:22,sectorAvgFcfM:15,sectorAvgROIC:12,
+    earningsDate:"2025-08-06",earningsLabel:"Q2 2025 Resultados",
     desc:"Adquiere y gestiona software de gestión vertical (VMS) para nichos industriales. Modelo compounder puro con excelente capital allocation desde 1995. Sin un año de ventas negativo en 10 años.",
     years:[2016,2017,2018,2019,2020,2021,2022,2023,2024,2025],
     sales:[2125,2479,3060,3490,3969,5106,6622,8407,10066,11623],
     ebitda:[407,475,577,712,931,1193,1345,1704,2091,2629],
+    ebit:[280,330,410,510,680,880,950,1230,1520,1920],
     fcf:[287,419,597,626,967,1250,1238,2048,1693,2272],
     eps:[11.09,12.99,16.42,17.04,22.65,35.54,29.02,62.10,45.68,60.55],
     fcfps:[13.52,19.79,28.15,29.54,45.63,58.99,58.42,96.65,79.90,107.22],
     roic:[32,31,30,27,25,23,18,17,15,15],
     ebitdaM:[19.2,19.2,18.9,20.4,23.5,23.4,20.3,20.3,20.8,22.6],
+    ebitM:[13.2,13.3,13.4,14.6,17.1,17.2,14.3,14.6,15.1,16.5],
     fcfM:[13.5,16.9,19.5,17.9,24.4,24.5,18.7,24.4,16.8,19.5],
     netDebt:[-30,-156,-221,169,-6,316,1048,2036,2172,2223],
     pY:[2026,2027,2028,2029,2030],pS:[13599,15639,17766,20182,22926],
@@ -206,16 +305,22 @@ const DB={
     medEvFcf:37,medPER:62,medEvEbitda:36,
     hEvF:[null,38,31,43,36,40,37,35,57,32],hPER:[null,59,53,74,73,66,73,53,97,55],
     isD:{sg:[17.0,15.0,13.6,13.6,13.6],em:[20.6,20.6,20.6,20.6,20.6],tr:[26.5,26.5,26.5,26.5,26.5],di:[0,0,0,0,0],cx:[0.7,0.6,0.6,0.6,0.6],wc:[-20,-20,-20,-20,-20]}},
-  ASML:{name:"ASML Holding N.V.",ticker:"ASML.AS",sector:"Semiconductores / EUV",shares:389,price:1223,equity:19612,color:"#0066cc",
+
+  ASML:{name:"ASML Holding N.V.",ticker:"ASML.AS",tvSymbol:"NASDAQ:ASML",finnhubTicker:"ASML",
+    sector:"Semiconductores / EUV",shares:389,price:1223,equity:19612,color:"#0066cc",
+    wacc:10,sectorAvgEbitdaM:32,sectorAvgFcfM:20,sectorAvgROIC:18,
+    earningsDate:"2025-07-16",earningsLabel:"Q2 2025 Resultados",
     desc:"Monopolio mundial en litografía EUV. Sin competidores directos. Clientes: TSMC, Samsung, Intel. Tecnología crítica con décadas de ventaja imposible de replicar.",
     years:[2016,2017,2018,2019,2020,2021,2022,2023,2024,2025],
     sales:[6875,8963,10944,11820,13979,18611,21173,27559,28263,32667],
     ebitda:[2113,2853,3384,3312,4603,6991,7081,9776,9861,12266],
+    ebit:[1820,2450,2900,2840,3950,6100,6100,8400,8450,10550],
     fcf:[1558,3570,2962,3254,3856,10021,8168,5240,9512,10848],
     eps:[3.51,4.83,6.06,6.11,8.27,13.33,13.78,19.41,18.70,24.15],
     fcfps:[3.64,8.27,6.95,7.72,9.20,24.42,20.52,13.30,24.17,27.89],
     roic:[12,16,19,18,20,39,41,41,31,39],
     ebitdaM:[31,32,31,28,33,38,33,35,35,38],
+    ebitM:[26,27,26,24,28,33,29,30,30,32],
     fcfM:[23,40,27,28,28,54,39,19,34,33],
     netDebt:[-732,-228,-1005,-1651,-2723,-3043,-2891,-2248,-7992,-8883],
     pY:[2026,2027,2028,2029,2030],pS:[38874,46649,51034,58689,67492],
@@ -224,16 +329,22 @@ const DB={
     medEvFcf:28,medPER:36,medEvEbitda:28,
     hEvF:[null,17,19,34,42,28,24,51,27,32],hPER:[null,30,23,43,47,53,37,35,36,38],
     isD:{sg:[19.0,20.0,9.0,15.0,15.0],em:[39.0,42.0,42.0,42.0,42.0],tr:[18.0,18.0,18.0,18.0,18.0],di:[-1,-1,-1,-1,-1],cx:[3.0,3.0,3.0,3.0,3.0],wc:[-21,-21,-21,-21,-21]}},
-  AMZN:{name:"Amazon.com Inc.",ticker:"AMZN",sector:"eCommerce / Cloud (AWS) / IA",shares:10827,price:192,equity:411065,color:"#e47911",
+
+  AMZN:{name:"Amazon.com Inc.",ticker:"AMZN",tvSymbol:"NASDAQ:AMZN",finnhubTicker:"AMZN",
+    sector:"eCommerce / Cloud (AWS) / IA",shares:10827,price:192,equity:411065,color:"#e47911",
+    wacc:10,sectorAvgEbitdaM:15,sectorAvgFcfM:8,sectorAvgROIC:10,
+    earningsDate:"2025-08-01",earningsLabel:"Q2 2025 Resultados",
     desc:"Líder mundial en eCommerce y cloud (AWS). Márgenes en expansión acelerada. AWS crece +17% YoY y ya representa más del 60% del beneficio operativo. Posición neta de caja de $46.000M.",
     years:[2016,2017,2018,2019,2020,2021,2022,2023,2024,2025],
     sales:[135987,177866,232887,280522,386064,469822,513983,574785,637959,716924],
     ebitda:[12302,15584,27762,36330,48079,59312,55269,85515,121388,145731],
+    ebit:[4186,4106,12421,14541,22899,24879,12248,36852,68598,87027],
     fcf:[2689,8046,13649,24721,41529,13538,6560,34975,71399,77420],
     eps:[0.25,0.27,1.02,1.13,1.86,1.82,1.49,2.81,5.75,5.82],
     fcfps:[0.28,0.82,1.36,2.45,4.07,1.31,0.64,3.33,6.66,7.15],
     roic:[8,5,16,10,13,9,3,8,14,11],
     ebitdaM:[9.0,8.8,11.9,13.0,12.5,12.6,10.8,14.9,19.0,20.3],
+    ebitM:[3.1,2.3,5.3,5.2,5.9,5.3,2.4,6.4,10.8,12.1],
     fcfM:[2.0,4.5,5.9,8.8,10.8,2.9,1.3,6.1,11.2,10.8],
     netDebt:[-17231,-6143,-16384,-30302,-47189,-38375,15089,-12954,-35999,-46020],
     pY:[2026,2027,2028,2029,2030],pS:[807973,903314,1020745,1122820,1235102],
@@ -241,25 +352,285 @@ const DB={
     pEPS:[7.33,9.16,11.15,13.03,16.58],pND:[-75762,-116610,-166790,-225055,-299330],
     medEvFcf:42,medPER:65,medEvEbitda:22,
     hEvF:[null,71,54,37,39,124,133,45,33,32],hPER:[null,215,74,82,88,92,56,54,38,40],
-    isD:{sg:[13.0,12.0,13.0,10.0,10.0],em:[21.0,23.0,24.0,26.0,29.0],tr:[18.0,18.0,18.0,18.0,18.0],di:[1,1,1,1,1],cx:[9.0,9.0,9.0,9.0,9.0],wc:[-7,-7,-7,-7,-7]}}
+    isD:{sg:[13.0,12.0,13.0,10.0,10.0],em:[21.0,23.0,24.0,26.0,29.0],tr:[18.0,18.0,18.0,18.0,18.0],di:[1,1,1,1,1],cx:[9.0,9.0,9.0,9.0,9.0],wc:[-7,-7,-7,-7,-7]}},
+
+  MSFT:{name:"Microsoft Corporation",ticker:"MSFT",tvSymbol:"NASDAQ:MSFT",finnhubTicker:"MSFT",
+    sector:"Cloud / IA / Software (Azure)",shares:7465,price:388,equity:343479,color:"#00a4ef",
+    wacc:9,sectorAvgEbitdaM:35,sectorAvgFcfM:25,sectorAvgROIC:20,
+    earningsDate:"2025-07-30",earningsLabel:"Q4 FY2025 Resultados",
+    desc:"Líder global en productividad empresarial, cloud (Azure +20% YoY) e IA. Copilot integrado en todo el stack. Márgenes FCF del 40% sostenidos. Posición neta de caja de $45B. El compounder más predecible del S&P500.",
+    years:[2016,2017,2018,2019,2020,2021,2022,2023,2024,2025],
+    sales:[85320,89950,110360,125843,143015,168088,198270,211915,245122,281724],
+    ebitda:[26411,29506,42517,51590,61966,81114,96642,102023,129433,156528],
+    ebit:[19750,22326,35058,42959,52959,69916,83383,88523,109433,128528],
+    fcf:[18075,19448,13998,42973,44347,62523,76155,78204,98046,113091],
+    eps:[2.13,2.31,1.80,5.03,5.65,7.86,9.72,9.71,12.04,14.33],
+    fcfps:[2.28,2.50,1.82,5.60,5.83,8.22,10.10,10.47,13.13,15.15],
+    roic:[190,41,38,65,60,58,52,34,30,27],
+    ebitdaM:[31.0,32.8,38.5,41.0,43.3,48.3,48.7,48.1,52.8,55.6],
+    ebitM:[23.1,24.8,31.8,34.1,37.0,41.6,42.1,41.8,44.6,45.6],
+    fcfM:[21.2,21.6,12.7,34.1,31.0,37.2,38.4,36.9,40.0,40.1],
+    netDebt:[-69684,-50630,-57216,-61641,-68030,-64617,-54976,-64019,-30606,-44721],
+    pY:[2026,2027,2028,2029,2030],pS:[323791,372141,427709,491575,564978],
+    pEB:[176735,203126,233457,268317,308383],pF:[131127,146618,167799,192149,220139],
+    pEPS:[17.5,20.5,23.8,27.8,32.5],pND:[-73306,-105268,-141848,-183736,-231725],
+    medEvFcf:31,medPER:30,medEvEbitda:20,
+    hEvF:[null,29,52,23,36,39,25,32,34,27],hPER:[null,26,46,26,36,38,25,36,37,29],
+    isD:{sg:[14.9,14.9,14.9,14.9,14.9],em:[54.6,54.6,54.6,54.6,54.6],tr:[17.0,17.0,17.0,17.0,17.0],di:[-0.05,-0.05,-0.05,-0.05,-0.05],cx:[7.8,7.5,7.5,7.5,7.5],wc:[-8.6,-8.6,-8.6,-8.6,-8.6]}},
+
+  AAPL:{name:"Apple Inc.",ticker:"AAPL",tvSymbol:"NASDAQ:AAPL",finnhubTicker:"AAPL",
+    sector:"Consumer Tech / Hardware / Servicios",shares:15022,price:212,equity:57267,color:"#555555",
+    wacc:9,sectorAvgEbitdaM:30,sectorAvgFcfM:22,sectorAvgROIC:25,
+    earningsDate:"2025-07-31",earningsLabel:"Q3 FY2025 Resultados",
+    desc:"Ecosistema tech más rentable del mundo. Servicios (+13% YoY) ya superan el 25% de los ingresos con márgenes del 74%. Recompras masivas de acciones. FCF superior a $100B/año. El activo de mayor calidad del mercado.",
+    years:[2016,2017,2018,2019,2020,2021,2022,2023,2024,2025],
+    sales:[215639,229234,265595,260174,274515,365817,394328,383285,391035,391035],
+    ebitda:[73333,76569,87040,81884,81020,120233,130541,123788,136002,141700],
+    ebit:[60024,61344,70898,63930,66288,108949,119437,114301,123216,130000],
+    fcf:[53010,51591,73349,58896,73365,92953,111443,99584,108807,109000],
+    eps:[2.09,2.31,3.00,2.99,3.30,5.62,6.15,6.13,6.42,6.97],
+    fcfps:[3.54,3.39,4.86,4.04,5.13,6.60,7.37,6.60,7.26,7.26],
+    roic:[35,37,50,60,70,100,100,100,100,100],
+    ebitdaM:[34.0,33.4,32.8,31.5,29.5,32.9,33.1,32.3,34.8,36.2],
+    ebitM:[27.8,26.8,26.7,24.6,24.1,29.8,30.3,29.8,31.5,33.2],
+    fcfM:[24.6,22.5,27.6,22.6,26.7,25.4,28.3,26.0,27.8,27.9],
+    netDebt:[46696,90761,122400,108423,79249,119895,132981,99262,75795,75000],
+    pY:[2026,2027,2028,2029,2030],pS:[410000,428000,448000,470000,493000],
+    pEB:[152000,162000,173000,184000,196000],pF:[115000,122000,130000,139000,148000],
+    pEPS:[7.5,8.1,8.8,9.6,10.5],pND:[60000,45000,30000,15000,0],
+    medEvFcf:28,medPER:27,medEvEbitda:22,
+    hEvF:[null,18,17,19,26,30,19,27,31,28],hPER:[null,18,16,19,26,29,21,29,30,33],
+    isD:{sg:[4.8,4.4,4.7,4.9,4.9],em:[34.0,34.0,34.5,34.5,35.0],tr:[15.0,15.0,15.0,15.0,15.0],di:[-3.5,-3.5,-3.5,-3.5,-3.5],cx:[3.0,2.5,2.5,2.5,2.5],wc:[-12,-12,-12,-12,-12]}},
+
+  GOOGL:{name:"Alphabet Inc. (Google)",ticker:"GOOGL",tvSymbol:"NASDAQ:GOOGL",finnhubTicker:"GOOGL",
+    sector:"Search / Cloud / IA (Gemini)",shares:12230,price:155,equity:325084,color:"#4285f4",
+    wacc:9,sectorAvgEbitdaM:30,sectorAvgFcfM:20,sectorAvgROIC:18,
+    earningsDate:"2025-07-29",earningsLabel:"Q2 2025 Resultados",
+    desc:"Dominio absoluto en Search (>90% cuota). Google Cloud crece +28% YoY. Gemini IA integrado en todo el ecosistema. FCF de $101B en 2025. Posición neta de caja de $78B. Valoración atractiva vs historicos.",
+    years:[2016,2017,2018,2019,2020,2021,2022,2023,2024,2025],
+    sales:[90272,110855,136819,161857,182527,257637,282836,307394,350018,402836],
+    ebitda:[29816,35813,41624,47579,54903,88987,88317,96239,127701,150175],
+    ebit:[23716,28914,32595,35928,41224,78714,74842,84293,112390,129039],
+    fcf:[20973,13269,29836,30657,31368,57597,65294,70217,93924,101193],
+    eps:[1.44,1.11,2.15,2.36,2.56,4.81,4.96,5.97,7.79,8.67],
+    fcfps:[1.50,0.94,2.12,2.19,2.28,4.25,4.96,5.52,7.55,8.27],
+    roic:[28,23,32,27,24,40,33,32,33,27],
+    ebitdaM:[33.0,32.3,30.4,29.4,30.1,34.5,31.2,31.3,36.5,37.3],
+    ebitM:[26.3,26.1,23.8,22.2,22.6,30.6,26.5,27.4,32.1,32.0],
+    fcfM:[23.2,12.0,21.8,18.9,17.2,22.4,23.1,22.8,26.8,25.1],
+    netDebt:[-82398,-97928,-105190,-115717,-122863,-126805,-100905,-98046,-81475,-78300],
+    pY:[2026,2027,2028,2029,2030],pS:[471318,542016,617898,692046,761250],
+    pEB:[183563,213808,246831,276450,304095],pF:[134778,156710,181592,203748,223972],
+    pEPS:[10.5,12.2,14.2,16.0,17.7],pND:[-57690,-33726,-5958,25199,59448],
+    medEvFcf:27,medPER:26,medEvEbitda:17,
+    hEvF:[null,48,21,27,34,32,16,24,24,37],hPER:[null,48,24,28,34,30,18,23,24,36],
+    isD:{sg:[17.0,15.0,14.0,12.0,10.0],em:[38.9,39.4,39.9,39.9,39.9],tr:[18.0,18.0,18.0,18.0,18.0],di:[-1.7,-1.7,-1.7,-1.7,-1.7],cx:[5.2,5.0,5.0,5.0,5.0],wc:[10.9,10.9,10.9,10.9,10.9]}},
+
+  META:{name:"Meta Platforms Inc.",ticker:"META",tvSymbol:"NASDAQ:META",finnhubTicker:"META",
+    sector:"Social Media / IA / AR/VR",shares:2574,price:527,equity:217243,color:"#1877f2",
+    wacc:10,sectorAvgEbitdaM:30,sectorAvgFcfM:20,sectorAvgROIC:20,
+    earningsDate:"2025-07-30",earningsLabel:"Q2 2025 Resultados",
+    desc:"Familia de aplicaciones con 3.300M de usuarios activos diarios. IA en el centro del negocio: Llama, Meta AI y Advantage+. Family of Apps genera márgenes EBITDA del 50%+. Inversión en Reality Labs como opción a largo plazo.",
+    years:[2016,2017,2018,2019,2020,2021,2022,2023,2024,2025],
+    sales:[27638,40653,55838,70697,85965,117929,116609,134902,164501,200966],
+    ebitda:[14769,23228,29228,34727,39533,54720,42241,57929,84820,101892],
+    ebit:[12427,20203,24913,28986,32671,46753,33555,46751,69380,83276],
+    fcf:[11043,16627,22956,24125,29782,39707,28397,39775,63032,59375],
+    eps:[3.52,5.39,7.64,8.19,10.15,13.75,10.44,15.07,24.05,22.83],
+    fcfps:[3.78,5.62,7.86,8.39,10.31,13.89,10.51,15.13,24.11,23.07],
+    roic:[26,38,41,30,30,36,22,23,31,23],
+    ebitdaM:[53.4,57.1,52.3,49.1,46.0,46.4,36.2,42.9,51.6,50.7],
+    ebitM:[45.0,49.7,44.6,41.0,38.0,39.6,28.8,34.7,42.2,41.4],
+    fcfM:[40.0,40.9,41.1,34.1,34.6,33.7,24.4,29.5,38.3,29.5],
+    netDebt:[-29449,-41711,-40614,-54855,-61954,-47998,-30815,-47018,-48989,-22848],
+    pY:[2026,2027,2028,2029,2030],pS:[251208,296173,344450,393706,448431],
+    pEB:[110690,130208,152120,181748,208804],pF:[76227,89157,103163,122256,139678],
+    pEPS:[27.5,32.5,38.0,44.5,52.0],pND:[-9140,10260,34435,62061,93624],
+    medEvFcf:23,medPER:22,medEvEbitda:14,
+    hEvF:[null,29,15,22,24,23,10,22,23,28],hPER:[null,33,17,25,27,24,11,23,24,29],
+    isD:{sg:[25.0,17.9,16.3,14.3,13.9],em:[44.1,43.8,44.2,46.2,46.6],tr:[17.0,17.0,17.0,17.0,17.0],di:[-1.5,-1.5,-1.5,-1.5,-1.5],cx:[9.0,9.0,9.0,9.0,9.0],wc:[5.4,5.4,5.4,5.4,5.4]}},
+
+  NVDA:{name:"NVIDIA Corporation",ticker:"NVDA",tvSymbol:"NASDAQ:NVDA",finnhubTicker:"NVDA",
+    sector:"Semiconductores / IA / Data Center",shares:24440,price:109,equity:60459,color:"#76b900",
+    wacc:10,sectorAvgEbitdaM:30,sectorAvgFcfM:20,sectorAvgROIC:15,
+    earningsDate:"2025-08-27",earningsLabel:"Q2 FY2026 Resultados",
+    desc:"Proveedor dominante de GPUs para IA. Data Center representa el 87% de los ingresos (+142% YoY en FY2025). Arquitecturas Blackwell y Hopper como estándares de la industria. ROIC superior al 100%. El motor de la revolución IA.",
+    years:[2016,2017,2018,2019,2020,2021,2022,2023,2024,2025],
+    sales:[5010,6910,9714,11716,10918,16675,26914,44870,60922,130497],
+    ebitda:[1065,1940,3582,3751,3102,5157,9005,17124,32979,84272],
+    ebit:[733,1570,3110,3165,2518,4532,8121,15818,30043,80609],
+    fcf:[571,1218,2536,2776,2034,4694,8132,15381,27454,60847],
+    eps:[0.02,0.08,0.15,0.18,0.20,0.34,0.62,1.15,1.25,2.94],
+    fcfps:[0.02,0.05,0.10,0.11,0.08,0.19,0.33,0.62,1.11,2.48],
+    roic:[15,22,36,28,18,30,47,91,123,141],
+    ebitdaM:[21.3,28.1,36.9,32.0,28.4,30.9,33.5,38.2,54.1,64.6],
+    ebitM:[14.6,22.7,32.0,27.0,23.1,27.2,30.2,35.3,49.3,61.8],
+    fcfM:[11.4,17.6,26.1,23.7,18.6,28.1,30.2,34.3,45.1,46.6],
+    netDebt:[1279,1145,756,497,1396,-847,-3669,-2876,-6999,-9875],
+    pY:[2026,2027,2028,2029,2030],pS:[196000,248000,295000,338000,374000],
+    pEB:[127000,168000,204000,238000,266000],pF:[93000,128000,158000,187000,212000],
+    pEPS:[3.85,5.15,6.35,7.60,8.80],pND:[-18000,-28000,-38000,-50000,-63000],
+    medEvFcf:55,medPER:50,medEvEbitda:40,
+    hEvF:[null,35,31,22,31,38,30,28,80,42],hPER:[null,32,42,38,53,55,38,55,65,50],
+    isD:{sg:[50.0,26.5,19.0,14.5,10.7],em:[63.0,64.0,65.0,66.0,66.0],tr:[12.0,12.0,12.0,12.0,12.0],di:[-0.5,-0.5,-0.5,-0.5,-0.5],cx:[2.0,2.0,2.0,2.0,2.0],wc:[-5,-5,-5,-5,-5]}}
 };
 
-let co=DB.CSU,price=2663,gr=15,dr=10,tg=3,tEVF=30,tPER=40,tEVE=25,ret=15,hor=5;
+// ═══════════════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════════════
+let co=DB.MSFT,price=388,gr=12,dr=10,tg=3,tEVF=30,tPER=35,tEVE=22,ret=15,hor=5;
 let isSG,isEM,isTR,isDI,isCX,isWC;
 let curTab='resumen'; let charts={};
 
+// ── Helpers ──
 const N=(v,d=0)=>v==null?'—':Number(v).toLocaleString('es-ES',{minimumFractionDigits:d,maximumFractionDigits:d});
 const P=v=>Number(v).toFixed(1)+'%';
 const cagr=(e,s,y)=>((Math.pow(Math.max(e,0.01)/Math.max(s,0.01),1/y)-1)*100);
 const cu=v=>v>0?'#16a34a':v>-15?'#d97706':'#dc2626';
 const cbg=v=>v>0?'#f0fdf4':v>-15?'#fffbeb':'#fef2f2';
 const cbd=v=>v>0?'1px solid #bbf7d0':v>-15?'1px solid #fde68a':'1px solid #fecaca';
+const pct=(v,ref)=>ref===0?0:((v-ref)/Math.abs(ref)*100);
 
 function resetIS(){isSG=[...co.isD.sg];isEM=[...co.isD.em];isTR=[...co.isD.tr];isDI=[...co.isD.di];isCX=[...co.isD.cx];isWC=[...co.isD.wc];}
 
+// ═══════════════════════════════════════════════════════════════════
+// LIVE PRICE — Multi-source with retry + auto-refresh
+// ═══════════════════════════════════════════════════════════════════
+let _priceInterval=null;
+let _lastPriceTs=0;
+const _priceCache={};
+
+// Ticker map for Yahoo Finance
+const YF_TICKER={CSU:'CSU.TO',ASML:'ASML',AMZN:'AMZN',MSFT:'MSFT',AAPL:'AAPL',GOOGL:'GOOGL',META:'META',NVDA:'NVDA'};
+
+function _getLiveBadge(){return document.getElementById('live-badge');}
+function _getPriceChange(){return document.getElementById('price-change');}
+function _getPriceInp(){return document.getElementById('price-inp');}
+
+function _showLiveBadge(ok){
+  const b=_getLiveBadge();
+  if(!b) return;
+  if(ok){b.textContent='● LIVE';b.style.background='#f0fdf4';b.style.color='#16a34a';b.style.border='1px solid #bbf7d0';}
+  else{b.textContent='○ DELAYED';b.style.background='#fffbeb';b.style.color='#d97706';b.style.border='1px solid #fde68a';}
+  b.classList.add('visible');
+}
+
+function _applyPrice(livePrice,prevClose,isLive){
+  price=Math.round(livePrice*100)/100;
+  const inp=_getPriceInp();
+  if(inp) inp.value=price;
+  _showLiveBadge(isLive);
+  const change=livePrice-prevClose;
+  const changePct=prevClose?(change/prevClose*100):0;
+  const chEl=_getPriceChange();
+  if(chEl){
+    const sign=change>=0?'+':'';
+    chEl.textContent=`${sign}${change.toFixed(2)} (${sign}${changePct.toFixed(2)}%)`;
+    chEl.style.color=change>=0?'#16a34a':'#dc2626';
+  }
+  _lastPriceTs=Date.now();
+  recalc();
+}
+
+// Source 1: Yahoo Finance via allorigins
+async function _fetchYahoo(ticker){
+  const url=`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1m&range=1d`;
+  const proxy=`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+  const r=await fetch(proxy,{signal:AbortSignal.timeout(6000)});
+  if(!r.ok) throw new Error('allorigins error');
+  const d=await r.json();
+  const parsed=JSON.parse(d.contents);
+  const meta=parsed?.chart?.result?.[0]?.meta;
+  if(!meta) throw new Error('no meta');
+  const live=meta.regularMarketPrice||meta.previousClose;
+  const prev=meta.previousClose||live;
+  const isLive=(meta.marketState==='REGULAR'||meta.marketState==='POST');
+  return{live,prev,isLive};
+}
+
+// Source 2: Yahoo Finance v11 (alternative endpoint)
+async function _fetchYahooV2(ticker){
+  const url=`https://query2.finance.yahoo.com/v11/finance/quoteSummary/${ticker}?modules=price`;
+  const proxy=`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+  const r=await fetch(proxy,{signal:AbortSignal.timeout(6000)});
+  if(!r.ok) throw new Error('v2 error');
+  const d=await r.json();
+  const p=JSON.parse(d.contents)?.quoteSummary?.result?.[0]?.price;
+  if(!p) throw new Error('no price obj');
+  const live=p.regularMarketPrice?.raw||p.previousClose?.raw;
+  const prev=p.previousClose?.raw||live;
+  if(!live) throw new Error('no price');
+  const isLive=(p.marketState==='REGULAR');
+  return{live,prev,isLive};
+}
+
+async function fetchLivePrice(){
+  const coKey=Object.keys(DB).find(k=>DB[k]===co)||'MSFT';
+  const ticker=YF_TICKER[coKey]||co.ticker;
+
+  // Use cache if fresh (< 60s) and not first load
+  if(_priceCache[coKey] && (Date.now()-_priceCache[coKey].ts)<60000){
+    const c=_priceCache[coKey];
+    _applyPrice(c.live,c.prev,c.isLive);
+    return;
+  }
+
+  // Try source 1, fallback to source 2
+  const sources=[_fetchYahoo,_fetchYahooV2];
+  for(const src of sources){
+    try{
+      const {live,prev,isLive}=await src(ticker);
+      _priceCache[coKey]={live,prev,isLive,ts:Date.now()};
+      _applyPrice(live,prev,isLive);
+      return;
+    }catch(e){
+      // try next
+    }
+  }
+  // All failed — show manual indicator
+  const b=_getLiveBadge();
+  if(b){b.textContent='⚠ MANUAL';b.classList.add('visible');b.style.background='#fef2f2';b.style.color='#dc2626';b.style.border='1px solid #fecaca';}
+  console.log('Live price unavailable for',ticker);
+}
+
+// Auto-refresh every 90 seconds during market hours
+function startPriceRefresh(){
+  if(_priceInterval) clearInterval(_priceInterval);
+  _priceInterval=setInterval(()=>{
+    const h=new Date().getUTCHours();
+    // NYSE 9:30-16:00 ET = 13:30-20:00 UTC (roughly)
+    if(h>=13&&h<=21) fetchLivePrice();
+  },90000);
+}
+
+
+// ═══════════════════════════════════════════════════════════════════
+// EARNINGS DATE BANNER
+// ═══════════════════════════════════════════════════════════════════
+function updateEarningsBadge(){
+  const badge=document.getElementById('earnings-badge');
+  const textEl=document.getElementById('earnings-text');
+  if(!co.earningsDate||!badge||!textEl) return;
+  const now=new Date();
+  const earnings=new Date(co.earningsDate);
+  const diffDays=Math.ceil((earnings-now)/(1000*60*60*24));
+  if(diffDays>=0&&diffDays<=60){
+    badge.classList.add('visible');
+    textEl.textContent=diffDays===0?`📢 ${co.earningsLabel} HOY`:diffDays===1?`📅 ${co.earningsLabel} mañana`:`📅 ${co.earningsLabel} en ${diffDays}d`;
+  } else {
+    badge.classList.remove('visible');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// COMPANY SWITCH
+// ═══════════════════════════════════════════════════════════════════
 function switchCo(k){
   co=DB[k]; price=co.price;
   document.getElementById('price-inp').value=price;
+  document.getElementById('price-change').textContent='';
+  const b=_getLiveBadge();
+  if(b){b.classList.remove('visible');b.textContent='● LIVE';}
   document.getElementById('co-name').textContent=co.name;
   document.getElementById('co-info').textContent=co.ticker+' · '+co.sector;
   document.querySelectorAll('.co-btn').forEach(b=>{
@@ -270,13 +641,20 @@ function switchCo(k){
     b.style.color=act?'#fff':'';
   });
   document.querySelectorAll('.tab.active').forEach(t=>t.style.color=co.color);
-  resetIS(); showTab(curTab); recalc();
+  resetIS();
+  updateEarningsBadge();
+  fetchLivePrice();
+  showTab(curTab);
+  recalc();
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// CALCULATIONS
+// ═══════════════════════════════════════════════════════════════════
 function calcDCF(){
-  if(dr<=tg)return 0;
+  if(dr<=tg) return 0;
   let pv=0;
-  for(let i=1;i<=10;i++)pv+=(co.fcf[9]*Math.pow(1+gr/100,i))/Math.pow(1+dr/100,i);
+  for(let i=1;i<=10;i++) pv+=(co.fcf[9]*Math.pow(1+gr/100,i))/Math.pow(1+dr/100,i);
   const tv=(co.fcf[9]*Math.pow(1+gr/100,10)*(1+tg/100))/(dr/100-tg/100);
   return (pv+tv/Math.pow(1+dr/100,10)-co.netDebt[9])/co.shares;
 }
@@ -300,17 +678,24 @@ function calcISModel(){
 function calcMoat(){
   const r9=co.roic[9],rt=co.roic[9]-co.roic[0],sg=cagr(co.sales[9],co.sales[0],9);
   const fm=co.fcfM[9],dd=co.netDebt[9]/co.ebitda[9],cx=co.isD.cx[0];
+  const t=co.ticker;
+  // Switching cost / moat score by company
+  const switchScore=t==='ASML.AS'?98:t==='CSU.TO'?95:t==='MSFT'?88:t==='AAPL'?85:t==='NVDA'?80:t==='GOOGL'?82:t==='META'?65:t==='AMZN'?70:60;
+  const switchWhy=t==='ASML.AS'?'Único fabricante EUV del mundo. Sin sustituto posible.':t==='CSU.TO'?'VMS crítico. Cambiar = meses de riesgo operativo.':t==='MSFT'?'Azure + M365 + Teams integrados. Costes de cambio altísimos.':t==='AAPL'?'Ecosistema cerrado: iPhone+Mac+Watch+AirPods. Lock-in extremo.':t==='NVDA'?'CUDA + arquitectura dominante. Sin alternativa equivalente en IA.':t==='GOOGL'?'Hábito de uso + red de publicidad. 90%+ cuota en Search.':t==='META'?'Efecto red 3.3B usuarios. Instagram+WhatsApp+Facebook.':'AWS + Prime + Marketplace. Costes de cambio moderados.';
+  // Capital allocation
+  const capAlloc=t==='CSU.TO'?90:t==='MSFT'?82:t==='AAPL'?88:t==='ASML.AS'?78:t==='NVDA'?75:t==='GOOGL'?72:t==='META'?70:65;
+  const capWhy=t==='CSU.TO'?'81% FCF en adquisiciones a 3-7x EBITDA desde 1995.':t==='MSFT'?'Recompras masivas + dividendos crecientes 15 años + adquisiciones estratégicas.':t==='AAPL'?'$90B+ anuales en recompras. El mayor programa de buyback de la historia.':t==='ASML.AS'?'Dividendos crecientes + recompras selectivas.':t==='NVDA'?'Inversión en I+D + recompras crecientes.':t==='GOOGL'?'Buybacks masivos + inversión en IA/Cloud.':t==='META'?'Recompras agresivas + inversión en IA (Llama).':'Reinversión en AWS + logística + IA.';
   const items=[
-    {n:"Switching costs / monopolio tecnológico",w:15,s:co.ticker==='ASML'?98:co.ticker==='CSU'?95:60,why:co.ticker==='ASML'?'Único fabricante EUV del mundo. Sin sustituto posible.':co.ticker==='CSU'?'VMS crítico. Cambiar = meses de riesgo operativo.':'AWS + Prime + Marketplace. Costes de cambio moderados.'},
+    {n:"Switching costs / monopolio tecnológico",w:15,s:switchScore,why:switchWhy},
     {n:"CapEx / Ventas (ligereza de activos)",w:10,s:Math.min(100,Math.max(0,Math.round((1-cx/10)*100))),why:`CapEx/Ventas ${cx}%. ${cx<3?'Negocio extremadamente ligero en activos.':cx<7?'CapEx moderado, razonable para el sector.':'CapEx intensivo, penaliza conversión a FCF.'}`},
-    {n:"Working Capital negativo",w:10,s:co.isD.wc[0]<-15?90:co.isD.wc[0]<-5?70:40,why:`WC/Ventas ${co.isD.wc[0]}%. ${co.isD.wc[0]<-10?'Clientes pagan anticipado. Ventaja de financiación estructural.':'Working capital neutro.'}`},
-    {n:"ROIC vs coste de capital",w:15,s:r9>=20?95:r9>=15?75:r9>=10?50:25,why:`ROIC ${P(r9)} vs coste capital ~9%. Spread de ${(r9-9).toFixed(0)}pp. ${r9>=20?'Excepcional creación de valor.':r9>=15?'Buena creación de valor.':'Creación marginal de valor.'}`},
-    {n:"Tendencia ROIC 10 años",w:8,s:rt>=0?85:rt>=-10?55:rt>=-20?30:15,why:`De ${co.roic[0]}% (2016) a ${r9}% (2025). ${rt>=0?'Tendencia estable o creciente ✓':rt>=-10?'Bajista moderado, vigilar.':'Caída significativa, preocupante.'}`},
-    {n:"Margen FCF consistente",w:12,s:fm>=20?90:fm>=15?72:fm>=10?52:28,why:`Margen FCF ${P(fm)}. ${fm>=20?'Muy eficiente convirtiendo ventas en cash.':fm>=15?'Buena conversión.':'Conversión por debajo de la media.'}`},
-    {n:"CAGR Ventas 10 años",w:12,s:sg>=20?95:sg>=15?78:sg>=10?58:38,why:`CAGR ${P(sg)}. ${sg>=20?'Crecimiento excepcional. Sin un año negativo.':sg>=15?'Muy buen crecimiento sostenido.':'Crecimiento sólido pero moderado.'}`},
-    {n:"Capital allocation / reinversión FCF",w:10,s:co.ticker==='CSU'?90:co.ticker==='ASML'?78:65,why:co.ticker==='CSU'?'81% FCF en adquisiciones a 3-7x EBITDA desde 1995. Excepcional.':co.ticker==='ASML'?'Dividendos crecientes + recompras. Buena allocación.':'Reinversión en AWS + IA. Elevado CapEx expansión.'},
-    {n:"Sin dilución accionarial",w:8,s:Math.max(0,100-Math.abs(co.isD.di[0])*10),why:`Dilución anual: ${co.isD.di[0]}%. ${Math.abs(co.isD.di[0])<0.5?'Sin dilución. Todo el crecimiento va al accionista.':Math.abs(co.isD.di[0])<2?'Dilución mínima, aceptable.':'Dilución moderada, penaliza al accionista.'}`},
-    {n:"Solidez balance (Deuda/EBITDA)",w:10,s:dd<0?100:dd<1?88:dd<2?68:dd<3?42:12,why:`Deuda/EBITDA ${dd.toFixed(1)}x. ${dd<0?'Posición neta de caja. Balance excepcional.':dd<1?'Balance muy sólido.':dd<2?'Manejable, sin riesgo.':'Apalancamiento elevado, vigilar.'}`},
+    {n:"Working Capital negativo",w:10,s:co.isD.wc[0]<-15?90:co.isD.wc[0]<-5?70:co.isD.wc[0]<0?50:35,why:`WC/Ventas ${co.isD.wc[0]}%. ${co.isD.wc[0]<-10?'Clientes pagan anticipado. Ventaja de financiación estructural.':co.isD.wc[0]<0?'Working capital ligeramente favorable.':'Working capital positivo, sin ventaja.'}`},
+    {n:"ROIC vs coste de capital",w:15,s:r9>=50?100:r9>=30?92:r9>=20?82:r9>=15?68:r9>=10?50:25,why:`ROIC ${P(r9)} vs coste capital ~${co.wacc}%. Spread de ${(r9-co.wacc).toFixed(0)}pp. ${r9>=50?'Excepcional, clase mundial.':r9>=30?'Muy alto, ventaja competitiva clara.':r9>=20?'Sólido, destruye al mercado.':''}`},
+    {n:"Tendencia ROIC 10 años",w:8,s:rt>=0?85:rt>=-10?55:rt>=-20?30:15,why:`De ${co.roic[0]}% (2016) a ${r9}% (2025). ${rt>=0?'Tendencia estable o creciente ✓':rt>=-10?'Bajista moderado, vigilar.':'Caída significativa.'}`},
+    {n:"Margen FCF consistente",w:12,s:fm>=35?95:fm>=25?85:fm>=20?75:fm>=15?60:fm>=10?42:25,why:`Margen FCF ${P(fm)}.`},
+    {n:"CAGR Ventas 10 años",w:12,s:sg>=40?98:sg>=25?90:sg>=20?82:sg>=15?70:sg>=10?55:35,why:`CAGR ${P(sg)}.`},
+    {n:"Capital allocation / reinversión FCF",w:10,s:capAlloc,why:capWhy},
+    {n:"Sin dilución accionarial",w:8,s:Math.max(0,100-Math.abs(co.isD.di[0])*15),why:`Dilución anual: ${co.isD.di[0]}%.`},
+    {n:"Solidez balance (Deuda/EBITDA)",w:10,s:dd<0?100:dd<1?88:dd<2?68:dd<3?42:12,why:`Deuda/EBITDA ${dd.toFixed(1)}x.`},
   ];
   let tot=0,w=0;items.forEach(it=>{tot+=it.s*it.w;w+=it.w;});
   const ov=Math.round(tot/w);
@@ -325,9 +710,12 @@ function recalc(){
   const vv=document.getElementById('vval'),vm=document.getElementById('vms'),vb=document.getElementById('vbox');
   if(vv){vv.textContent=verd;vv.style.color=vc;}
   if(vm){vm.textContent='MdS: '+ms.toFixed(1)+'%';vm.style.color=vc;}
-  if(vb)vb.style.borderColor=vc;
+  if(vb) vb.style.borderColor=vc;
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// TAB RENDERING
+// ═══════════════════════════════════════════════════════════════════
 function showTab(tab){
   curTab=tab;
   document.querySelectorAll('.tab').forEach(t=>{
@@ -338,16 +726,15 @@ function showTab(tab){
   });
   Object.values(charts).forEach(c=>{try{c.destroy();}catch(e){}});charts={};
   const el=document.getElementById('cnt');
-  if(tab==='resumen')el.innerHTML=rResumen();
-  else if(tab==='graficos')el.innerHTML=rGraficos();
-  else if(tab==='valoracion')el.innerHTML=rValoracion();
-  else if(tab==='proyecciones')el.innerHTML=rProyecciones();
-  else if(tab==='academia')el.innerHTML=rAcademia();
-  else if(tab==='academia')el.innerHTML=rAcademia();
-  else if(tab==='moat')el.innerHTML=rMoat();
-  else if(tab==='tesis')el.innerHTML=rTesis();
-  else if(tab==='noticias')el.innerHTML=rNoticias();
-  else if(tab==='alertas')el.innerHTML=rAlertas();
+  if(tab==='resumen') el.innerHTML=rResumen();
+  else if(tab==='graficos') el.innerHTML=rGraficos();
+  else if(tab==='valoracion') el.innerHTML=rValoracion();
+  else if(tab==='proyecciones') el.innerHTML=rProyecciones();
+  else if(tab==='moat') el.innerHTML=rMoat();
+  else if(tab==='academia') el.innerHTML=rAcademia();
+  else if(tab==='tesis') el.innerHTML=rTesis();
+  else if(tab==='noticias') el.innerHTML=rNoticias();
+  else if(tab==='alertas') el.innerHTML=rAlertas();
   injectTips();
   setTimeout(()=>buildCharts(tab),80);
 }
@@ -363,6 +750,98 @@ function sld(id,lbl,val,min,max,step,unit,color,hint){
     <input type="range" id="r${id}" min="${min}" max="${max}" step="${step}" value="${val}" style="accent-color:${color}" oninput="${id}=+this.value;this.previousElementSibling.querySelector('input').value=this.value;recalc()"/>
     ${hint?`<div class="sh">💡 ${hint}</div>`:''}
   </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// RESUMEN TAB — with accordion KPIs
+// ═══════════════════════════════════════════════════════════════════
+// KPI accordion config
+const KPI_ACCORDION={
+  ventas:{icon:'📦',label:'Ventas 2025',color:'#2563eb',
+    def:'Total de ingresos cobrados a clientes. Primera línea del P&L y punto de partida de todo análisis fundamental.',
+    analysis:(c)=>{const g=pct(c.sales[9],c.sales[8]);const s=g>=0?'un crecimiento sólido':'una ligera contracción';return`En 2025, ${c.name} generó $${N(c.sales[9])}M en ventas, lo que supone ${s} del ${g.toFixed(1)}% respecto a 2024 ($${N(c.sales[8])}M). El CAGR a 10 años es del ${P(cagr(c.sales[9],c.sales[0],9))}.`;},
+    benchFn:(c)=>{const avg=15;const v=cagr(c.sales[9],c.sales[8],1);return{value:v,sector:avg,label:'CAGR YoY',unit:'%'};},
+    tipId:'ventas'},
+  ebitda:{icon:'💼',label:'EBITDA 2025',color:'#b45309',
+    def:'Beneficio antes de intereses, impuestos, amortización y depreciación. Proxy del cash flow operativo del negocio.',
+    analysis:(c)=>{const g=pct(c.ebitda[9],c.ebitda[8]);return`En 2025, ${c.name} generó $${N(c.ebitda[9])}M de EBITDA con un margen del ${P(c.ebitdaM[9])}, lo que supone un cambio del ${g.toFixed(1)}% vs 2024. La media del sector es ${P(c.sectorAvgEbitdaM)}.`;},
+    benchFn:(c)=>{return{value:c.ebitdaM[9],sector:c.sectorAvgEbitdaM,label:'Margen EBITDA',unit:'%'};},
+    tipId:'ebitda'},
+  fcf:{icon:'💵',label:'FCF 2025',color:'#16a34a',
+    def:'Dinero real que queda después de pagar todos los gastos operativos y CapEx. Para Buffett: "Los beneficios son opinión, el cash es realidad."',
+    analysis:(c)=>{const g=pct(c.fcf[9],c.fcf[8]);return`En 2025, ${c.name} generó $${N(c.fcf[9])}M de FCF (margen ${P(c.fcfM[9])}), lo que supone un cambio del ${g.toFixed(1)}% vs 2024. La media del sector es ${P(c.sectorAvgFcfM)}.`;},
+    benchFn:(c)=>{return{value:c.fcfM[9],sector:c.sectorAvgFcfM,label:'Margen FCF',unit:'%'};},
+    tipId:'fcf'},
+  roic:{icon:'🎯',label:'ROIC 2025',color:'#b45309',
+    def:'Retorno sobre capital invertido. La métrica favorita de Buffett. ROIC > WACC = creación de valor.',
+    analysis:(c)=>{const vs=c.roic[9]-c.wacc;return`En 2025, ${c.name} tiene un ROIC del ${P(c.roic[9])} vs WACC del ~${c.wacc}%, creando un spread positivo de ${vs.toFixed(1)}pp. En 2016 era del ${P(c.roic[0])}.`;},
+    benchFn:(c)=>{return{value:c.roic[9],sector:c.sectorAvgROIC,label:'ROIC vs sector',unit:'%'};},
+    tipId:'roic'},
+  eps:{icon:'📈',label:'EPS 2025',color:'#d97706',
+    def:'Beneficio por acción. Mide cuánto gana la empresa por cada acción que posees. Usar siempre con FCF/acción para validar calidad del beneficio.',
+    analysis:(c)=>{const g=pct(c.eps[9],c.eps[8]);return`En 2025, ${c.name} generó un EPS de $${N(c.eps[9],2)}, lo que supone un cambio del ${g.toFixed(1)}% vs 2024 ($${N(c.eps[8],2)}). El FCF/acción es $${N(c.fcfps[9],2)}.`;},
+    benchFn:(c)=>{const g=cagr(c.eps[9],c.eps[0],9);return{value:g,sector:12,label:'CAGR EPS 10Y',unit:'%'};},
+    tipId:'eps'},
+  netDebt:{icon:'🏦',label:'Deuda/EBITDA',color:'#dc2626',
+    def:'La deuda financiera neta dividida por el EBITDA. Mide cuántos años necesita la empresa para pagar su deuda. Negativo = posición de caja neta.',
+    analysis:(c)=>{const dd=(c.netDebt[9]/c.ebitda[9]);return`En 2025, ${c.name} tiene una ratio Deuda/EBITDA de ${dd.toFixed(1)}x. ${c.netDebt[9]<0?'Posición neta de CAJA de $'+N(Math.abs(c.netDebt[9]))+'M — balance excepcional.':'Deuda neta de $'+N(c.netDebt[9])+'M, manejable.'}`;},
+    benchFn:(c)=>{const dd=(c.netDebt[9]/c.ebitda[9]);return{value:dd,sector:1.5,label:'vs sector 1.5x',unit:'x',inverted:true};},
+    tipId:'netDebt'},
+  evfcf:{icon:'🏆',label:'EV/FCF actual',color:'#7c3aed',
+    def:'El múltiplo rey para empresas de calidad. Mide cuántas veces el EV equivale al FCF anual. Muy difícil de manipular vs el PER.',
+    analysis:(c)=>{const evfcf=Math.round((price*c.shares+c.netDebt[9])/c.fcf[9]);const pct2=((evfcf-c.medEvFcf)/c.medEvFcf*100);return`EV/FCF actual: ${evfcf}x vs mediana histórica de ${c.medEvFcf}x. ${pct2<0?'Descuento del '+Math.abs(pct2).toFixed(0)+'% sobre su media histórica.':'Prima del '+pct2.toFixed(0)+'% sobre su media histórica.'}`;},
+    benchFn:(c)=>{const evfcf=Math.round((price*c.shares+c.netDebt[9])/c.fcf[9]);return{value:evfcf,sector:c.medEvFcf,label:'vs med. histórica',unit:'x',inverted:true};},
+    tipId:'evfcf'},
+  mktcap:{icon:'🏢',label:'Market Cap',color:co.color,
+    def:'Capitalización bursátil: precio de la acción × número de acciones. Representa lo que el mercado cree que vale la empresa hoy.',
+    analysis:(c)=>{const mc=Math.round(price*c.shares/1000);return`${c.name} tiene una capitalización de mercado de $${N(mc)}B al precio actual de $${N(price)}.`;},
+    benchFn:null,tipId:null},
+};
+
+function kpiAccordion(key,subVal,subLabel){
+  const cfg=KPI_ACCORDION[key];
+  const k=key;
+  const analysisText=cfg.analysis(co);
+  let benchHtml='';
+  if(cfg.benchFn){
+    const b=cfg.benchFn(co);
+    const isGood=b.inverted?(b.value<=b.sector):(b.value>=b.sector);
+    const diff=b.value-b.sector;
+    benchHtml=`<div style="margin-top:6px;">
+      <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:4px;">Benchmark vs Sector</div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div style="flex:1;height:6px;background:#f0ede8;border-radius:3px;overflow:hidden;">
+          <div style="width:${Math.min(100,Math.abs(b.value/Math.max(b.sector,b.value)*100))}%;height:100%;background:${isGood?'#16a34a':'#dc2626'};border-radius:3px;"></div>
+        </div>
+        <span style="font-size:11px;font-weight:700;color:${isGood?'#16a34a':'#dc2626'};">${b.unit==='x'?b.value.toFixed(1)+'x':b.value.toFixed(1)+'%'} ${isGood?'✓':'▼'}</span>
+      </div>
+      <div style="font-size:10px;color:var(--muted);margin-top:3px;">${b.label}: Sector ~${b.unit==='x'?b.sector+'x':b.sector+'%'} | Diferencia: ${diff>=0?'+':''}${b.unit==='x'?diff.toFixed(1)+'x':diff.toFixed(1)+'%'}</div>
+    </div>`;
+  }
+  return`<div class="kpi" id="kpi-${key}" onclick="toggleKpi('${key}')">
+    <div class="kpi-main">
+      <div class="klbl" style="cursor:pointer;${cfg.tipId?`border-bottom:1px dashed ${cfg.color}60;display:inline-flex;`:''}"
+        onclick="event.stopPropagation();${cfg.tipId?`showTip('${cfg.tipId}',this)`:'toggleKpi(\''+key+'\')'}"
+      >${cfg.icon} ${cfg.label} <span class="kpi-expand-arrow">▾</span></div>
+      <div class="kval" style="color:${cfg.color}">${subVal}</div>
+      <div class="ksub">${subLabel}</div>
+    </div>
+    <div class="kpi-expand" id="kpi-expand-${key}">
+      <div class="kpi-def" style="color:var(--sub);">${cfg.def}</div>
+      <div class="kpi-analysis" style="background:${cfg.color}10;border-left:3px solid ${cfg.color};">${analysisText}</div>
+      ${benchHtml}
+    </div>
+  </div>`;
+}
+function toggleKpi(key){
+  const el=document.getElementById(`kpi-expand-${key}`);
+  const kpi=document.getElementById(`kpi-${key}`);
+  if(!el||!kpi) return;
+  const open=el.classList.contains('open');
+  // Close all
+  document.querySelectorAll('.kpi-expand.open').forEach(e=>e.classList.remove('open'));
+  document.querySelectorAll('.kpi.expanded').forEach(e=>e.classList.remove('expanded'));
+  if(!open){el.classList.add('open');kpi.classList.add('expanded');}
 }
 
 function rResumen(){
@@ -383,30 +862,59 @@ function rResumen(){
     {ok:Math.min(ud,um)>-5,c:"Precio con margen de seguridad",d:`MdS ${Math.min(ud,um).toFixed(1)}%. ${Math.min(ud,um)>20?'Precio atractivo.':Math.min(ud,um)>0?'Precio razonable.':'Precio ajustado.'}`},
   ];
   return`<div class="card" style="background:${co.color}09;border-color:${co.color}35;"><p style="font-size:13px;color:var(--sub);line-height:1.75;">${co.desc}</p></div>
-  <div class="kgrid">
-    <div class="kpi"><div class="klbl" style="cursor:pointer" onclick="showTip('ventas',this)">📦 Ventas 2025 <span style="font-size:9px;border-bottom:1px dashed #2563eb60;color:#2563eb;">?</span></div><div class="kval" style="color:#2563eb">$${N(co.sales[9])}M</div><div class="ksub">CAGR 10Y: ${P(cagr(co.sales[9],co.sales[0],9))}</div></div>
-    <div class="kpi"><div class="klbl" style="cursor:pointer" onclick="showTip('fcf',this)">💵 FCF 2025 <span style="font-size:9px;border-bottom:1px dashed #16a34a60;color:#16a34a;">?</span></div><div class="kval" style="color:#16a34a">$${N(co.fcf[9])}M</div><div class="ksub">Margen: ${P(co.fcfM[9])}</div></div>
-    <div class="kpi"><div class="klbl" style="cursor:pointer" onclick="showTip('roic',this)">🎯 ROIC 2025 <span style="font-size:9px;border-bottom:1px dashed #b4530960;color:#b45309;">?</span></div><div class="kval" style="color:#b45309">${P(co.roic[9])}</div><div class="ksub">vs ${P(co.roic[0])} en 2016</div></div>
-    <div class="kpi"><div class="klbl" style="cursor:pointer" onclick="showTip('ebitda',this)">💼 EBITDA 2025 <span style="font-size:9px;border-bottom:1px dashed #b4530960;color:#b45309;">?</span></div><div class="kval" style="color:#b45309">$${N(co.ebitda[9])}M</div><div class="ksub">Margen: ${P(co.ebitdaM[9])}</div></div>
-    <div class="kpi"><div class="klbl" style="cursor:pointer" onclick="showTip('eps',this)">📈 EPS 2025 <span style="font-size:9px;border-bottom:1px dashed #d9770660;color:#d97706;">?</span></div><div class="kval" style="color:#d97706">$${N(co.eps[9],2)}</div><div class="ksub">FCF/Acc: $${N(co.fcfps[9],2)}</div></div>
-    <div class="kpi"><div class="klbl" style="cursor:pointer" onclick="showTip('netDebt',this)">🏦 Deuda/EBITDA <span style="font-size:9px;border-bottom:1px dashed #dc262660;color:#dc2626;">?</span></div><div class="kval" style="color:#0891b2">${(co.netDebt[9]/co.ebitda[9]).toFixed(1)}x</div><div class="ksub">ND $${N(co.netDebt[9])}M</div></div>
-    <div class="kpi"><div class="klbl" style="cursor:pointer" onclick="showTip('evfcf',this)">🏆 EV/FCF actual <span style="font-size:9px;border-bottom:1px dashed #b4530960;color:#b45309;">?</span></div><div class="kval" style="color:#7c3aed">${Math.round((price*co.shares+co.netDebt[9])/co.fcf[9])}x</div><div class="ksub">Mediana hist: ${co.medEvFcf}x</div></div>
-    <div class="kpi"><div class="klbl">🏢 Market Cap</div><div class="kval" style="color:${co.color}">$${N(Math.round(price*co.shares/1000))}B</div><div class="ksub">Precio: $${N(price)}</div></div>
+
+  <div style="font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;padding:0 2px;">
+    📊 Métricas Clave — <span style="font-weight:400;text-transform:none;font-size:9px;color:var(--muted);">Haz clic en cada métrica para ver análisis detallado y benchmark vs sector</span>
   </div>
+  <div class="kgrid">
+    ${kpiAccordion('ventas','$'+N(co.sales[9])+'M','CAGR 10Y: '+P(cagr(co.sales[9],co.sales[0],9)))}
+    ${kpiAccordion('fcf','$'+N(co.fcf[9])+'M','Margen: '+P(co.fcfM[9]))}
+    ${kpiAccordion('roic',P(co.roic[9]),'vs '+P(co.roic[0])+' en 2016')}
+    ${kpiAccordion('ebitda','$'+N(co.ebitda[9])+'M','Margen: '+P(co.ebitdaM[9]))}
+    ${kpiAccordion('eps','$'+N(co.eps[9],2),'FCF/Acc: $'+N(co.fcfps[9],2))}
+    ${kpiAccordion('netDebt',(co.netDebt[9]/co.ebitda[9]).toFixed(1)+'x','ND $'+N(co.netDebt[9])+'M')}
+    ${kpiAccordion('evfcf',Math.round((price*co.shares+co.netDebt[9])/co.fcf[9])+'x','Mediana hist: '+co.medEvFcf+'x')}
+    ${kpiAccordion('mktcap','$'+N(Math.round(price*co.shares/1000))+'B','Precio: $'+N(price))}
+  </div>
+
   <div class="card"><div class="ctitle">Resumen Valoraciones — <span style="font-style:italic;text-transform:none;font-weight:400;font-size:9px;">clic en el nombre para ver la definición</span></div>
   <div class="valgrid">${vs.map(m=>`<div class="valcard" style="border-top-color:${cu(m.up)};"><div class="vallbl" style="cursor:pointer" onclick="showTip('${m.tid||''}',this)">${m.l}${m.tid?` <span style="font-size:8px;border-bottom:1px dashed ${cu(m.up)}60;">?</span>`:''}</div><div class="valval" style="color:${m.c};">$${m.v}</div><div class="valup" style="color:${cu(m.up)}">${m.up>0?'+':''}${m.up.toFixed(1)}%</div></div>`).join('')}</div></div>
+
   <div class="card"><div class="ctitle">Checklist Warren Buffett</div>
   <div class="checklist">${chk.map(it=>`<div class="chk-item" style="background:${it.ok?'#f0fdf4':'#fef2f2'};border:1px solid ${it.ok?'#bbf7d0':'#fecaca'};"><span style="font-size:18px;flex-shrink:0">${it.ok?'✅':'❌'}</span><div><div class="chk-title" style="color:${it.ok?'#16a34a':'#dc2626'}">${it.c}</div><div class="chk-desc" style="color:var(--sub)">${it.d}</div></div></div>`).join('')}</div></div>`;
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// GRÁFICOS TAB — enhanced with 4 charts
+// ═══════════════════════════════════════════════════════════════════
 function rGraficos(){
-  return`<div class="card"><div class="ctitle">Ventas y FCF — Histórico 2016–2025 + Proyecciones 2026–2030</div><div style="position:relative;height:240px;"><canvas id="c-sales" aria-label="Ventas y FCF histórico y proyectado de ${co.name}"></canvas></div></div>
+  return`
+  <div class="card">
+    <div class="ctitle">📈 Ventas, FCF y EPS — Histórico 2016–2025 + Proyecciones 2026–2030</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">Escala logarítmica activada para mostrar todas las series en la misma vista.</div>
+    <div style="position:relative;height:260px;"><canvas id="c-sales"></canvas></div>
+  </div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-    <div class="card"><div class="ctitle">Márgenes históricos (%)</div><div style="position:relative;height:190px;"><canvas id="c-mg" aria-label="Márgenes EBITDA y FCF de ${co.name}"></canvas></div></div>
-    <div class="card"><div class="ctitle">ROIC histórico (%)</div><div style="position:relative;height:190px;"><canvas id="c-roic" aria-label="ROIC histórico de ${co.name}"></canvas></div></div>
+    <div class="card">
+      <div class="ctitle">📊 Márgenes históricos — EBITDA %, EBIT % y FCF %</div>
+      <div style="position:relative;height:200px;"><canvas id="c-mg"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="ctitle">🎯 ROIC vs WACC (${co.wacc}%) — Creación de valor</div>
+      <div style="position:relative;height:200px;"><canvas id="c-roic"></canvas></div>
+      <div class="chart-note">Barras verdes = ROIC > WACC (crea valor) · Barras rojas = destruye valor</div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="ctitle">💹 Múltiplos históricos — EV/FCF y PER</div>
+    <div style="position:relative;height:200px;"><canvas id="c-mult"></canvas></div>
+    <div class="chart-note">Línea discontinua punteada = mediana histórica</div>
   </div>`;
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// VALORACIÓN TAB — reordered: Múltiplos primero, DCF después
+// ═══════════════════════════════════════════════════════════════════
 function rValoracion(){
   const dcf=calcDCF(),mult=calcMult();
   const ud=(dcf-price)/price*100,um=(mult.avg-price)/price*100,ms=Math.min(ud,um);
@@ -414,15 +922,12 @@ function rValoracion(){
   const isM=calcISModel(),last=isM[4];
   const mp={f:(last.fcf*tEVF-last.nd)/last.sh,p:last.eps*tPER,e:(last.eb*tEVE-last.nd)/last.sh};
   mp.avg=(mp.f+mp.p+mp.e)/3;const mup=(mp.avg-price)/price*100;
+
   return`<div class="two-col">
   <div>
-    <div class="card"><div class="ctitle">Parámetros DCF</div>
-      <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px 13px;margin-bottom:12px;font-size:12px;color:#92400e;line-height:1.6;">💡 <strong>Consejo Buffett:</strong> Usa varios escenarios. El DCF solo es tan bueno como sus supuestos. Combina siempre con múltiplos históricos.</div>
-      ${sld('gr','Crecimiento FCF (10 años)',gr,0,30,0.5,'%','#2563eb','CSU hist: 23% · ASML: 21% · AMZN: 18%')}
-      ${sld('dr','Tasa de descuento',dr,6,20,0.5,'%','#1e3a5f','WACC ~10% · Con tipos altos: 11-12%')}
-      ${sld('tg','Crecimiento terminal',tg,0,5,0.5,'%','#7c3aed','PIB nominal ~4-5% · Conservador: 2-3%')}
-    </div>
-    <div class="card"><div class="ctitle">Múltiplos objetivo</div>
+    <!-- 1. MÚLTIPLOS OBJETIVO (primero) -->
+    <div class="card">
+      <div class="ctitle">💰 1. Fair Value por Múltiplos (prioridad)</div>
       <div class="scenbtns">
         ${[{l:"🐂 Optimista",evf:co.medEvFcf,per:co.medPER,eve:co.medEvEbitda,c:"#16a34a"},{l:"⚖️ Base",evf:30,per:40,eve:25,c:"#2563eb"},{l:"🐻 Conservador",evf:22,per:28,eve:18,c:"#d97706"},{l:"😱 Pesimista",evf:15,per:18,eve:12,c:"#dc2626"}].map(s=>`<button class="scenbtn" style="border-color:${s.c};color:${s.c};background:${s.c}10;" onclick="tEVF=${s.evf};tPER=${s.per};tEVE=${s.eve};document.getElementById('rtEVF').value=${s.evf};document.getElementById('rtPER').value=${s.per};document.getElementById('rtEVE').value=${s.eve};showTab('valoracion')">${s.l}</button>`).join('')}
       </div>
@@ -430,16 +935,21 @@ function rValoracion(){
       ${sld('tPER','PER objetivo',tPER,15,100,1,'x','#7c3aed','Mediana histórica: '+co.medPER+'x')}
       ${sld('tEVE','EV/EBITDA objetivo',tEVE,10,50,1,'x','#2563eb','Mediana histórica: '+co.medEvEbitda+'x')}
     </div>
-    <div class="card"><div class="ctitle">Retorno objetivo</div>
+
+    <!-- 2. RETORNO OBJETIVO -->
+    <div class="card">
+      <div class="ctitle">🎯 2. Retorno objetivo</div>
       ${sld('ret','Retorno anual deseado',ret,8,25,1,'%','#16a34a','Buffett: 15-20% · Mercado largo plazo: ~10%')}
       ${sld('hor','Horizonte (años)',hor,1,5,1,'años','#0891b2','Con EV/FCF de salida para calcular precio')}
     </div>
+
+    <!-- 3. IS MODEL -->
     <div class="card" style="border-color:#d97706;40;background:#fffdf8;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px;">
-        <span style="font-size:13px;font-weight:700;">🧮 Proyecciones IS / FCF</span>
-        <button onclick="resetIS();showTab('valoracion')" style="font-size:10px;padding:3px 10px;border-radius:20px;border:1px solid var(--border);cursor:pointer;background:#f7f6f3;font-weight:600;">↺ Reset Excel</button>
+        <span style="font-size:13px;font-weight:700;">🧮 3. Proyecciones IS / FCF</span>
+        <button onclick="resetIS();showTab('valoracion')" style="font-size:10px;padding:3px 10px;border-radius:20px;border:1px solid var(--border);cursor:pointer;background:#f7f6f3;font-weight:600;">↺ Reset</button>
       </div>
-      <div style="font-size:10px;color:var(--muted);margin-bottom:7px;"><span style="background:#fffbeb;padding:1px 5px;border-radius:3px;border:1px solid #fde68a;font-weight:600;">Amarillo</span> = editable · Valores base = Excel de la empresa</div>
+      <div style="font-size:10px;color:var(--muted);margin-bottom:7px;"><span style="background:#fffbeb;padding:1px 5px;border-radius:3px;border:1px solid #fde68a;font-weight:600;">Amarillo</span> = editable</div>
       <div style="overflow-x:auto;">
       <table class="is-tbl">
         <thead><tr><th style="text-align:left;min-width:100px;">Métrica</th>${co.pY.map(y=>`<th style="text-align:right;color:#2563eb;">${y}E</th>`).join('')}</tr></thead>
@@ -451,7 +961,7 @@ function rValoracion(){
           <tr style="background:#fffbeb;"><td style="color:#d97706;font-weight:700;">CapEx/Vtas %</td>${isCX.map((v,i)=>`<td><input class="isinp" type="number" value="${v}" step="0.1" onchange="isCX[${i}]=+this.value;showTab('valoracion')"/>%</td>`).join('')}</tr>
           <tr style="background:#fffbeb;border-bottom:2px solid var(--border);"><td style="color:#d97706;font-weight:700;">WC/Vtas %</td>${isWC.map((v,i)=>`<td><input class="isinp" type="number" value="${v}" step="1" onchange="isWC[${i}]=+this.value;showTab('valoracion')"/>%</td>`).join('')}</tr>
           <tr><td colspan="6" style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.09em;padding:7px 6px 2px;">→ Resultados modelo</td></tr>
-          ${[{l:"Ventas",k:"s",c:"#2563eb",f:v=>"$"+N(Math.round(v))},{l:"EBITDA",k:"eb",c:"#b45309",f:v=>"$"+N(Math.round(v))},{l:"FCF",k:"fcf",c:"#16a34a",f:v=>"$"+N(Math.round(v))},{l:"EPS",k:"eps",c:"#d97706",f:v=>"$"+N(v,2)}].map(r=>`<tr style="background:#f9f8f6;border-bottom:1px solid var(--border)"><td style="color:${r.c};font-weight:700;">${r.l}</td>${isM.map(m=>`<td class="isres" style="color:${r.c}">${r.f(m[r.k])}</td>`).join('')}</tr>`).join('')}
+          ${[{l:"Ventas",k:"s",c:"#2563eb",f:v=>"$"+N(Math.round(v))},{l:"EBITDA",k:"eb",c:"#b45309",f:v=>"$"+N(Math.round(v))},{l:"FCF",k:"fcf",c:"#16a34a",f:v=>"$"+N(Math.round(v))},{l:"EPS",k:"eps",c:"#d97706",f:v=>"$"+N(v,2)}].map(r=>`<tr style="background:#f9f8f6;"><td style="color:${r.c};font-weight:700;">${r.l}</td>${isM.map(m=>`<td class="isres" style="color:${r.c}">${r.f(m[r.k])}</td>`).join('')}</tr>`).join('')}
         </tbody>
       </table></div>
       <div class="mpbar" style="background:${mup>0?'#f0fdf4':'#fef2f2'};border-color:${mup>0?'#bbf7d0':'#fecaca'};">
@@ -459,35 +969,63 @@ function rValoracion(){
         <div style="font-size:18px;font-weight:700;color:${mup>0?'#16a34a':'#dc2626'}">${mup>0?'+':''}${mup.toFixed(1)}%</div>
       </div>
     </div>
+
+    <!-- 4. DCF (último — parámetros al final) -->
+    <div class="card">
+      <div class="ctitle">📐 4. Parámetros DCF (complementario)</div>
+      <div class="dcf-info-box">
+        <strong>¿Qué es el DCF?</strong> El Descuento de Flujos de Caja calcula el valor presente de todos los flujos futuros. Un euro hoy vale más que un euro mañana (coste de oportunidad). <strong>Fórmula:</strong> Σ [FCF_n / (1+r)^n] + Valor Terminal / (1+r)^10. <em>Limitación: es sensible a los supuestos de crecimiento y descuento — por eso siempre se combina con múltiplos históricos.</em>
+      </div>
+      <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px 13px;margin-bottom:12px;font-size:12px;color:#92400e;line-height:1.6;">💡 <strong>Consejo Buffett:</strong> Usa varios escenarios. El DCF solo es tan bueno como sus supuestos. Combina siempre con múltiplos históricos.</div>
+      ${sld('gr','Crecimiento FCF (10 años)',gr,0,30,0.5,'%','#2563eb','CSU hist: 23% · ASML: 21% · AMZN: 18%')}
+      ${sld('dr','Tasa de descuento',dr,6,20,0.5,'%','#1e3a5f','WACC ~10% · Con tipos altos: 11-12%')}
+      ${sld('tg','Crecimiento terminal',tg,0,5,0.5,'%','#7c3aed','PIB nominal ~4-5% · Conservador: 2-3%')}
+    </div>
   </div>
+
   <div>
+    <!-- VEREDICTO -->
     <div class="vdict" style="background:${vc}09;border:2px solid ${vc}40;">
       <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:5px;">Veredicto — Perspectiva Buffett</div>
       <div class="vdict-big" style="color:${vc}">${verd}</div>
-      <p class="vdict-desc">${verd==='COMPRAR'?co.name+' cumple todos los criterios Buffett: moat durable, gestión excelente y precio con margen de seguridad adecuado.':verd==='MANTENER'?'A $'+N(price)+' el margen de seguridad es limitado. Para nueva entrada, espera correcciones. Posición existente: mantener.':'Precio aparentemente caro según modelos actuales. Busca precios de entrada más atractivos antes de comprar.'}</p>
+      <p class="vdict-desc">${verd==='COMPRAR'?co.name+' cumple todos los criterios Buffett: moat durable, gestión excelente y precio con margen de seguridad adecuado.':verd==='MANTENER'?'A $'+N(price)+' el margen de seguridad es limitado. Para nueva entrada, espera correcciones.':'Precio aparentemente caro según modelos actuales. Busca precios de entrada más atractivos.'}</p>
       <div class="minigrid">
         ${[{l:"DCF Upside",v:(ud>0?'+':'')+ud.toFixed(1)+'%',c:cu(ud)},{l:"Múlt. Upside",v:(um>0?'+':'')+um.toFixed(1)+'%',c:cu(um)},{l:"Marg. Seguridad",v:ms.toFixed(1)+'%',c:cu(ms)},{l:"ROIC 2025",v:P(co.roic[9]),c:'#b45309'}].map(d=>`<div class="minicard"><div class="minilbl">${d.l}</div><div class="minival" style="color:${d.c}">${d.v}</div></div>`).join('')}
       </div>
     </div>
+
+    <!-- 6 MODELOS -->
     <div class="card"><div class="ctitle">6 Modelos de Valoración</div>
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;">
       ${(()=>{const dcf_=calcDCF(),mult_=calcMult();const gn_=Math.sqrt(22.5*co.eps[9]*(co.equity/co.shares));const idx_=Math.min(hor,5)-1;const pfr_=((co.pF[idx_]*tEVF-co.pND[idx_])/co.shares)/Math.pow(1+ret/100,hor);return[{t:"DCF Base",v:N(dcf_),up:(dcf_-price)/price*100,c:"#2563eb"},{t:"EV/FCF",v:N(mult_.f),up:(mult_.f-price)/price*100,c:"#b45309"},{t:"PER",v:N(mult_.p),up:(mult_.p-price)/price*100,c:"#7c3aed"},{t:"EV/EBITDA",v:N(mult_.e),up:(mult_.e-price)/price*100,c:"#2563eb"},{t:"Graham #",v:N(gn_),up:(gn_-price)/price*100,c:"#5a5650"},{t:"Precio p/"+ret+"%",v:N(pfr_),up:(pfr_-price)/price*100,c:"#16a34a"}].map(m=>`<div style="background:#f7f6f3;border-radius:10px;padding:12px;text-align:center;border-top:2.5px solid ${cu(m.up)};"><div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">${m.t}</div><div style="font-size:18px;font-weight:700;color:${m.c}">$${m.v}</div><div style="font-size:11px;font-weight:700;margin-top:3px;color:${cu(m.up)}">${m.up>0?'+':''}${m.up.toFixed(1)}%</div></div>`).join('');})()}
     </div></div>
-    <div class="card"><div class="ctitle">Tabla de Sensibilidad DCF</div>
+
+    <!-- SENSIBILIDAD DCF -->
+    <div class="card"><div class="ctitle">Tabla de Sensibilidad DCF — Crec. FCF × Tasa de Descuento</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">Selección actual resaltada. Verde = precio atractivo, Rojo = caro.</div>
     <div style="overflow-x:auto;">
     <table class="sens-tbl">
-      <thead><tr><th style="text-align:left;font-size:10px;">Crec \ Desc</th>${[7,8,9,10,11,12,13].map(d=>`<th style="text-align:center;background:${d===dr?'#2563eb18':'#f7f6f3'};color:${d===dr?'#2563eb':'var(--muted)'};font-weight:${d===dr?'700':'400'}">${d}%</th>`).join('')}</tr></thead>
+      <thead><tr><th style="text-align:left;font-size:10px;">Crec\Desc</th>${[7,8,9,10,11,12,13].map(d=>`<th style="text-align:center;background:${d===dr?'#2563eb18':'#f7f6f3'};color:${d===dr?'#2563eb':'var(--muted)'};font-weight:${d===dr?'700':'400'}">${d}%</th>`).join('')}</tr></thead>
       <tbody>${[8,10,12,15,18,20,25].map(g=>`<tr><td style="background:${g===gr?'#b4530918':'#f7f6f3'};color:${g===gr?'#b45309':'var(--muted)'};font-weight:${g===gr?'700':'400'};border-radius:5px;padding:6px 10px;">${g}%</td>${[7,8,9,10,11,12,13].map(d=>{if(d<=tg+1)return`<td class="sens-td" style="background:#f7f6f3;color:var(--muted)">—</td>`;let pv=0;for(let i=1;i<=10;i++)pv+=(co.fcf[9]*Math.pow(1+g/100,i))/Math.pow(1+d/100,i);const tv=(co.fcf[9]*Math.pow(1+g/100,10)*(1+tg/100))/(d/100-tg/100);const val=(pv+tv/Math.pow(1+d/100,10)-co.netDebt[9])/co.shares,up=(val-price)/price*100,isA=g===gr&&d===dr;return`<td class="sens-td" style="background:${isA?'#d9770618':cbg(up)};color:${isA?'#d97706':cu(up)};border:${isA?'2px solid #d9770650':'none'};font-weight:${isA?'700':'400'}"><div>${N(val)}</div><div style="font-size:9px">${up>0?'+':''}${up.toFixed(0)}%</div></td>`;}).join('')}</tr>`).join('')}</tbody>
     </table></div></div>
-    <div class="card"><div class="ctitle">Múltiplos históricos EV/FCF y PER</div>
-    <div style="position:relative;height:180px;"><canvas id="c-mult" aria-label="Múltiplos históricos de ${co.name}"></canvas></div></div>
+
+    <!-- SENSIBILIDAD TERMINAL G -->
+    <div class="card"><div class="ctitle">Tabla de Sensibilidad — Tasa de Crecimiento Terminal (g)</div>
+    <div style="overflow-x:auto;">
+    <table class="sens-tbl">
+      <thead><tr><th style="text-align:left;">Crec\g terminal</th>${[1,1.5,2,2.5,3,3.5,4].map(g=>`<th style="text-align:center;background:${g===tg?'#7c3aed18':'#f7f6f3'};color:${g===tg?'#7c3aed':'var(--muted)'};font-weight:${g===tg?'700':'400'}">${g}%</th>`).join('')}</tr></thead>
+      <tbody>${[8,10,12,15,18,20].map(g=>`<tr><td style="background:${g===gr?'#2563eb18':'#f7f6f3'};color:${g===gr?'#2563eb':'var(--muted)'};font-weight:${g===gr?'700':'400'};border-radius:5px;padding:6px 10px;">${g}%</td>${[1,1.5,2,2.5,3,3.5,4].map(tg2=>{if(dr<=tg2+0.5)return`<td class="sens-td" style="background:#f7f6f3;color:var(--muted)">—</td>`;let pv=0;for(let i=1;i<=10;i++)pv+=(co.fcf[9]*Math.pow(1+g/100,i))/Math.pow(1+dr/100,i);const tv2=(co.fcf[9]*Math.pow(1+g/100,10)*(1+tg2/100))/(dr/100-tg2/100);const val=(pv+tv2/Math.pow(1+dr/100,10)-co.netDebt[9])/co.shares,up=(val-price)/price*100,isA=g===gr&&tg2===tg;return`<td class="sens-td" style="background:${isA?'#7c3aed18':cbg(up)};color:${isA?'#7c3aed':cu(up)};border:${isA?'2px solid #7c3aed50':'none'};font-weight:${isA?'700':'400'}"><div>${N(val)}</div><div style="font-size:9px">${up>0?'+':''}${up.toFixed(0)}%</div></td>`;}).join('')}</tr>`).join('')}</tbody>
+    </table></div></div>
   </div></div>`;
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// PROYECCIONES
+// ═══════════════════════════════════════════════════════════════════
 function rProyecciones(){
   const pts=co.pY.map((yr,i)=>{const f=(co.pF[i]*tEVF-co.pND[i])/co.shares,p=co.pEPS[i]*tPER,e=(co.pEB[i]*tEVE-co.pND[i])/co.shares;return{yr,f,p,e,avg:(f+p+e)/3};});
   const bps=[Math.round(price*0.65),Math.round(price*0.75),Math.round(price*0.85),Math.round(price*0.95),Math.round(price),Math.round(price*1.1),Math.round(price*1.2)];
-  return`<div class="card"><div class="ctitle">Precio objetivo 2026–2030 (según múltiplos configurados)</div><div style="position:relative;height:240px;"><canvas id="c-pt" aria-label="Precio objetivo por año para ${co.name}"></canvas></div></div>
+  return`<div class="card"><div class="ctitle">Precio objetivo 2026–2030 (según múltiplos configurados)</div><div style="position:relative;height:240px;"><canvas id="c-pt"></canvas></div></div>
   <div class="card"><div class="ctitle">CAGR esperado según precio de compra</div>
   <div style="overflow-x:auto;"><table class="ptbl">
     <thead><tr><th style="text-align:left;">Precio compra</th>${co.pY.map(y=>`<th style="text-align:center;">CAGR → ${y}</th>`).join('')}</tr></thead>
@@ -499,6 +1037,9 @@ function rProyecciones(){
   </table></div></div>`;
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// MOAT
+// ═══════════════════════════════════════════════════════════════════
 function rMoat(){
   const m=calcMoat();
   return`<div class="card" style="background:${m.color}07;border-color:${m.color}35;margin-bottom:14px;">
@@ -508,11 +1049,11 @@ function rMoat(){
       <div><div style="font-size:12px;color:var(--muted)">/100</div><div style="font-size:16px;font-weight:700;color:${m.color}">${m.label}</div></div></div></div>
       <div style="min-width:220px;flex:1;max-width:300px;">
         <div class="moat-bar-wrap"><div class="moat-fill" style="width:${m.overall}%;background:linear-gradient(90deg,#d97706,${m.color});"></div></div>
-        <p style="font-size:12px;color:var(--sub);line-height:1.65;margin-top:8px;">Puntuación compuesta de <strong>10 criterios cuantitativos ponderados</strong> basada en datos reales 2016–2025. Complementa el análisis cualitativo.</p>
+        <p style="font-size:12px;color:var(--sub);line-height:1.65;margin-top:8px;">Puntuación compuesta de <strong>10 criterios cuantitativos ponderados</strong>.</p>
       </div>
     </div>
   </div>
-  <div class="card"><div class="ctitle">Criterios detallados — 10 criterios en 4 categorías</div>
+  <div class="card"><div class="ctitle">Criterios detallados</div>
   ${m.items.map(it=>{const bc=it.s>=85?'#16a34a':it.s>=65?'#0891b2':it.s>=50?'#d97706':'#dc2626';const bg2=it.s>=85?'#f0fdf4':it.s>=65?'#f0fdfa':it.s>=50?'#fffbeb':'#fef2f2';const bd2=it.s>=85?'#bbf7d0':it.s>=65?'#99f6e4':it.s>=50?'#fde68a':'#fecaca';return`<div class="crit" style="background:${bg2};border-color:${bd2};">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
       <div style="flex:1;"><div class="crit-name">${it.n} <span style="font-size:10px;color:var(--muted);font-weight:400;">Peso: ${it.w}%</span></div>
@@ -521,9 +1062,12 @@ function rMoat(){
     </div>
     <div class="crit-row"><div class="crit-prog"><div class="crit-fill" style="width:${it.s}%;background:${bc};"></div></div><span class="score-badge" style="color:${bc}">${it.s}/100</span></div>
   </div>`;}).join('')}</div>
-  <div style="padding:12px 16px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;font-size:12px;color:#1e40af;margin-top:0;"><strong>ℹ️ Metodología:</strong> 85+ = Excepcional · 70-84 = Sólido · 55-69 = Moderado · <55 = Débil. Basado únicamente en datos cuantitativos. Siempre contrasta con el análisis cualitativo del negocio.</div>`;
+  <div style="padding:12px 16px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;font-size:12px;color:#1e40af;"><strong>ℹ️ Metodología:</strong> 85+ = Excepcional · 70-84 = Sólido · 55-69 = Moderado · <55 = Débil.</div>`;
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// TESIS
+// ═══════════════════════════════════════════════════════════════════
 function rTesis(){
   const dcf=calcDCF(),mult=calcMult(),moat=calcMoat();
   const ms=Math.min((dcf-price)/price*100,(mult.avg-price)/price*100),verd=ms>20?"COMPRAR":ms>-5?"MANTENER":"EVITAR";
@@ -534,34 +1078,97 @@ function rTesis(){
   </div>
   <button class="aibtn" id="t-btn" onclick="genTesis()">✍️ Generar Tesis de Inversión</button>
   <div id="t-out" class="aiout" style="display:none;"></div>
-  <div style="margin-top:9px;padding:9px 13px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;font-size:11px;color:#92400e;">⚠️ Esta tesis es generada por IA con carácter exclusivamente informativo. No constituye asesoramiento financiero. Realiza siempre tu propio análisis.</div></div>`;
+  <div style="margin-top:9px;padding:9px 13px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;font-size:11px;color:#92400e;">⚠️ Esta tesis es generada por IA con carácter exclusivamente informativo. No constituye asesoramiento financiero.</div></div>`;
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// NOTICIAS — Finnhub API + AI fallback
+// ═══════════════════════════════════════════════════════════════════
 function rNoticias(){
   const moat=calcMoat(),dcf=calcDCF(),mult=calcMult();
   const ms=Math.min((dcf-price)/price*100,(mult.avg-price)/price*100),verd=ms>20?"COMPRAR":ms>-5?"MANTENER":"EVITAR";
-  return`<div class="card"><div class="ctitle">Noticias e Impacto en la Tesis — IA</div>
-  <p style="font-size:12px;color:var(--sub);margin-bottom:11px;line-height:1.65;">La IA genera un briefing de noticias recientes, catalizadores positivos y riesgos a vigilar con impacto directo sobre la tesis de inversión.</p>
-  <div class="params-row">
-    ${[{l:"Empresa",v:co.ticker},{l:"Veredicto",v:verd},{l:"MOAT",v:moat.overall+"/100"}].map(p=>`<span class="ptag">${p.l}: <strong style="color:#1a1814">${p.v}</strong></span>`).join('')}
+  return`<div class="card"><div class="ctitle">📰 Noticias e Impacto — ${co.name}</div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+    <button class="aibtn" id="n-btn-live" onclick="fetchFinnhubNews()" style="background:#16a34a;">🔴 Noticias en Tiempo Real (Finnhub)</button>
+    <button class="aibtn" id="n-btn" onclick="genNews()" style="background:var(--navy);">🤖 Briefing IA (Claude)</button>
   </div>
-  <button class="aibtn" id="n-btn" onclick="genNews()">🔍 Generar Briefing de Noticias</button>
+  <div id="n-live" style="display:none;"></div>
   <div id="n-out" class="aiout" style="display:none;"></div>
-  <div style="margin-top:9px;padding:9px 13px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;font-size:11px;color:#1e40af;">ℹ️ Conocimiento de la IA hasta agosto 2025. Para noticias más recientes, verifica en Bloomberg, Reuters o el IR de la empresa.</div></div>`;
+  <div style="margin-top:9px;padding:9px 13px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;font-size:11px;color:#1e40af;">ℹ️ Noticias en tiempo real vía Finnhub API (requiere API key). El briefing IA tiene conocimiento hasta agosto 2025.</div>
+  <div style="margin-top:7px;padding:9px 13px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;font-size:11px;color:#166534;">
+    💡 <strong>Para activar noticias en tiempo real:</strong> Obtén una API key gratuita en <a href="https://finnhub.io" target="_blank" style="color:#166534;font-weight:700;">finnhub.io</a> e introduce el código de activación abajo.
+    <div style="margin-top:8px;display:flex;gap:7px;align-items:center;flex-wrap:wrap;">
+      <input id="finnhub-key" type="text" placeholder="Introduce tu Finnhub API Key aquí..." style="flex:1;min-width:220px;padding:5px 10px;border:1.5px solid #bbf7d0;border-radius:6px;font-size:11px;background:#fff;outline:none;"/>
+      <button onclick="saveFinnhubKey()" style="padding:5px 14px;border-radius:6px;border:none;background:#16a34a;color:#fff;font-size:11px;font-weight:700;cursor:pointer;">Guardar</button>
+    </div>
+  </div>
+  </div>`;
 }
 
+let finnhubApiKey = localStorage.getItem('finnhub_key') || '';
+function saveFinnhubKey(){
+  const key=document.getElementById('finnhub-key')?.value?.trim();
+  if(key){finnhubApiKey=key;localStorage.setItem('finnhub_key',key);alert('✅ API Key guardada. Ahora puedes cargar noticias en tiempo real.');}
+}
+
+async function fetchFinnhubNews(){
+  const btn=document.getElementById('n-btn-live');
+  const out=document.getElementById('n-live');
+  if(!finnhubApiKey){
+    out.innerHTML=`<div style="padding:14px;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;font-size:12px;color:#dc2626;">⚠️ Introduce tu Finnhub API Key abajo para ver noticias en tiempo real.</div>`;
+    out.style.display='block';return;
+  }
+  btn.disabled=true;btn.innerHTML='⏳ Cargando noticias…';
+  const ticker=co.finnhubTicker;
+  const from=new Date();from.setDate(from.getDate()-30);
+  const fromStr=from.toISOString().split('T')[0];
+  const toStr=new Date().toISOString().split('T')[0];
+  try{
+    const r=await fetch(`https://finnhub.io/api/v1/company-news?symbol=${ticker}&from=${fromStr}&to=${toStr}&token=${finnhubApiKey}`);
+    const news=await r.json();
+    if(!Array.isArray(news)||news.length===0){
+      out.innerHTML=`<div style="padding:14px;font-size:12px;color:var(--muted);">No se encontraron noticias recientes para ${co.name}. Verifica tu API key o el ticker.</div>`;
+    } else {
+      const items=news.slice(0,8).map(n=>{
+        const date=new Date(n.datetime*1000).toLocaleDateString('es-ES');
+        const sentiment=n.sentiment||0;
+        const sColor=sentiment>0.1?'#16a34a':sentiment<-0.1?'#dc2626':'#d97706';
+        const sLabel=sentiment>0.1?'🟢 Positivo':sentiment<-0.1?'🔴 Negativo':'🟡 Neutro';
+        return`<div class="news-item">
+          <div class="news-headline"><a href="${n.url}" target="_blank" style="color:#1a1814;text-decoration:none;">${n.headline}</a></div>
+          <div class="news-meta">
+            <span style="font-weight:600;">${n.source}</span>
+            <span>${date}</span>
+            <span class="news-sentiment" style="background:${sColor}18;color:${sColor};">${sLabel}</span>
+          </div>
+          ${n.summary?`<div style="font-size:11px;color:var(--sub);margin-top:5px;line-height:1.5;">${n.summary.substring(0,150)}…</div>`:''}
+        </div>`;
+      }).join('');
+      out.innerHTML=`<div style="font-size:11px;color:var(--muted);margin-bottom:8px;">Mostrando las últimas ${Math.min(news.length,8)} noticias de los últimos 30 días.</div>${items}`;
+    }
+    out.style.display='block';
+  }catch(e){
+    out.innerHTML=`<div style="padding:14px;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;font-size:12px;color:#dc2626;">Error al cargar noticias. Comprueba tu API key y conexión.</div>`;
+    out.style.display='block';
+  }
+  btn.disabled=false;btn.innerHTML='🔴 Noticias en Tiempo Real (Finnhub)';
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// ALERTAS
+// ═══════════════════════════════════════════════════════════════════
 function rAlertas(){
   const dcf=calcDCF(),mult=calcMult();
   const ms=Math.min((dcf-price)/price*100,(mult.avg-price)/price*100),sg=cagr(co.sales[9],co.sales[0],9),dd=co.netDebt[9]/co.ebitda[9];
   const als=[
-    {t:co.roic[9]>=20?"pos":co.roic[9]>=15?"warn":"neg",icon:"🎯",txt:`ROIC ${P(co.roic[9])} — ${co.roic[9]>=20?"Excepcional, muy por encima del coste de capital (~9%)":co.roic[9]>=15?"Bueno pero tendencia bajista (era "+co.roic[0]+"% en 2016). Vigilar.":"Por debajo del umbral aceptable. Riesgo de destrucción de valor."}`},
-    {t:sg>=15?"pos":sg>=8?"warn":"neg",icon:"📦",txt:`Crecimiento ventas CAGR 10Y: ${P(sg)} — ${sg>=20?"Excepcional. Sin un solo año negativo desde 2016.":sg>=10?"Muy sólido y consistente.":"Crecimiento moderado, vigilar desaceleración."}`},
-    {t:co.fcfM[9]>=15?"pos":co.fcfM[9]>=8?"warn":"neg",icon:"💧",txt:`Margen FCF ${P(co.fcfM[9])} — ${co.fcfM[9]>=20?"Muy eficiente convirtiendo ventas en cash real.":co.fcfM[9]>=10?"Conversión razonable, con margen de mejora.":"Margen bajo, penaliza la calidad del beneficio."}`},
-    {t:dd<1?"pos":dd<2.5?"warn":"neg",icon:"🏦",txt:`Deuda/EBITDA: ${dd.toFixed(1)}x — ${dd<0?"Posición neta de caja. Balance excepcional.":dd<1?"Balance muy sólido, sin riesgo de quiebra.":dd<2.5?"Manejable, pero vigilar en contexto de tipos altos.":"Apalancamiento elevado. Riesgo financiero relevante."}`},
-    {t:ms>20?"pos":ms>-5?"warn":"neg",icon:"💰",txt:`Margen de seguridad: ${ms.toFixed(1)}% — ${ms>20?"Precio atractivo con buen margen de seguridad.":ms>-5?"Precio justo. Margen de seguridad limitado para nueva entrada.":"Precio aparentemente caro según modelos actuales."}`},
-    {t:co.isD.wc[0]<-10?"pos":"warn",icon:"🔄",txt:`Working Capital / Ventas: ${co.isD.wc[0]}% — ${co.isD.wc[0]<-10?"Clientes pagan anticipado. La empresa crece con dinero ajeno. Ventaja estructural.":"WC neutral o ligeramente favorable."}`},
-    {t:co.isD.cx[0]<3?"pos":co.isD.cx[0]<8?"warn":"neg",icon:"🔨",txt:`CapEx Mantenimiento / Ventas: ${co.isD.cx[0]}% — ${co.isD.cx[0]<3?"Negocio muy ligero en activos. Alta conversión FCF.":co.isD.cx[0]<8?"CapEx moderado para el sector.":"CapEx intensivo. Penaliza significativamente el FCF libre."}`},
-    {t:co.roic[9]>=co.roic[0]-5?"pos":"warn",icon:"📉",txt:`Tendencia ROIC: ${co.roic[0]}% (2016) → ${co.roic[9]}% (2025). ${co.roic[9]>=co.roic[0]?"Estable o creciente. Señal positiva.":co.roic[9]>=co.roic[0]-10?"Bajista moderado. Merece seguimiento continuo.":"Caída significativa. Vigilar si continúa."}`},
+    {t:co.roic[9]>=20?"pos":co.roic[9]>=15?"warn":"neg",icon:"🎯",txt:`ROIC ${P(co.roic[9])} — ${co.roic[9]>=20?"Excepcional, muy por encima del coste de capital (~9%)":co.roic[9]>=15?"Bueno pero tendencia bajista (era "+co.roic[0]+"% en 2016). Vigilar.":"Por debajo del umbral aceptable."}`},
+    {t:sg>=15?"pos":sg>=8?"warn":"neg",icon:"📦",txt:`Crecimiento ventas CAGR 10Y: ${P(sg)} — ${sg>=20?"Excepcional. Sin un solo año negativo.":sg>=10?"Muy sólido y consistente.":"Crecimiento moderado."}`},
+    {t:co.fcfM[9]>=15?"pos":co.fcfM[9]>=8?"warn":"neg",icon:"💧",txt:`Margen FCF ${P(co.fcfM[9])} — ${co.fcfM[9]>=20?"Muy eficiente.":co.fcfM[9]>=10?"Razonable.":"Margen bajo."}`},
+    {t:dd<1?"pos":dd<2.5?"warn":"neg",icon:"🏦",txt:`Deuda/EBITDA: ${dd.toFixed(1)}x — ${dd<0?"Posición neta de caja.":dd<1?"Balance muy sólido.":dd<2.5?"Manejable.":"Apalancamiento elevado."}`},
+    {t:ms>20?"pos":ms>-5?"warn":"neg",icon:"💰",txt:`Margen de seguridad: ${ms.toFixed(1)}% — ${ms>20?"Precio atractivo.":ms>-5?"Precio justo.":"Precio aparentemente caro."}`},
+    {t:co.isD.wc[0]<-10?"pos":"warn",icon:"🔄",txt:`Working Capital / Ventas: ${co.isD.wc[0]}% — ${co.isD.wc[0]<-10?"Clientes pagan anticipado. Ventaja estructural.":"WC neutral."}`},
+    {t:co.isD.cx[0]<3?"pos":co.isD.cx[0]<8?"warn":"neg",icon:"🔨",txt:`CapEx/Ventas: ${co.isD.cx[0]}% — ${co.isD.cx[0]<3?"Negocio ligero en activos.":co.isD.cx[0]<8?"Moderado.":"Capital intensivo."}`},
+    {t:co.roic[9]>=co.roic[0]-5?"pos":"warn",icon:"📉",txt:`Tendencia ROIC: ${co.roic[0]}% (2016) → ${co.roic[9]}% (2025). ${co.roic[9]>=co.roic[0]?"Estable ✓":co.roic[9]>=co.roic[0]-10?"Bajista moderado.":"Caída significativa."}`},
   ];
   const pos=als.filter(a=>a.t==="pos").length,warn=als.filter(a=>a.t==="warn").length,neg=als.filter(a=>a.t==="neg").length;
   return`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px;">
@@ -575,183 +1182,291 @@ function rAlertas(){
   <div class="card"><div class="ctitle">Histórico completo 2016–2025</div>
   <div style="overflow-x:auto;"><table class="htbl">
     <thead><tr><th style="text-align:left;min-width:90px;">Métrica</th>${co.years.map(y=>`<th style="text-align:right;">${y}</th>`).join('')}</tr></thead>
-    <tbody>${[{l:"Ventas ($M)",d:co.sales,c:"#2563eb",f:v=>"$"+N(v)},{l:"EBITDA ($M)",d:co.ebitda,c:"#b45309",f:v=>"$"+N(v)},{l:"FCF ($M)",d:co.fcf,c:"#16a34a",f:v=>"$"+N(v)},{l:"EPS ($)",d:co.eps,c:"#d97706",f:v=>"$"+N(v,2)},{l:"Mg. EBITDA",d:co.ebitdaM,c:"#b45309",f:v=>P(v)},{l:"Mg. FCF",d:co.fcfM,c:"#16a34a",f:v=>P(v)},{l:"ROIC (%)",d:co.roic,c:"#b45309",f:v=>P(v)},{l:"Deuda Neta",d:co.netDebt,c:"#dc2626",f:v=>"$"+N(v)}].map(row=>`<tr style="border-bottom:1px solid #f0ede8;"><td style="color:${row.c};font-weight:700;padding:5px 8px;">${row.l}</td>${row.d.map((v,i)=>`<td style="text-align:right;padding:5px 8px;color:${i===row.d.length-1?row.c:'var(--sub)'};font-weight:${i===row.d.length-1?'700':'400'}">${row.f(v)}</td>`).join('')}</tr>`).join('')}
+    <tbody>${[{l:"Ventas ($M)",d:co.sales,c:"#2563eb",f:v=>"$"+N(v)},{l:"EBITDA ($M)",d:co.ebitda,c:"#b45309",f:v=>"$"+N(v)},{l:"EBIT ($M)",d:co.ebit,c:"#d97706",f:v=>"$"+N(v)},{l:"FCF ($M)",d:co.fcf,c:"#16a34a",f:v=>"$"+N(v)},{l:"EPS ($)",d:co.eps,c:"#d97706",f:v=>"$"+N(v,2)},{l:"FCF/Acc ($)",d:co.fcfps,c:"#16a34a",f:v=>"$"+N(v,2)},{l:"Mg. EBITDA",d:co.ebitdaM,c:"#b45309",f:v=>P(v)},{l:"Mg. FCF",d:co.fcfM,c:"#16a34a",f:v=>P(v)},{l:"ROIC (%)",d:co.roic,c:"#b45309",f:v=>P(v)},{l:"Deuda Neta",d:co.netDebt,c:"#dc2626",f:v=>"$"+N(v)}].map(row=>`<tr style="border-bottom:1px solid #f0ede8;"><td style="color:${row.c};font-weight:700;padding:5px 8px;">${row.l}</td>${row.d.map((v,i)=>`<td style="text-align:right;padding:5px 8px;color:${i===row.d.length-1?row.c:'var(--sub)'};font-weight:${i===row.d.length-1?'700':'400'}">${row.f(v)}</td>`).join('')}</tr>`).join('')}
     </tbody>
   </table></div></div>`;
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// CHART BUILDING — enhanced
+// ═══════════════════════════════════════════════════════════════════
 function buildCharts(tab){
-  const dk=matchMedia('(prefers-color-scheme: dark)').matches;
   const gc='rgba(0,0,0,0.06)',tc='#9a958e';
-  const base={responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:gc},ticks:{color:tc,font:{size:10}}},y:{grid:{color:gc},ticks:{color:tc,font:{size:10}}}}};
+  const base={responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false}},
+    scales:{
+      x:{grid:{color:gc},ticks:{color:tc,font:{size:10}}},
+      y:{grid:{color:gc},ticks:{color:tc,font:{size:10}}}
+    }
+  };
+
   if(tab==='graficos'){
-    const aY=[...co.years,...co.pY],aS=[...co.sales,...co.pS],aF=[...co.fcf,...co.pF];
+    // Chart 1: Ventas + FCF + EPS (logarithmic for multi-scale)
+    const aY=[...co.years,...co.pY];
+    const aS=[...co.sales,...co.pS];
+    const aF=[...co.fcf,...co.pF];
+    const aEPS=[...co.eps,...co.pEPS];
     const c1=document.getElementById('c-sales');
-    if(c1)charts.s=new Chart(c1,{type:'line',data:{labels:aY,datasets:[{label:'Ventas ($M)',data:aS,borderColor:'#2563eb',backgroundColor:'#2563eb14',fill:true,tension:.35,pointRadius:3,borderWidth:2.5,pointBackgroundColor:'#2563eb'},{label:'FCF ($M)',data:aF,borderColor:'#16a34a',backgroundColor:'#16a34a0e',fill:true,tension:.35,pointRadius:3,borderWidth:2,pointBackgroundColor:'#16a34a'}]},options:{...base,plugins:{legend:{display:true,labels:{color:tc,font:{size:11},boxWidth:10,padding:14}}}}});
+    if(c1){
+      // Normalize EPS to same scale for visual display (multiply by shares to get $ millions)
+      const aEPSnorm=aEPS.map(v=>v*co.shares);
+      charts.s=new Chart(c1,{type:'line',data:{labels:aY,
+        datasets:[
+          {label:'Ventas ($M)',data:aS,borderColor:'#2563eb',backgroundColor:'#2563eb14',fill:true,tension:.35,pointRadius:3,borderWidth:2.5,yAxisID:'y'},
+          {label:'FCF ($M)',data:aF,borderColor:'#16a34a',backgroundColor:'#16a34a0e',fill:true,tension:.35,pointRadius:3,borderWidth:2,yAxisID:'y'},
+          {label:'EPS × Acc. ($M)',data:aEPSnorm,borderColor:'#d97706',borderDash:[6,3],tension:.35,pointRadius:3,borderWidth:2,yAxisID:'y',backgroundColor:'transparent'}
+        ]},
+        options:{...base,
+          plugins:{legend:{display:true,labels:{color:tc,font:{size:11},boxWidth:10,padding:14}}},
+          scales:{
+            x:{grid:{color:gc},ticks:{color:tc,font:{size:10}}},
+            y:{type:'logarithmic',grid:{color:gc},ticks:{color:tc,font:{size:10},callback:v=>{if(v>=1000000)return'$'+(v/1000000).toFixed(0)+'B';if(v>=1000)return'$'+(v/1000).toFixed(0)+'K';return'$'+v;}}}
+          }
+        }
+      });
+    }
+
+    // Chart 2: Márgenes — EBITDA, EBIT, FCF
     const c2=document.getElementById('c-mg');
-    if(c2)charts.mg=new Chart(c2,{type:'line',data:{labels:co.years,datasets:[{label:'EBITDA %',data:co.ebitdaM,borderColor:'#b45309',tension:.35,pointRadius:3,borderWidth:2.5,pointBackgroundColor:'#b45309'},{label:'FCF %',data:co.fcfM,borderColor:'#16a34a',tension:.35,pointRadius:3,borderWidth:2,borderDash:[5,3],pointBackgroundColor:'#16a34a'}]},options:{...base,plugins:{legend:{display:true,labels:{color:tc,font:{size:11},boxWidth:10}}},scales:{...base.scales,y:{...base.scales.y,ticks:{...base.scales.y.ticks,callback:v=>v+'%'}}}}});
+    if(c2) charts.mg=new Chart(c2,{type:'line',data:{labels:co.years,
+      datasets:[
+        {label:'EBITDA %',data:co.ebitdaM,borderColor:'#b45309',tension:.35,pointRadius:3,borderWidth:2.5},
+        {label:'EBIT %',data:co.ebitM,borderColor:'#d97706',tension:.35,pointRadius:3,borderWidth:2,borderDash:[4,2]},
+        {label:'FCF %',data:co.fcfM,borderColor:'#16a34a',tension:.35,pointRadius:3,borderWidth:2,borderDash:[7,3]}
+      ]},
+      options:{...base,
+        plugins:{legend:{display:true,labels:{color:tc,font:{size:11},boxWidth:10}}},
+        scales:{
+          x:{grid:{color:gc},ticks:{color:tc,font:{size:10}}},
+          y:{grid:{color:gc},ticks:{color:tc,font:{size:10},callback:v=>v+'%'}}
+        }
+      }
+    });
+
+    // Chart 3: ROIC vs WACC bar chart with color coding
     const c3=document.getElementById('c-roic');
-    if(c3)charts.roic=new Chart(c3,{type:'line',data:{labels:co.years,datasets:[{label:'ROIC %',data:co.roic,borderColor:co.color,backgroundColor:co.color+'18',fill:true,tension:.35,pointRadius:4,borderWidth:3,pointBackgroundColor:co.color}]},options:{...base,scales:{...base.scales,y:{...base.scales.y,min:0,ticks:{...base.scales.y.ticks,callback:v=>v+'%'}}},plugins:{legend:{display:false}}}});
+    if(c3){
+      const roicColors=co.roic.map(v=>v>=co.wacc?'#16a34a80':'#dc262680');
+      const roicBorderColors=co.roic.map(v=>v>=co.wacc?'#16a34a':'#dc2626');
+      charts.roic=new Chart(c3,{type:'bar',data:{labels:co.years,
+        datasets:[
+          {label:'ROIC %',data:co.roic,backgroundColor:roicColors,borderColor:roicBorderColors,borderWidth:2,borderRadius:5},
+          {label:`WACC ${co.wacc}%`,data:Array(co.years.length).fill(co.wacc),type:'line',borderColor:'#1e3a5f',borderWidth:2,borderDash:[5,3],pointRadius:0,fill:false}
+        ]},
+        options:{...base,
+          plugins:{legend:{display:true,labels:{color:tc,font:{size:11},boxWidth:10}}},
+          scales:{
+            x:{grid:{color:gc},ticks:{color:tc,font:{size:10}}},
+            y:{grid:{color:gc},ticks:{color:tc,font:{size:10},callback:v=>v+'%'},min:0}
+          }
+        }
+      });
+    }
+
+    // Chart 4: Historical multiples EV/FCF and PER
+    const c4=document.getElementById('c-mult');
+    if(c4){
+      charts.mult=new Chart(c4,{type:'line',data:{labels:co.years,
+        datasets:[
+          {label:'EV/FCF',data:co.hEvF,borderColor:'#b45309',tension:.35,pointRadius:3,borderWidth:2.5,spanGaps:false},
+          {label:'PER',data:co.hPER,borderColor:'#7c3aed',tension:.35,pointRadius:3,borderWidth:2,borderDash:[5,3],spanGaps:false},
+          {label:`Med. EV/FCF ${co.medEvFcf}x`,data:Array(co.years.length).fill(co.medEvFcf),borderColor:'#b45309',borderWidth:1,borderDash:[3,3],pointRadius:0},
+          {label:`Med. PER ${co.medPER}x`,data:Array(co.years.length).fill(co.medPER),borderColor:'#7c3aed',borderWidth:1,borderDash:[3,3],pointRadius:0}
+        ]},
+        options:{...base,
+          plugins:{legend:{display:true,labels:{color:tc,font:{size:11},boxWidth:10}}},
+          scales:{
+            x:{grid:{color:gc},ticks:{color:tc,font:{size:10}}},
+            y:{grid:{color:gc},ticks:{color:tc,font:{size:10},callback:v=>v+'x'}}
+          }
+        }
+      });
+    }
   }
-  if(tab==='valoracion'){
-    const cm=document.getElementById('c-mult');
-    if(cm)charts.mult=new Chart(cm,{type:'line',data:{labels:co.years,datasets:[{label:'EV/FCF',data:co.hEvF,borderColor:'#b45309',tension:.35,pointRadius:3,borderWidth:2.5,pointBackgroundColor:'#b45309',spanGaps:false},{label:'PER',data:co.hPER,borderColor:'#7c3aed',tension:.35,pointRadius:3,borderWidth:2,borderDash:[5,3],pointBackgroundColor:'#7c3aed',spanGaps:false}]},options:{...base,plugins:{legend:{display:true,labels:{color:tc,font:{size:11},boxWidth:10}}},scales:{...base.scales,y:{...base.scales.y,ticks:{...base.scales.y.ticks,callback:v=>v+'x'}}}}});
-  }
+
   if(tab==='proyecciones'){
     const pts=co.pY.map((yr,i)=>{const f=(co.pF[i]*tEVF-co.pND[i])/co.shares,p=co.pEPS[i]*tPER,e=(co.pEB[i]*tEVE-co.pND[i])/co.shares;return{yr,avg:(f+p+e)/3,f,p};});
     const cp=document.getElementById('c-pt');
-    if(cp)charts.pt=new Chart(cp,{type:'line',data:{labels:['Actual',...co.pY.map(String)],datasets:[{label:'Precio promedio',data:[price,...pts.map(p=>Math.round(p.avg))],borderColor:co.color,backgroundColor:co.color+'14',fill:true,tension:.35,pointRadius:5,borderWidth:3,pointBackgroundColor:co.color},{label:'EV/FCF',data:[price,...pts.map(p=>Math.round(p.f))],borderColor:'#b45309',tension:.35,borderDash:[5,3],pointRadius:3,borderWidth:1.5,pointBackgroundColor:'#b45309'},{label:'PER',data:[price,...pts.map(p=>Math.round(p.p))],borderColor:'#7c3aed',tension:.35,borderDash:[5,3],pointRadius:3,borderWidth:1.5,pointBackgroundColor:'#7c3aed'}]},options:{...base,plugins:{legend:{display:true,labels:{color:tc,font:{size:11},boxWidth:10}}},scales:{...base.scales,y:{...base.scales.y,ticks:{...base.scales.y.ticks,callback:v=>'$'+N(v)}}}}});
+    if(cp) charts.pt=new Chart(cp,{type:'line',data:{labels:['Actual',...co.pY.map(String)],
+      datasets:[
+        {label:'Precio promedio',data:[price,...pts.map(p=>Math.round(p.avg))],borderColor:co.color,backgroundColor:co.color+'14',fill:true,tension:.35,pointRadius:5,borderWidth:3},
+        {label:'EV/FCF',data:[price,...pts.map(p=>Math.round(p.f))],borderColor:'#b45309',tension:.35,borderDash:[5,3],pointRadius:3,borderWidth:1.5},
+        {label:'PER',data:[price,...pts.map(p=>Math.round(p.p))],borderColor:'#7c3aed',tension:.35,borderDash:[5,3],pointRadius:3,borderWidth:1.5}
+      ]},
+      options:{...base,
+        plugins:{legend:{display:true,labels:{color:tc,font:{size:11},boxWidth:10}}},
+        scales:{
+          x:{grid:{color:gc},ticks:{color:tc,font:{size:10}}},
+          y:{grid:{color:gc},ticks:{color:tc,font:{size:10},callback:v=>'$'+N(v)}}
+        }
+      }
+    });
   }
 }
 
-function fmtAI(t){return t.split('\n').map(l=>{
-  if(l.startsWith('## '))return`<h3>${l.replace('## ','')}</h3>`;
-  if(l.startsWith('- ')||l.startsWith('• ')){const txt=l.replace(/^[-•] /,'');const has=t=>txt.includes(t);const bg2=has('🟢')?'#f0fdf4':has('🔴')?'#fef2f2':has('🟡')?'#fffbeb':'transparent';const bd2=has('🟢')?'1px solid #bbf7d0':has('🔴')?'1px solid #fecaca':has('🟡')?'1px solid #fde68a':'none';return`<div style="padding:${bg2!=='transparent'?'7px 11px':'2px 4px'};margin:3px 0;background:${bg2};border:${bd2};border-radius:6px;">${txt.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>')}</div>`;}
-  if(l.trim()==='')return'<div style="height:5px"></div>';
-  return`<p style="margin:3px 0;">${l.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>')}</p>`;
-}).join('');}
+// ═══════════════════════════════════════════════════════════════════
+// AI HELPERS
+// ═══════════════════════════════════════════════════════════════════
+function fmtAI(t){
+  return t.split('\n').map(l=>{
+    if(l.startsWith('## '))return`<h3>${l.replace('## ','')}</h3>`;
+    if(l.startsWith('# '))return`<h3 style="font-size:14px;">${l.replace('# ','')}</h3>`;
+    if(l.startsWith('- ')||l.startsWith('• ')){
+      const txt=l.replace(/^[-•] /,'');
+      const has=t=>txt.includes(t);
+      const bg2=has('🟢')?'#f0fdf4':has('🔴')?'#fef2f2':has('🟡')?'#fffbeb':'transparent';
+      const bd2=has('🟢')?'1px solid #bbf7d0':has('🔴')?'1px solid #fecaca':has('🟡')?'1px solid #fde68a':'none';
+      return`<div style="padding:${bg2!=='transparent'?'7px 11px':'2px 4px'};margin:3px 0;background:${bg2};border:${bd2};border-radius:6px;">${txt.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>')}</div>`;
+    }
+    if(l.startsWith('**')&&l.endsWith('**'))return`<div style="font-weight:700;margin:4px 0;">${l.replace(/\*\*/g,'')}</div>`;
+    if(l.trim()==='')return'<div style="height:5px"></div>';
+    return`<p style="margin:3px 0;">${l.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>')}</p>`;
+  }).join('');
+}
 
 async function genTesis(){
   const btn=document.getElementById('t-btn'),out=document.getElementById('t-out');
   btn.disabled=true;btn.innerHTML='⏳ Generando tesis…';out.style.display='none';
   const dcf=calcDCF(),mult=calcMult(),moat=calcMoat(),ms=Math.min((dcf-price)/price*100,(mult.avg-price)/price*100),verd=ms>20?"COMPRAR":ms>-5?"MANTENER":"EVITAR";
   const prompt=`Eres Warren Buffett analizando ${co.name} (${co.ticker}). Genera una tesis de inversión en español con estos apartados en Markdown:\n## 1. Resumen Ejecutivo\n## 2. El Negocio y su MOAT\n## 3. Análisis Financiero\n## 4. Valoración\n## 5. Riesgos Principales\n## 6. Conclusión y Posición\n\nDATOS CLAVE 2025: Ventas $${N(co.sales[9])}M (CAGR ${P(cagr(co.sales[9],co.sales[0],9))}), FCF $${N(co.fcf[9])}M (margen ${P(co.fcfM[9])}), ROIC ${co.roic[9]}%, Deuda/EBITDA ${(co.netDebt[9]/co.ebitda[9]).toFixed(1)}x, Precio $${N(price)}, EV/FCF ${Math.round((price*co.shares+co.netDebt[9])/co.fcf[9])}x (mediana hist ${co.medEvFcf}x), MOAT ${moat.overall}/100 (${moat.label}), DCF $${N(dcf)}, Veredicto ${verd}, MdS ${ms.toFixed(1)}%. Máx 500 palabras. Directo con números concretos.`;
-  try{const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,messages:[{role:"user",content:prompt}]})});const d=await r.json();out.innerHTML=fmtAI(d.content?.find(b=>b.type==="text")?.text||"Sin respuesta");out.style.display='block';}catch(e){out.innerHTML='<p style="color:#dc2626;font-weight:600;">Error al conectar con la IA. Inténtalo de nuevo.</p>';out.style.display='block';}
+  try{
+    const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,messages:[{role:"user",content:prompt}]})});
+    const d=await r.json();
+    out.innerHTML=fmtAI(d.content?.find(b=>b.type==="text")?.text||"Sin respuesta");
+    out.style.display='block';
+  }catch(e){
+    out.innerHTML='<p style="color:#dc2626;font-weight:600;">Error al conectar con la IA. Inténtalo de nuevo.</p>';
+    out.style.display='block';
+  }
   btn.disabled=false;btn.innerHTML='✍️ Generar Tesis de Inversión';
 }
 
 async function genNews(){
   const btn=document.getElementById('n-btn'),out=document.getElementById('n-out');
-  btn.disabled=true;btn.innerHTML='⏳ Analizando noticias…';out.style.display='none';
+  btn.disabled=true;btn.innerHTML='⏳ Analizando…';out.style.display='none';
   const dcf=calcDCF(),mult=calcMult(),moat=calcMoat(),ms=Math.min((dcf-price)/price*100,(mult.avg-price)/price*100),verd=ms>20?"COMPRAR":ms>-5?"MANTENER":"EVITAR";
-  const prompt=`Analista financiero senior. Para ${co.name} (${co.ticker}), genera un briefing en español:\n## 📰 Últimas Noticias Relevantes (últimos 6 meses)\n4-5 noticias: **[TIPO]** Descripción — Impacto: 🟢/🟡/🔴\n## 📊 Catalizadores Positivos (próximos 12 meses)\n3-4 puntos concretos con impacto estimado\n## ⚠️ Riesgos a Vigilar\n3-4 riesgos con probabilidad Alta/Media/Baja\n## 💡 Impacto en la Tesis de Inversión\n2-3 frases directas.\n\nContexto: precio $${N(price)}, veredicto ${verd}, MOAT ${moat.overall}/100 (${moat.label}). Si no tienes datos recientes precisos, indícalo claramente y proporciona análisis sectorial.`;
-  try{const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,messages:[{role:"user",content:prompt}]})});const d=await r.json();out.innerHTML=fmtAI(d.content?.find(b=>b.type==="text")?.text||"Sin respuesta");out.style.display='block';}catch(e){out.innerHTML='<p style="color:#dc2626;font-weight:600;">Error al conectar con la IA. Inténtalo de nuevo.</p>';out.style.display='block';}
-  btn.disabled=false;btn.innerHTML='🔍 Generar Briefing de Noticias';
+  const prompt=`Analista financiero senior. Para ${co.name} (${co.ticker}), genera un briefing en español:\n## 📰 Últimas Noticias Relevantes (últimos 6 meses)\n4-5 noticias: **[TIPO]** Descripción — Impacto: 🟢/🟡/🔴\n## 📊 Catalizadores Positivos (próximos 12 meses)\n3-4 puntos concretos con impacto estimado\n## ⚠️ Riesgos a Vigilar\n3-4 riesgos con probabilidad Alta/Media/Baja\n## 💡 Impacto en la Tesis de Inversión\n2-3 frases directas.\n\nContexto: precio $${N(price)}, veredicto ${verd}, MOAT ${moat.overall}/100 (${moat.label}). Si no tienes datos recientes precisos, indícalo claramente.`;
+  try{
+    const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,messages:[{role:"user",content:prompt}]})});
+    const d=await r.json();
+    out.innerHTML=fmtAI(d.content?.find(b=>b.type==="text")?.text||"Sin respuesta");
+    out.style.display='block';
+  }catch(e){
+    out.innerHTML='<p style="color:#dc2626;font-weight:600;">Error al conectar con la IA.</p>';
+    out.style.display='block';
+  }
+  btn.disabled=false;btn.innerHTML='🤖 Briefing IA (Claude)';
 }
 
-// ── TOOLTIP SYSTEM ────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════
+// TOOLTIP SYSTEM
+// ═══════════════════════════════════════════════════════════════════
 const TIPS={
   ventas:{emoji:'📦',title:'Ventas / Ingresos',color:'#2563eb',tag:'CUENTA DE RESULTADOS',
     def:'El total de dinero cobrado a clientes en un período. Es la primera línea del P&L y el punto de partida de todo análisis. Sin crecimiento de ventas sostenido, el resto del castillo se tambalea.',
     formula:'Ventas = Precio × Unidades vendidas\n(o suma de todos los contratos/suscripciones cobradas)',
     example:'CSU 2025: $11.623M (+17% vs 2024). En 10 años ha pasado de $2.125M a $11.623M — un CAGR del 21%. Ni un solo año en negativo desde 2016.',
     bench:[{v:'>20%/año',c:'#16a34a',bg:'#f0fdf4',label:'Excepcional'},{v:'10-20%',c:'#d97706',bg:'#fffbeb',label:'Bueno'},{v:'<5%',c:'#dc2626',bg:'#fef2f2',label:'Mediocre'}],
-    ref:'Buffett: "El precio es lo que pagas. El valor es lo que obtienes." Sin ventas crecientes, no hay valor creciente. — "The Essays of Warren Buffett", L. Cunningham'},
-
+    ref:'Buffett: "El precio es lo que pagas. El valor es lo que obtienes."'},
   ebitda:{emoji:'💼',title:'EBITDA',color:'#b45309',tag:'CUENTA DE RESULTADOS',
-    def:'Beneficio antes de intereses, impuestos, amortización y depreciación. Es el proxy más usado del cash flow operativo porque elimina el efecto de decisiones financieras y contables, mostrando la rentabilidad "pura" del negocio.',
-    formula:'EBITDA = Beneficio Neto + Intereses + Impuestos + Depreciación + Amortización\n= Ventas − Costes operativos directos',
-    example:'CSU 2025: $2.629M sobre $11.623M ventas = margen EBITDA 22.6%. ASML: 38%. Amazon: 20.3% (subiendo desde 9% en 2016 gracias a AWS).',
-    bench:[{v:'>30%',c:'#16a34a',bg:'#f0fdf4',label:'Excelente (software/tech)'},{v:'20-30%',c:'#d97706',bg:'#fffbeb',label:'Bueno'},{v:'<10%',c:'#dc2626',bg:'#fef2f2',label:'Bajo (retail/industrial)'}],
-    ref:'"Security Analysis", Graham & Dodd (1934). El EBITDA fue popularizado por Kohlberg Kravis Roberts en los años 80 para valorar LBOs. Buffett es escéptico: "EBITDA pretende que la depreciación no existe, pero las fábricas sí se desgastan."'},
-
+    def:'Beneficio antes de intereses, impuestos, amortización y depreciación. Proxy del cash flow operativo, elimina decisiones financieras y contables.',
+    formula:'EBITDA = Beneficio Neto + Intereses + Impuestos + Depreciación + Amortización',
+    example:'CSU 2025: $2.629M → margen 22.6%. ASML: 38%. Amazon: 20.3% (subiendo desde 9% en 2016 gracias a AWS).',
+    bench:[{v:'>30%',c:'#16a34a',bg:'#f0fdf4',label:'Excelente'},{v:'20-30%',c:'#d97706',bg:'#fffbeb',label:'Bueno'},{v:'<10%',c:'#dc2626',bg:'#fef2f2',label:'Bajo'}],
+    ref:'"Security Analysis", Graham & Dodd (1934). Buffett: "EBITDA pretende que la depreciación no existe, pero las fábricas sí se desgastan."'},
   fcf:{emoji:'💵',title:'Free Cash Flow (FCF)',color:'#16a34a',tag:'FLUJO DE CAJA',
-    def:'El dinero real que queda en la caja de la empresa después de pagar TODOS los gastos operativos y las inversiones necesarias (CapEx). Para Buffett, el FCF es el único beneficio que importa: "Los beneficios son opinión, el cash es realidad."',
-    formula:'FCF = Flujo de Caja Operativo − CapEx de mantenimiento\n= EBITDA − Intereses − Impuestos − CapEx − Variación del WC',
-    example:'CSU 2025: $2.272M de FCF sobre $11.623M ventas = margen FCF 19.5%. Cada año positivo desde 2016. CSU convierte casi 1 de cada 5 dólares de ventas en cash real.',
+    def:'El dinero real que queda en caja después de pagar TODOS los gastos operativos y CapEx necesarios. Para Buffett: "Los beneficios son opinión, el cash es realidad."',
+    formula:'FCF = Flujo de Caja Operativo − CapEx de mantenimiento',
+    example:'CSU 2025: $2.272M de FCF → margen 19.5%. Cada año positivo desde 2016.',
     bench:[{v:'>20%',c:'#16a34a',bg:'#f0fdf4',label:'Excepcional'},{v:'15-20%',c:'#d97706',bg:'#fffbeb',label:'Bueno'},{v:'Negativo',c:'#dc2626',bg:'#fef2f2',label:'⚠️ Alerta'}],
-    ref:'"Warren Buffett and the Interpretation of Financial Statements", M. Buffett & D. Clark. El concepto de "owner earnings" de Buffett es esencialmente el FCF ajustado por el CapEx de mantenimiento.'},
-
+    ref:'"Warren Buffett and the Interpretation of Financial Statements"'},
   roic:{emoji:'🎯',title:'ROIC — Retorno sobre Capital Invertido',color:'#b45309',tag:'RENTABILIDAD',
-    def:'La métrica favorita de Buffett y Munger. Mide cuánto beneficio operativo genera la empresa por cada euro de capital que tiene invertido. Un ROIC superior al coste del capital (WACC) crea valor. Inferior, lo destruye.',
-    formula:'ROIC = NOPAT / Capital Invertido\ndonde NOPAT = EBIT × (1 − Tax rate)\ny Capital Invertido = Equity + Deuda − Caja',
-    example:'CSU: bajando de 32% (2016) a 15% (2025). Sigue siendo bueno pero la tendencia es preocupante. ASML: 39% en 2025. Una máquina de crear valor. Comparativa: Visa mantiene ROIC >40% desde hace 15 años.',
-    bench:[{v:'>25%',c:'#16a34a',bg:'#f0fdf4',label:'Excepcional'},{v:'15-25%',c:'#d97706',bg:'#fffbeb',label:'Bueno'},{v:'<10%',c:'#dc2626',bg:'#fef2f2',label:'Pobre / destruye valor'}],
-    ref:'"The Little Book That Builds Wealth", P. Dorsey. Buffett: "La clave para invertir es determinar la ventaja competitiva de cualquier empresa y, sobre todo, la durabilidad de esa ventaja."'},
-
+    def:'La métrica favorita de Buffett. Mide el beneficio operativo por cada euro de capital invertido. ROIC > WACC = crea valor. ROIC < WACC = destruye valor.',
+    formula:'ROIC = NOPAT / Capital Invertido\nNOPAT = EBIT × (1 − Tax rate)',
+    example:'CSU: bajando de 32% (2016) a 15% (2025). ASML: 39% en 2025. Visa: >40% desde hace 15 años.',
+    bench:[{v:'>25%',c:'#16a34a',bg:'#f0fdf4',label:'Excepcional'},{v:'15-25%',c:'#d97706',bg:'#fffbeb',label:'Bueno'},{v:'<10%',c:'#dc2626',bg:'#fef2f2',label:'Pobre'}],
+    ref:'"The Little Book That Builds Wealth", P. Dorsey.'},
   eps:{emoji:'📈',title:'EPS — Beneficio por Acción',color:'#d97706',tag:'POR ACCIÓN',
-    def:'Beneficio neto total dividido entre el número de acciones en circulación. Mide cuánto gana la empresa por cada acción que posees. Ojo: puede manipularse con recompras de acciones o elementos extraordinarios. El FCF/acción es más fiable.',
-    formula:'EPS = Beneficio Neto / Acciones Diluidas\n(Usar acciones diluidas incluye opciones sobre acciones y convertibles)',
-    example:'CSU 2025: EPS $60.55. En 2016 era $11.09. CAGR del 21% en 10 años. Pero atención: en 2022 cayó a $29.02 por cargos de adquisiciones. El FCF/acción es más consistente.',
+    def:'Beneficio neto total dividido entre acciones diluidas. Mide cuánto gana la empresa por acción. El FCF/acción es más fiable para validar calidad.',
+    formula:'EPS = Beneficio Neto / Acciones Diluidas',
+    example:'CSU 2025: EPS $60.55. En 2016 era $11.09. CAGR del 21% en 10 años.',
     bench:[{v:'>15%/año',c:'#16a34a',bg:'#f0fdf4',label:'Excelente CAGR'},{v:'10-15%',c:'#d97706',bg:'#fffbeb',label:'Bueno'},{v:'Irregular',c:'#dc2626',bg:'#fef2f2',label:'Verificar con FCF'}],
-    ref:'"One Up On Wall Street", Peter Lynch (1989). Lynch popularizó el ratio PEG = PER / crecimiento EPS como métrica de valoración relativa.'},
-
+    ref:'"One Up On Wall Street", Peter Lynch (1989).'},
   per:{emoji:'💹',title:'PER — Price to Earnings Ratio',color:'#7c3aed',tag:'VALORACIÓN',
-    def:'Cuántas veces el precio de la acción el mercado está pagando los beneficios anuales. Un PER de 30 significa que pagas $30 por cada $1 de beneficio. Es el múltiplo más conocido pero también el más engañoso si los beneficios son irregulares.',
-    formula:'PER = Precio por Acción / EPS\n(O también: Market Cap / Beneficio Neto)\nPER "forward" usa estimaciones del próximo año',
-    example:'CSU: mediana histórica 62x. Parece caro, pero sus adquisiciones generan cargos contables que deprimen el beneficio contable. Por eso EV/FCF es mejor para CSU. Amazon cotizó a PER >200x durante años — el mercado anticipaba la expansión de márgenes.',
-    bench:[{v:'<15x',c:'#16a34a',bg:'#f0fdf4',label:'Barato (contexto importa)'},{v:'15-30x',c:'#d97706',bg:'#fffbeb',label:'Razonable'},{v:'>50x',c:'#7c3aed',bg:'#f5f3ff',label:'Requiere mucho crecimiento'}],
-    ref:'"The Intelligent Investor", Benjamin Graham (1949). Graham recomendaba no pagar más de 15x beneficios. Buffett paga más si la calidad del negocio lo justifica.'},
-
+    def:'Cuántas veces el precio paga los beneficios anuales. Un PER de 30 = pagas $30 por cada $1 de beneficio. Puede ser engañoso con beneficios irregulares.',
+    formula:'PER = Precio por Acción / EPS',
+    example:'CSU: mediana histórica 62x. Amazon cotizó a PER >200x — el mercado anticipaba expansión de márgenes.',
+    bench:[{v:'<15x',c:'#16a34a',bg:'#f0fdf4',label:'Barato'},{v:'15-30x',c:'#d97706',bg:'#fffbeb',label:'Razonable'},{v:'>50x',c:'#7c3aed',bg:'#f5f3ff',label:'Requiere mucho crecimiento'}],
+    ref:'"The Intelligent Investor", Benjamin Graham (1949).'},
   evfcf:{emoji:'🏆',title:'EV/FCF — Enterprise Value / Free Cash Flow',color:'#b45309',tag:'VALORACIÓN',
-    def:'El múltiplo rey para empresas de calidad. Mide cuántas veces el valor total de la empresa (incluyendo deuda) equivale a su FCF anual. A diferencia del PER, no se puede manipular con amortizaciones. Si el EV/FCF cae por debajo de su mediana histórica, puede ser señal de oportunidad.',
-    formula:'EV/FCF = Enterprise Value / Free Cash Flow\ndonde EV = Market Cap + Deuda Neta\n(Inverso = FCF Yield = cuánto % del EV genera en cash)',
-    example:'CSU: mediana histórica 37x. En 2025 cotizaba a ~24x → descuento del 35% vs su media. ASML: mediana 28x. Si cotiza a 20x, históricamente ha sido una buena entrada.',
-    bench:[{v:'<15x',c:'#16a34a',bg:'#f0fdf4',label:'Muy barato'},{v:'15-25x',c:'#d97706',bg:'#fffbeb',label:'Razonable'},{v:'>40x',c:'#dc2626',bg:'#fef2f2',label:'Caro, exige alto crecimiento'}],
-    ref:'"Quality Investing", L. Cunningham, T. Packer & P. Vinke (2016). Los autores argumentan que EV/FCF es el mejor múltiplo para identificar compounders de calidad.'},
-
+    def:'El múltiplo rey para empresas de calidad. Mide cuántas veces el EV equivale al FCF anual. No se puede manipular con amortizaciones como el PER.',
+    formula:'EV/FCF = Enterprise Value / Free Cash Flow\ndonde EV = Market Cap + Deuda Neta',
+    example:'CSU: mediana histórica 37x. En 2025 cotizaba a ~24x → descuento del 35% vs media.',
+    bench:[{v:'<15x',c:'#16a34a',bg:'#f0fdf4',label:'Muy barato'},{v:'15-25x',c:'#d97706',bg:'#fffbeb',label:'Razonable'},{v:'>40x',c:'#dc2626',bg:'#fef2f2',label:'Caro'}],
+    ref:'"Quality Investing", Cunningham, Packer & Vinke (2016).'},
   evEbitda:{emoji:'📊',title:'EV/EBITDA',color:'#2563eb',tag:'VALORACIÓN',
-    def:'Alternativa al PER para comparar empresas con distintas estructuras de capital o niveles de deuda. Muy usado en operaciones de M&A y por analistas de private equity. Normaliza las diferencias contables entre países.',
-    formula:'EV/EBITDA = Enterprise Value / EBITDA\ndonde EV = Market Cap + Deuda Neta − Caja\n= (Precio × Acciones) + Deuda − Efectivo',
-    example:'CSU: mediana 36x. Amazon: mediana 22x. En operaciones de M&A, CSU adquiere empresas VMS a 3-7x EBITDA y las gestiona para generar retornos de 15-25% sobre el capital invertido.',
+    def:'Alternativa al PER para comparar empresas con distintas estructuras de capital. Muy usado en M&A. Normaliza diferencias contables entre países.',
+    formula:'EV/EBITDA = Enterprise Value / EBITDA',
+    example:'CSU: mediana 36x. CSU adquiere empresas VMS a 3-7x EBITDA y genera retornos de 15-25%.',
     bench:[{v:'<10x',c:'#16a34a',bg:'#f0fdf4',label:'Barato'},{v:'10-20x',c:'#d97706',bg:'#fffbeb',label:'Razonable'},{v:'>30x',c:'#dc2626',bg:'#fef2f2',label:'Caro'}],
-    ref:'"Valuation: Measuring and Managing the Value of Companies", McKinsey & Company. EV/EBITDA es estándar en banca de inversión para valoraciones de M&A.'},
-
+    ref:'"Valuation", McKinsey & Company.'},
   dcf:{emoji:'📐',title:'DCF — Descuento de Flujos de Caja',color:'#2563eb',tag:'VALORACIÓN',
-    def:'El método de valoración fundamental por excelencia. Calcula el valor presente de todos los flujos de caja futuros estimados. Un euro hoy vale más que un euro mañana (coste de oportunidad). El DCF traduce flujos futuros a valor de hoy.',
-    formula:'Valor intrínseco = Σ [FCF_n / (1+r)^n] + Valor Terminal / (1+r)^10\ndonde r = tasa de descuento (WACC)\ny Valor Terminal = FCF_10 × (1+g) / (r−g)',
-    example:'Si CSU genera $2.272M en FCF y crece al 15% anual durante 10 años con una tasa de descuento del 10%, el valor intrínseco calculado es ~$3.800/acción. Si el precio es $2.663, el margen de seguridad es del 30%.',
-    bench:[{v:'Crec >15%',c:'#16a34a',bg:'#f0fdf4',label:'Asume alto crecimiento'},{v:'Tasa 9-11%',c:'#d97706',bg:'#fffbeb',label:'Descuento razonable'},{v:'Tasa <7%',c:'#7c3aed',bg:'#f5f3ff',label:'Demasiado optimista'}],
-    ref:'Desarrollado por John Burr Williams en "The Theory of Investment Value" (1938). Buffett: "El valor de cualquier inversión es el valor presente de los flujos de caja futuros descontados a una tasa apropiada."'},
-
+    def:'Calcula el valor presente de todos los flujos futuros. Un euro hoy vale más que un euro mañana. Traduce flujos futuros a valor de hoy.',
+    formula:'Valor = Σ [FCF_n / (1+r)^n] + TV / (1+r)^10\nTV = FCF_10 × (1+g) / (r−g)',
+    example:'Si CSU crece al 15% anual durante 10 años con descuento del 10%, valor intrínseco ~$3.800/acción.',
+    bench:[{v:'Crec >15%',c:'#16a34a',bg:'#f0fdf4',label:'Asume alto crecimiento'},{v:'Tasa 9-11%',c:'#d97706',bg:'#fffbeb',label:'Descuento razonable'}],
+    ref:'John Burr Williams, "The Theory of Investment Value" (1938).'},
   margenSeg:{emoji:'🛡️',title:'Margen de Seguridad',color:'#16a34a',tag:'PRINCIPIO VALUE',
-    def:'El concepto más importante del value investing. Es la diferencia entre el valor intrínseco calculado y el precio que pagas. Actúa como colchón contra errores de estimación. Cuanto mayor el margen, menor el riesgo de pérdida permanente de capital.',
-    formula:'Margen de Seguridad = (Valor Intrínseco − Precio) / Valor Intrínseco × 100\nRegla general: comprar con ≥20-30% de descuento sobre el valor intrínseco',
-    example:'Graham compraba acciones a 2/3 de su valor de liquidación. Buffett compró See\'s Candies en 1972 pagando $25M por un negocio que valía $30M+ (MdS ~17%). Hoy ha generado >$2.000M en beneficios.',
-    bench:[{v:'>30%',c:'#16a34a',bg:'#f0fdf4',label:'Amplio — ideal para comprar'},{v:'15-30%',c:'#d97706',bg:'#fffbeb',label:'Razonable'},{v:'<0%',c:'#dc2626',bg:'#fef2f2',label:'Sobrevalorado — no comprar'}],
-    ref:'"The Intelligent Investor", Capítulo 20: "Margen de Seguridad como Concepto Central". Graham: "La función del margen de seguridad es, en esencia, hacer innecesaria la predicción precisa."'},
-
+    def:'El concepto más importante del value investing. Diferencia entre valor intrínseco y precio pagado. Actúa como colchón contra errores de estimación.',
+    formula:'MdS = (Valor Intrínseco − Precio) / Valor Intrínseco × 100\nRegla: comprar con ≥20-30% de descuento',
+    example:'Graham compraba a 2/3 del valor de liquidación. Buffett compró See\'s Candies en 1972 con ~17% MdS.',
+    bench:[{v:'>30%',c:'#16a34a',bg:'#f0fdf4',label:'Amplio — ideal'},{v:'15-30%',c:'#d97706',bg:'#fffbeb',label:'Razonable'},{v:'<0%',c:'#dc2626',bg:'#fef2f2',label:'Sobrevalorado'}],
+    ref:'"The Intelligent Investor", Capítulo 20. Graham: "El margen de seguridad hace innecesaria la predicción precisa."'},
   netDebt:{emoji:'🏦',title:'Deuda Neta',color:'#dc2626',tag:'BALANCE',
-    def:'La deuda financiera total de la empresa menos el efectivo disponible. Mide el apalancamiento real. Una deuda neta negativa significa que la empresa tiene más caja que deuda — posición de "fortín financiero" que Buffett admira.',
-    formula:'Deuda Neta = Deuda Financiera CP + LP − Efectivo y equivalentes\nRatio: Deuda Neta / EBITDA (cuántos años necesita para pagar la deuda)',
-    example:'AMZN 2025: Deuda Neta −$46.020M (posición de CAJA neta). CSU 2025: $2.223M de deuda neta pero solo 0.8x EBITDA — muy manejable. ASML: −$8.883M (caja neta), sin deuda.',
-    bench:[{v:'<0x (caja)',c:'#16a34a',bg:'#f0fdf4',label:'Fortín financiero'},{v:'0-2x',c:'#d97706',bg:'#fffbeb',label:'Cómodo'},{v:'>3x',c:'#dc2626',bg:'#fef2f2',label:'⚠️ Arriesgado con tipos altos'}],
-    ref:'Buffett en "The Snowball" (A. Schroeder): "Me gustan los negocios que pueden prosperar sin deuda. Si un negocio necesita endeudarse para operar, algo falla en su modelo."'},
-
+    def:'Deuda financiera total menos efectivo disponible. Negativo = más caja que deuda — "fortín financiero" que Buffett admira.',
+    formula:'Deuda Neta = Deuda CP + LP − Efectivo\nRatio: Deuda Neta / EBITDA',
+    example:'AMZN 2025: −$46.020M (CAJA neta). CSU 2025: $2.223M = 0.8x EBITDA — manejable.',
+    bench:[{v:'<0x (caja)',c:'#16a34a',bg:'#f0fdf4',label:'Fortín financiero'},{v:'0-2x',c:'#d97706',bg:'#fffbeb',label:'Cómodo'},{v:'>3x',c:'#dc2626',bg:'#fef2f2',label:'⚠️ Arriesgado'}],
+    ref:'Buffett: "Me gustan los negocios que pueden prosperar sin deuda."'},
   cagr:{emoji:'📈',title:'CAGR — Tasa de Crecimiento Anual Compuesta',color:'#16a34a',tag:'CRECIMIENTO',
-    def:'La tasa de crecimiento anual equivalente que, aplicada de forma constante, produce el mismo resultado que el crecimiento real. Elimina la volatilidad año a año y permite comparar crecimientos de distintos períodos.',
-    formula:'CAGR = (Valor Final / Valor Inicial) ^ (1/Años) − 1\nEjemplo: de $100 a $200 en 5 años = (200/100)^(1/5)−1 = 14.9%',
-    example:'CSU ventas: de $2.125M (2016) a $11.623M (2025) en 9 años → CAGR = 21%. S&P 500 largo plazo: ~10% anual. Buffett/Berkshire: ~20% anual durante 50 años = la diferencia entre ser rico y ser extraordinariamente rico.',
-    bench:[{v:'>20%',c:'#16a34a',bg:'#f0fdf4',label:'Excepcional'},{v:'10-20%',c:'#d97706',bg:'#fffbeb',label:'Muy bueno'},{v:'<5%',c:'#dc2626',bg:'#fef2f2',label:'Por debajo de la inflación real'}],
-    ref:'"The Most Important Thing", Howard Marks (2011). El poder del interés compuesto: $10.000 al 20% anual durante 30 años = $2.373.763. Al 10%: $174.494. La diferencia importa.'},
-
+    def:'Tasa de crecimiento anual equivalente. Elimina la volatilidad año a año y permite comparar crecimientos de distintos períodos.',
+    formula:'CAGR = (Valor Final / Valor Inicial) ^ (1/Años) − 1',
+    example:'CSU ventas: CAGR 21% en 9 años. Buffett/Berkshire: ~20% anual durante 50 años.',
+    bench:[{v:'>20%',c:'#16a34a',bg:'#f0fdf4',label:'Excepcional'},{v:'10-20%',c:'#d97706',bg:'#fffbeb',label:'Muy bueno'},{v:'<5%',c:'#dc2626',bg:'#fef2f2',label:'Por debajo inflación'}],
+    ref:'"The Most Important Thing", Howard Marks (2011).'},
   wacc:{emoji:'⚖️',title:'WACC / Tasa de Descuento',color:'#2563eb',tag:'VALORACIÓN',
-    def:'El coste medio ponderado del capital — la rentabilidad mínima que debe generar la empresa para justificar su existencia. También es la tasa que usamos en el DCF para descontar flujos futuros. A mayor incertidumbre, mayor tasa exigida.',
-    formula:'WACC = (E/V) × Re + (D/V) × Rd × (1−Tax)\ndonde E=equity, D=deuda, Re=coste equity, Rd=coste deuda\nSimplificado: Rf + Prima riesgo × Beta',
-    example:'Con tipos actuales ~4.5%: WACC conservador 10-11%. Buffett usa ~10% como regla general. Para empresas más arriesgadas (pequeña cap, sectores cíclicos): 12-15%. Para empresas tipo Visa o CSU: algunos usan 8-9%.',
-    bench:[{v:'8-10%',c:'#16a34a',bg:'#f0fdf4',label:'Para compounders de calidad'},{v:'10-12%',c:'#d97706',bg:'#fffbeb',label:'Estándar de mercado'},{v:'>14%',c:'#dc2626',bg:'#fef2f2',label:'Negocios de alto riesgo'}],
-    ref:'"Valuation: Measuring and Managing the Value of Companies", McKinsey & Company (8ª ed.). El WACC es estándar en banca de inversión. Damodaran (NYU) publica WACCs por sector en su web.'},
-
+    def:'Coste medio ponderado del capital — rentabilidad mínima que debe generar la empresa. A mayor incertidumbre, mayor tasa exigida.',
+    formula:'WACC = (E/V) × Re + (D/V) × Rd × (1−Tax)\nSimplificado: Rf + Prima riesgo × Beta',
+    example:'Con tipos actuales ~4.5%: WACC conservador 10-11%. Buffett usa ~10% como regla general.',
+    bench:[{v:'8-10%',c:'#16a34a',bg:'#f0fdf4',label:'Para compounders'},{v:'10-12%',c:'#d97706',bg:'#fffbeb',label:'Estándar'},{v:'>14%',c:'#dc2626',bg:'#fef2f2',label:'Alto riesgo'}],
+    ref:'"Valuation", McKinsey & Company.'},
   capex:{emoji:'🔨',title:'CapEx — Capital Expenditure',color:'#d97706',tag:'FLUJO DE CAJA',
-    def:'La inversión en activos físicos (maquinaria, edificios, infraestructura) para mantener o expandir el negocio. Los mejores negocios para Buffett son los que generan mucho FCF con poco CapEx — negocios "ligeros en activos".',
-    formula:'CapEx de mantenimiento: mantiene el negocio actual (resta del FCF)\nCapEx de expansión: crece el negocio (inversión futura)\nFCF real = Flujo Operativo − CapEx de mantenimiento',
-    example:'CSU: CapEx $68M / $11.623M ventas = 0.6%. Extraordinariamente ligero. ASML: ~3% de ventas. Amazon: ~9% de ventas (incluye data centers de AWS). Coca-Cola: ~4%. Compare con una siderúrgica: 12-18%.',
-    bench:[{v:'<3%',c:'#16a34a',bg:'#f0fdf4',label:'Negocio ligero en activos'},{v:'3-8%',c:'#d97706',bg:'#fffbeb',label:'Moderado'},{v:'>12%',c:'#dc2626',bg:'#fef2f2',label:'Capital intensivo'}],
-    ref:'Buffett en Berkshire Annual Letter 1992: "Los negocios verdaderamente maravillosos no requieren mucho capital para crecer." See\'s Candies: genera $80M/año con solo $40M de activos fijos.'},
-
+    def:'Inversión en activos físicos. Los mejores negocios para Buffett son los que generan mucho FCF con poco CapEx — "ligeros en activos".',
+    formula:'FCF real = Flujo Operativo − CapEx de mantenimiento',
+    example:'CSU: CapEx 0.6% de ventas — extraordinariamente ligero. Amazon: ~9% (data centers AWS).',
+    bench:[{v:'<3%',c:'#16a34a',bg:'#f0fdf4',label:'Ligero en activos'},{v:'3-8%',c:'#d97706',bg:'#fffbeb',label:'Moderado'},{v:'>12%',c:'#dc2626',bg:'#fef2f2',label:'Capital intensivo'}],
+    ref:'Buffett Annual Letter 1992: "Los negocios maravillosos no requieren mucho capital para crecer."'},
   wc:{emoji:'🔄',title:'Working Capital (Capital Circulante)',color:'#0891b2',tag:'BALANCE',
-    def:'La diferencia entre activos corrientes (lo que se cobra pronto) y pasivos corrientes (lo que se debe pagar pronto). Un WC negativo significa que los clientes pagan ANTES de que la empresa incurra en costes — una ventaja financiera estructural enorme.',
-    formula:'WC = Activos Corrientes − Pasivos Corrientes\n= (Caja + Cuentas a Cobrar + Inventario) − (Cuentas a Pagar + Ingresos Diferidos)\nΔWC positivo = consume caja | ΔWC negativo = genera caja',
-    example:'CSU: WC/Ventas −20% — los clientes pagan licencias anuales por adelantado. $2.333M en ingresos diferidos en 2025. Amazon: −7% — cobra en 1-2 días, paga a proveedores en 45-60 días. Esto financia su crecimiento gratis.',
-    bench:[{v:'WC negativo',c:'#16a34a',bg:'#f0fdf4',label:'Ventaja: clientes financian la empresa'},{v:'WC neutro',c:'#d97706',bg:'#fffbeb',label:'Normal'},{v:'WC muy positivo',c:'#dc2626',bg:'#fef2f2',label:'⚠️ Consume caja al crecer'}],
-    ref:'"Competition Demystified", Greenwald & Kahn (2005). El WC negativo es una de las formas más poderosas de ventaja competitiva financiera, ya que reduce drásticamente el capital necesario para financiar el crecimiento.'},
-
+    def:'WC negativo = clientes pagan ANTES de que la empresa incurra en costes. Ventaja financiera estructural enorme. La empresa crece con dinero ajeno.',
+    formula:'WC = Activos Corrientes − Pasivos Corrientes\nΔWC positivo = consume caja | ΔWC negativo = genera caja',
+    example:'CSU: WC −20% → $2.333M en ingresos diferidos 2025. Amazon: −7% → cobra en 1-2 días, paga en 45-60.',
+    bench:[{v:'WC negativo',c:'#16a34a',bg:'#f0fdf4',label:'Ventaja'},{v:'WC neutro',c:'#d97706',bg:'#fffbeb',label:'Normal'},{v:'WC muy positivo',c:'#dc2626',bg:'#fef2f2',label:'⚠️ Consume caja'}],
+    ref:'"Competition Demystified", Greenwald & Kahn (2005).'},
   moat:{emoji:'🏰',title:'MOAT — Ventaja Competitiva Duradera',color:'#1e3a5f',tag:'ANÁLISIS CUALITATIVO',
-    def:'Término acuñado por Buffett. Un "foso" económico es la ventaja competitiva que protege los beneficios de una empresa frente a la competencia, igual que un foso protegía un castillo medieval. Sin moat, los beneficios son efímeros.',
-    formula:'No hay fórmula — es cualitativo. Los 5 tipos según Morningstar:\n1) Intangibles (marcas, patentes)\n2) Switching costs (coste de cambio)\n3) Network effects (red de usuarios)\n4) Cost advantages (escala)\n5) Efficient scale (mercado de tamaño limitado)',
-    example:'CSU: switching costs altísimos — VMS crítico, cambiar implica 6-12 meses de riesgo operativo. ASML: monopolio tecnológico — único fabricante de litografía EUV, imposible de replicar en 10+ años. Visa: efectos de red — 4.300M de tarjetas, 100M de comercios.',
-    bench:[{v:'MOAT >85',c:'#16a34a',bg:'#f0fdf4',label:'Excepcional (Visa, ASML, CSU)'},{v:'MOAT 70-84',c:'#0891b2',bg:'#f0fdfa',label:'Sólido'},{v:'MOAT <55',c:'#dc2626',bg:'#fef2f2',label:'Frágil — evitar a largo plazo'}],
-    ref:'Buffett en Berkshire Annual Letter 1995: "La clave para invertir es determinar la ventaja competitiva de cualquier empresa y, sobre todo, la durabilidad de esa ventaja." Libro recomendado: "The Little Book That Builds Wealth", Pat Dorsey.'},
-
+    def:'Término acuñado por Buffett. Ventaja competitiva que protege los beneficios frente a la competencia. Los 5 tipos: intangibles, switching costs, network effects, escala, efficient scale.',
+    formula:'No hay fórmula — es cualitativo.\n5 tipos según Morningstar: intangibles, switching, red, escala, efficient scale',
+    example:'CSU: switching costs altísimos. ASML: monopolio tecnológico EUV, imposible de replicar en 10+ años.',
+    bench:[{v:'MOAT >85',c:'#16a34a',bg:'#f0fdf4',label:'Excepcional'},{v:'70-84',c:'#0891b2',bg:'#f0fdfa',label:'Sólido'},{v:'<55',c:'#dc2626',bg:'#fef2f2',label:'Frágil'}],
+    ref:'Buffett Annual Letter 1995. Libro: "The Little Book That Builds Wealth", Pat Dorsey.'},
   graham:{emoji:'📖',title:'Graham Number',color:'#5a5650',tag:'VALORACIÓN',
-    def:'Fórmula conservadora de Benjamin Graham (el mentor de Buffett) para calcular el precio máximo razonable a pagar por una acción. Muy conservadora — diseñada para proteger capital, no para identificar compounders de calidad.',
-    formula:'Graham Number = √(22.5 × EPS × Book Value por Acción)\nEl 22.5 = 15 (PER máximo Graham) × 1.5 (P/Book máximo)\nSi el precio está por debajo = barato incluso con criterios muy conservadores',
-    example:'CSU 2025: EPS $60.55 × Book Value $169/acción → Graham Number ≈ $481. Cotiza a $2.663 = 5.5x el Graham Number. Esto no significa que esté cara — Graham no contemplaba negocios con ROIC del 30%+ y sin activos físicos.',
-    bench:[{v:'Precio < Graham#',c:'#16a34a',bg:'#f0fdf4',label:'Ultra-conservador: comprar'},{v:'1-2x Graham#',c:'#d97706',bg:'#fffbeb',label:'Razonable para negocios normales'},{v:'>3x Graham#',c:'#7c3aed',bg:'#f5f3ff',label:'Solo justificado con ROIC muy alto'}],
-    ref:'"The Intelligent Investor", Benjamin Graham (1949). Nota: Graham desarrolló esta fórmula para empresas industriales de los años 40-50. Para empresas de software o tech con activos intangibles, el Book Value es poco relevante.'},
+    def:'Fórmula conservadora de Benjamin Graham para el precio máximo razonable. Diseñada para proteger capital en empresas industriales de los años 40-50.',
+    formula:'Graham Number = √(22.5 × EPS × Book Value por Acción)\n22.5 = 15 (PER máx Graham) × 1.5 (P/Book máx)',
+    example:'CSU 2025: Graham Number ≈ $481. Cotiza a $2.663 = 5.5x. Graham no contemplaba ROIC del 30%+ sin activos físicos.',
+    bench:[{v:'Precio < Graham#',c:'#16a34a',bg:'#f0fdf4',label:'Ultra-conservador'},{v:'1-2x Graham#',c:'#d97706',bg:'#fffbeb',label:'Razonable'},{v:'>3x',c:'#7c3aed',bg:'#f5f3ff',label:'Solo con ROIC muy alto'}],
+    ref:'"The Intelligent Investor", B. Graham (1949).'},
 };
 
-function showTip(id, el){
+function showTip(id,el){
   const t=TIPS[id]; if(!t) return;
   document.getElementById('tip-emoji').textContent=t.emoji;
   document.getElementById('tip-title').textContent=t.title;
@@ -769,13 +1484,11 @@ function showTip(id, el){
       t.bench.map(b=>`<span style="padding:3px 9px;border-radius:20px;font-size:10px;font-weight:600;background:${b.bg};color:${b.c};">${b.v} — ${b.label}</span>`).join('')+'</div>';
   } else { benchRow.style.display='none'; }
   document.getElementById('tip-ref').textContent=t.ref;
-
-  // Position the tooltip
   const box=document.getElementById('tip-box');
   box.style.display='block';
   const rect=el.getBoundingClientRect();
-  const bw=320, bh=460;
-  let top=rect.bottom+8, left=rect.left;
+  const bw=320,bh=460;
+  let top=rect.bottom+8,left=rect.left;
   if(top+bh>window.innerHeight) top=rect.top-bh-8;
   if(left+bw>window.innerWidth) left=window.innerWidth-bw-12;
   if(left<8) left=8;
@@ -787,12 +1500,10 @@ function closeTip(){
   document.getElementById('tip-box').style.display='none';
   document.getElementById('tip-overlay').style.display='none';
 }
-function tip(id,label,color){
-  const c=color||TIPS[id]?.color||'#1e3a5f';
-  return `<span class="tip" style="border-color:${c}60;color:inherit;" onclick="showTip('${id}',this)">${label}</span>`;
-}
 
-// ── ACADEMIA ────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════
+// ACADEMIA
+// ═══════════════════════════════════════════════════════════════════
 function rAcademia(){
   const sections=[
     {id:'fundamentals',label:'📊 Cuenta de Resultados',keys:['ventas','ebitda','fcf','eps','cagr']},
@@ -800,14 +1511,10 @@ function rAcademia(){
     {id:'valuation',label:'💰 Valoración',keys:['per','evfcf','evEbitda','dcf','margenSeg','graham','wacc']},
     {id:'quality',label:'🏰 Calidad',keys:['roic','moat']},
   ];
-
-  let activeFilter='all';
-
   const cards=Object.entries(TIPS).map(([id,t])=>{
     const section=sections.find(s=>s.keys.includes(id));
     const sectionId=section?.id||'other';
-    return `
-    <div class="ac-card" data-section="${sectionId}" onclick="toggleAcCard(this)">
+    return`<div class="ac-card" data-section="${sectionId}" onclick="toggleAcCard(this)">
       <div class="ac-head">
         <div class="ac-emoji">${t.emoji}</div>
         <div style="flex:1">
@@ -818,58 +1525,39 @@ function rAcademia(){
       </div>
       <div class="ac-summary">${t.def.substring(0,120)}…</div>
       <div class="ac-expand">
-        <div class="ac-section">
-          <div class="ac-section-title">Definición completa</div>
-          <div style="font-size:12px;color:#5a5650;line-height:1.75;">${t.def}</div>
-        </div>
-        <div class="ac-section">
-          <div class="ac-section-title">Fórmula</div>
-          <div class="ac-formula" style="background:${t.color}0e;color:${t.color};">${t.formula.replace(/\n/g,'<br>')}</div>
-        </div>
-        <div class="ac-section">
-          <div class="ac-section-title">Ejemplo real</div>
-          <div class="ac-example" style="background:${t.color}08;border-color:${t.color}40;">${t.example}</div>
-        </div>
-        ${t.bench?`<div class="ac-section">
-          <div class="ac-section-title">Benchmarks de referencia</div>
-          <div class="ac-bench">${t.bench.map(b=>`<span class="ac-bench-item" style="background:${b.bg};color:${b.c};">${b.v} → ${b.label}</span>`).join('')}</div>
-        </div>`:''}
-        <div class="ac-section">
-          <div class="ac-section-title">Fuente y referencia</div>
-          <div class="ac-ref">${t.ref}</div>
-        </div>
+        <div class="ac-section"><div class="ac-section-title">Definición completa</div><div style="font-size:12px;color:#5a5650;line-height:1.75;">${t.def}</div></div>
+        <div class="ac-section"><div class="ac-section-title">Fórmula</div><div class="ac-formula" style="background:${t.color}0e;color:${t.color};">${t.formula.replace(/\n/g,'<br>')}</div></div>
+        <div class="ac-section"><div class="ac-section-title">Ejemplo real</div><div class="ac-example" style="background:${t.color}08;border-color:${t.color}40;">${t.example}</div></div>
+        ${t.bench?`<div class="ac-section"><div class="ac-section-title">Benchmarks</div><div class="ac-bench">${t.bench.map(b=>`<span class="ac-bench-item" style="background:${b.bg};color:${b.c};">${b.v} → ${b.label}</span>`).join('')}</div></div>`:''}
+        <div class="ac-section"><div class="ac-section-title">Fuente</div><div style="font-size:11px;color:#5a5650;font-style:italic;">${t.ref}</div></div>
       </div>
     </div>`;
   }).join('');
-
-  return `
+  return`
   <div class="card" style="background:#1e3a5f09;border-color:#1e3a5f30;margin-bottom:16px;">
     <div style="display:flex;gap:14px;align-items:flex-start;">
       <div style="font-size:36px;flex-shrink:0;">📚</div>
       <div>
         <div style="font-size:16px;font-weight:700;color:#1e3a5f;margin-bottom:4px;">Academia Value Invest</div>
-        <p style="font-size:13px;color:#5a5650;line-height:1.7;margin:0;">Todos los conceptos clave del análisis fundamental explicados con definiciones, fórmulas, ejemplos reales de CSU / ASML / AMZN y referencias bibliográficas. Haz clic en cualquier tarjeta para expandirla — o en cualquier término subrayado del artefacto para ver su definición.</p>
+        <p style="font-size:13px;color:#5a5650;line-height:1.7;margin:0;">Todos los conceptos clave del análisis fundamental con definiciones, fórmulas y ejemplos reales de CSU / ASML / AMZN.</p>
       </div>
     </div>
   </div>
-
   <div class="ac-filters" id="ac-filters">
     <button class="ac-filter active" data-f="all" onclick="filterAc('all',this)">Todos (${Object.keys(TIPS).length})</button>
     ${sections.map(s=>`<button class="ac-filter" data-f="${s.id}" onclick="filterAc('${s.id}',this)">${s.label}</button>`).join('')}
   </div>
-
   <div class="ac-grid" id="ac-grid">${cards}</div>
-
   <div class="card" style="background:#eff6ff;border-color:#bfdbfe;">
-    <div style="font-size:13px;font-weight:700;color:#1e40af;margin-bottom:10px;">📖 Biblioteca Value Investing — Lecturas recomendadas</div>
+    <div style="font-size:13px;font-weight:700;color:#1e40af;margin-bottom:10px;">📖 Biblioteca Value Investing</div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;">
       ${[
-        {t:'The Intelligent Investor',a:'Benjamin Graham (1949)',d:'La biblia del value investing. Introduce los conceptos de margen de seguridad, Mr. Market y el inversor inteligente.',c:'#2563eb'},
-        {t:'Security Analysis',a:'Graham & Dodd (1934)',d:'El texto académico fundacional. Análisis detallado de estados financieros. Referencia para analistas profesionales.',c:'#7c3aed'},
-        {t:'Common Stocks and Uncommon Profits',a:'Philip Fisher (1958)',d:'Introduce el concepto de "scuttlebutt" y el análisis cualitativo. Buffett combina Graham + Fisher.',c:'#16a34a'},
-        {t:'The Little Book That Builds Wealth',a:'Pat Dorsey (2008)',d:'El mejor libro moderno sobre MOATs. Analiza los 5 tipos de ventajas competitivas con ejemplos actuales.',c:'#b45309'},
-        {t:'Quality Investing',a:'Cunningham, Packer & Vinke (2016)',d:'Enfocado en compounders de alta calidad. Introduce EV/FCF como métrica central. Muy relevante para CSU/ASML.',c:'#0891b2'},
-        {t:'Berkshire Hathaway Annual Letters',a:'Warren Buffett (1965-presente)',d:'La mejor educación en inversión disponible gratuitamente. 60 años de sabiduría condensada.',c:'#d97706'},
+        {t:'The Intelligent Investor',a:'Benjamin Graham (1949)',d:'La biblia del value investing. Introduce margen de seguridad, Mr. Market y el inversor inteligente.',c:'#2563eb'},
+        {t:'Security Analysis',a:'Graham & Dodd (1934)',d:'El texto académico fundacional. Análisis detallado de estados financieros.',c:'#7c3aed'},
+        {t:'Common Stocks and Uncommon Profits',a:'Philip Fisher (1958)',d:'Introduce el análisis cualitativo. Buffett combina Graham + Fisher.',c:'#16a34a'},
+        {t:'The Little Book That Builds Wealth',a:'Pat Dorsey (2008)',d:'El mejor libro moderno sobre MOATs. Analiza los 5 tipos de ventajas competitivas.',c:'#b45309'},
+        {t:'Quality Investing',a:'Cunningham, Packer & Vinke (2016)',d:'Enfocado en compounders. Introduce EV/FCF como métrica central.',c:'#0891b2'},
+        {t:'Berkshire Annual Letters',a:'Warren Buffett (1965-presente)',d:'60 años de sabiduría condensada. Disponibles gratis en berkshirehathaway.com.',c:'#d97706'},
       ].map(b=>`<div style="background:#fff;border:1px solid #bfdbfe;border-radius:10px;padding:12px;border-left:3px solid ${b.c};">
         <div style="font-size:12px;font-weight:700;color:#1e3a5f;margin-bottom:2px;">${b.t}</div>
         <div style="font-size:10px;color:#6b7280;margin-bottom:5px;font-style:italic;">${b.a}</div>
@@ -883,13 +1571,11 @@ function toggleAcCard(card){
   const expand=card.querySelector('.ac-expand');
   const arrow=card.querySelector('.ac-arrow');
   const isOpen=expand.classList.contains('open');
-  // Close all
-  document.querySelectorAll('.ac-expand.open').forEach(e=>{e.classList.remove('open');});
-  document.querySelectorAll('.ac-arrow').forEach(a=>{a.style.transform='rotate(0deg)';});
-  // Open this one if it was closed
-  if(!isOpen){ expand.classList.add('open'); arrow.style.transform='rotate(180deg)'; }
+  document.querySelectorAll('.ac-expand.open').forEach(e=>e.classList.remove('open'));
+  document.querySelectorAll('.ac-arrow').forEach(a=>a.style.transform='rotate(0deg)');
+  if(!isOpen){expand.classList.add('open');arrow.style.transform='rotate(180deg)';}
 }
-function filterAc(filter, btn){
+function filterAc(filter,btn){
   document.querySelectorAll('.ac-filter').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
   document.querySelectorAll('#ac-grid .ac-card').forEach(card=>{
@@ -897,22 +1583,30 @@ function filterAc(filter, btn){
   });
 }
 
-// ── INJECT TIPS INTO rendered content ─────────────────────────────────────────
-// After showTab renders new content, we replace known terms with clickable tips
 function injectTips(){
-  // Map of text patterns to tip IDs — applied to the rendered content
   const el=document.getElementById('cnt');
   if(!el) return;
-  // We use title attributes on KPI labels to hint at tips
   el.querySelectorAll('[data-tip]').forEach(node=>{
     const id=node.dataset.tip;
     if(TIPS[id]) node.onclick=()=>showTip(id,node);
   });
 }
 
-
+// ═══════════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════════
 (function(){
-  const TABS=[{t:'resumen',l:'📋 Resumen'},{t:'graficos',l:'📈 Gráficos'},{t:'valoracion',l:'💰 Valoración'},{t:'proyecciones',l:'🔮 Proyecciones'},{t:'moat',l:'🏰 MOAT Score'},{t:'academia',l:'📚 Academia'},{t:'tesis',l:'🤖 Tesis IA'},{t:'noticias',l:'📰 Noticias'},{t:'alertas',l:'🚨 Alertas'}];
+  const TABS=[
+    {t:'resumen',l:'📋 Resumen'},
+    {t:'graficos',l:'📈 Gráficos'},
+    {t:'valoracion',l:'💰 Valoración'},
+    {t:'proyecciones',l:'🔮 Proyecciones'},
+    {t:'moat',l:'🏰 MOAT Score'},
+    {t:'academia',l:'📚 Academia'},
+    {t:'tesis',l:'🤖 Tesis IA'},
+    {t:'noticias',l:'📰 Noticias'},
+    {t:'alertas',l:'🚨 Alertas'}
+  ];
   document.getElementById('tabs').innerHTML=TABS.map(t=>`<button class="tab" data-t="${t.t}" onclick="showTab('${t.t}')">${t.l}</button>`).join('');
   const btns=document.getElementById('co-btns');
   Object.keys(DB).forEach(k=>{
@@ -920,8 +1614,11 @@ function injectTips(){
     b.className='co-btn'; b.dataset.k=k; b.textContent=k;
     b.onclick=()=>switchCo(k); btns.appendChild(b);
   });
+  // Restore saved Finnhub key
+  if(localStorage.getItem('finnhub_key')) finnhubApiKey=localStorage.getItem('finnhub_key');
   resetIS();
-  switchCo('CSU');
+  switchCo('MSFT');
+  startPriceRefresh();
 })();
 </script>
 </body>
