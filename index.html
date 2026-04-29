@@ -212,6 +212,41 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
 /* ── TRADINGVIEW WIDGET ── */
 .tv-widget-wrap{border-radius:10px;overflow:hidden;margin-top:5px;}
 
+/* ── PRICE SIMULATOR ── */
+.psim-wrap{background:#fff;border:1.5px solid var(--border);border-radius:14px;padding:14px 16px;margin-top:0;}
+.psim-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;}
+.psim-title{font-size:12px;font-weight:700;color:#1e3a5f;}
+.psim-input-row{display:flex;align-items:center;gap:8px;margin-bottom:14px;}
+.psim-inp{width:110px;padding:7px 10px;border:2px solid var(--border);border-radius:9px;font-size:16px;font-weight:700;color:#1e3a5f;outline:none;text-align:center;transition:border-color .15s;}
+.psim-inp:focus{border-color:#2563eb;}
+.psim-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;}
+.psim-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.psim-kpi{border-radius:10px;padding:10px 11px;border:1.5px solid transparent;}
+.psim-kpi-lbl{font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:3px;}
+.psim-kpi-val{font-size:17px;font-weight:800;line-height:1;}
+.psim-kpi-sub{font-size:10px;margin-top:2px;font-weight:500;}
+.psim-bar-wrap{height:6px;background:#f0ede8;border-radius:3px;margin-top:6px;overflow:hidden;}
+.psim-bar-fill{height:100%;border-radius:3px;transition:width .3s;}
+.psim-semaforo{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-top:12px;}
+.psim-zone{border-radius:8px;padding:7px 4px;text-align:center;cursor:pointer;transition:transform .1s;}
+.psim-zone:hover{transform:scale(1.04);}
+.psim-zone-price{font-size:12px;font-weight:800;}
+.psim-zone-lbl{font-size:9px;font-weight:600;margin-top:2px;}
+.psim-zone-upside{font-size:10px;font-weight:700;margin-top:1px;}
+
+/* ── HISTORICAL MULTIPLES PANEL ── */
+.mult-hist-panel{margin-top:14px;border-top:1px solid var(--border);padding-top:12px;}
+.mult-hist-title{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px;display:flex;align-items:center;gap:6px;}
+.mult-tabs{display:flex;gap:5px;margin-bottom:10px;flex-wrap:wrap;}
+.mult-tab{padding:3px 10px;border-radius:14px;border:1.5px solid var(--border);background:transparent;font-size:10px;font-weight:700;cursor:pointer;color:var(--muted);transition:all .12s;}
+.mult-tab.active{color:#fff;}
+.mult-chart-wrap{position:relative;height:150px;}
+.mult-stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px;}
+.mult-stat{background:#f7f6f3;border-radius:8px;padding:7px 8px;text-align:center;}
+.mult-stat-lbl{font-size:9px;color:var(--muted);margin-bottom:2px;text-transform:uppercase;letter-spacing:.05em;}
+.mult-stat-val{font-size:15px;font-weight:700;}
+.mult-current-badge{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;margin-left:6px;}
+
 /* ── RESPONSIVE ── */
 @media(max-width:600px){
   .kgrid{grid-template-columns:repeat(2,1fr);}
@@ -230,9 +265,12 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
       <div class="brand">📊 Proyecto Value Invest</div>
       <div class="co-btns" id="co-btns"></div>
-      <div>
-        <div class="coname" id="co-name">Microsoft Corporation</div>
-        <div class="coinfo" id="co-info">MSFT · Cloud / IA / Software</div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <img id="co-logo" src="" alt="" style="width:32px;height:32px;border-radius:8px;object-fit:contain;border:1px solid var(--border);padding:2px;background:#fff;display:none;" onerror="this.style.display='none'"/>
+        <div>
+          <div class="coname" id="co-name">Microsoft Corporation</div>
+          <div class="coinfo" id="co-info">MSFT · Cloud / IA / Software</div>
+        </div>
       </div>
     </div>
     <div class="price-group">
@@ -303,7 +341,7 @@ const DB={
     pEB:[2807,3229,3668,4166,4733],pF:[2425,2855,3250,3735,4287],
     pEPS:[61.15,75.63,87.96,101.97,117.90],pND:[1906,1532,1107,618,57],
     medEvFcf:37,medPER:62,medEvEbitda:36,
-    hEvF:[null,38,31,43,36,40,37,35,57,32],hPER:[null,59,53,74,73,66,73,53,97,55],
+    hEvF:[null,38,31,43,36,40,37,35,57,32],hPER:[null,59,53,74,73,66,73,53,97,55],hEvEbitda:[null,28,24,30,28,33,28,26,40,25],hEvEbit:[null,40.4,33.9,41.9,38.5,44.9,39.7,36.2,55.1,34.2],
     isD:{sg:[17.0,15.0,13.6,13.6,13.6],em:[20.6,20.6,20.6,20.6,20.6],tr:[26.5,26.5,26.5,26.5,26.5],di:[0,0,0,0,0],cx:[0.7,0.6,0.6,0.6,0.6],wc:[-20,-20,-20,-20,-20]}},
 
   ASML:{name:"ASML Holding N.V.",ticker:"ASML.AS",tvSymbol:"NASDAQ:ASML",finnhubTicker:"ASML",
@@ -327,7 +365,7 @@ const DB={
     pEB:[15143,19571,21411,24622,28316],pF:[12238,16541,17194,20286,23296],
     pEPS:[29.84,39.16,43.17,50.06,58.06],pND:[-13979,-20867,-28027,-36475,-46175],
     medEvFcf:28,medPER:36,medEvEbitda:28,
-    hEvF:[null,17,19,34,42,28,24,51,27,32],hPER:[null,30,23,43,47,53,37,35,36,38],
+    hEvF:[null,17,19,34,42,28,24,51,27,32],hPER:[null,30,23,43,47,53,37,35,36,38],hEvEbitda:[null,14,16,24,30,22,18,38,20,24],hEvEbit:[null,16.6,19.1,28.0,35.4,25.3,20.5,44.3,23.3,28.5],
     isD:{sg:[19.0,20.0,9.0,15.0,15.0],em:[39.0,42.0,42.0,42.0,42.0],tr:[18.0,18.0,18.0,18.0,18.0],di:[-1,-1,-1,-1,-1],cx:[3.0,3.0,3.0,3.0,3.0],wc:[-21,-21,-21,-21,-21]}},
 
   AMZN:{name:"Amazon.com Inc.",ticker:"AMZN",tvSymbol:"NASDAQ:AMZN",finnhubTicker:"AMZN",
@@ -351,7 +389,7 @@ const DB={
     pEB:[172680,207509,248776,288250,352893],pF:[79226,108807,133666,155205,197849],
     pEPS:[7.33,9.16,11.15,13.03,16.58],pND:[-75762,-116610,-166790,-225055,-299330],
     medEvFcf:42,medPER:65,medEvEbitda:22,
-    hEvF:[null,71,54,37,39,124,133,45,33,32],hPER:[null,215,74,82,88,92,56,54,38,40],
+    hEvF:[null,71,54,37,39,124,133,45,33,32],hPER:[null,215,74,82,88,92,56,54,38,40],hEvEbitda:[null,36,26,27,33,46,34,33,19,21],hEvEbit:[null,137.7,58.4,67.5,69.9,109.4,153.0,76.8,33.4,35.2],
     isD:{sg:[13.0,12.0,13.0,10.0,10.0],em:[21.0,23.0,24.0,26.0,29.0],tr:[18.0,18.0,18.0,18.0,18.0],di:[1,1,1,1,1],cx:[9.0,9.0,9.0,9.0,9.0],wc:[-7,-7,-7,-7,-7]}},
 
   MSFT:{name:"Microsoft Corporation",ticker:"MSFT",tvSymbol:"NASDAQ:MSFT",finnhubTicker:"MSFT",
@@ -375,7 +413,7 @@ const DB={
     pEB:[176735,203126,233457,268317,308383],pF:[131127,146618,167799,192149,220139],
     pEPS:[17.5,20.5,23.8,27.8,32.5],pND:[-73306,-105268,-141848,-183736,-231725],
     medEvFcf:31,medPER:30,medEvEbitda:20,
-    hEvF:[null,29,52,23,36,39,25,32,34,27],hPER:[null,26,46,26,36,38,25,36,37,29],
+    hEvF:[null,29,52,23,36,39,25,32,34,27],hPER:[null,26,46,26,36,38,25,36,37,29],hEvEbitda:[15.6,19.4,17.0,18.9,25.6,30.3,19.5,24.8,25.6,19.8],hEvEbit:[20.9,25.7,20.6,22.7,30.0,35.2,22.6,28.5,30.3,24.1],
     isD:{sg:[14.9,14.9,14.9,14.9,14.9],em:[54.6,54.6,54.6,54.6,54.6],tr:[17.0,17.0,17.0,17.0,17.0],di:[-0.05,-0.05,-0.05,-0.05,-0.05],cx:[7.8,7.5,7.5,7.5,7.5],wc:[-8.6,-8.6,-8.6,-8.6,-8.6]}},
 
   AAPL:{name:"Apple Inc.",ticker:"AAPL",tvSymbol:"NASDAQ:AAPL",finnhubTicker:"AAPL",
@@ -399,7 +437,7 @@ const DB={
     pEB:[152000,162000,173000,184000,196000],pF:[115000,122000,130000,139000,148000],
     pEPS:[7.5,8.1,8.8,9.6,10.5],pND:[60000,45000,30000,15000,0],
     medEvFcf:28,medPER:27,medEvEbitda:22,
-    hEvF:[null,18,17,19,26,30,19,27,31,28],hPER:[null,18,16,19,26,29,21,29,30,33],
+    hEvF:[null,18,17,19,26,30,19,27,31,28],hPER:[null,18,16,19,26,29,21,29,30,33],hEvEbitda:[null,14,13,15,21,24,16,22,25,26],hEvEbit:[null,17.4,16.0,19.2,25.7,26.5,17.5,23.8,27.6,28.3],
     isD:{sg:[4.8,4.4,4.7,4.9,4.9],em:[34.0,34.0,34.5,34.5,35.0],tr:[15.0,15.0,15.0,15.0,15.0],di:[-3.5,-3.5,-3.5,-3.5,-3.5],cx:[3.0,2.5,2.5,2.5,2.5],wc:[-12,-12,-12,-12,-12]}},
 
   GOOGL:{name:"Alphabet Inc. (Google)",ticker:"GOOGL",tvSymbol:"NASDAQ:GOOGL",finnhubTicker:"GOOGL",
@@ -423,7 +461,7 @@ const DB={
     pEB:[183563,213808,246831,276450,304095],pF:[134778,156710,181592,203748,223972],
     pEPS:[10.5,12.2,14.2,16.0,17.7],pND:[-57690,-33726,-5958,25199,59448],
     medEvFcf:27,medPER:26,medEvEbitda:17,
-    hEvF:[null,48,21,27,34,32,16,24,24,37],hPER:[null,48,24,28,34,30,18,23,24,36],
+    hEvF:[null,48,21,27,34,32,16,24,24,37],hPER:[null,48,24,28,34,30,18,23,24,36],hEvEbitda:[null,17.9,15.1,17.1,19.5,20.5,11.9,17.4,17.7,24.9],hEvEbit:[null,22.2,19.3,22.6,26.0,23.1,14.0,19.9,20.1,29.0],
     isD:{sg:[17.0,15.0,14.0,12.0,10.0],em:[38.9,39.4,39.9,39.9,39.9],tr:[18.0,18.0,18.0,18.0,18.0],di:[-1.7,-1.7,-1.7,-1.7,-1.7],cx:[5.2,5.0,5.0,5.0,5.0],wc:[10.9,10.9,10.9,10.9,10.9]}},
 
   META:{name:"Meta Platforms Inc.",ticker:"META",tvSymbol:"NASDAQ:META",finnhubTicker:"META",
@@ -447,7 +485,7 @@ const DB={
     pEB:[110690,130208,152120,181748,208804],pF:[76227,89157,103163,122256,139678],
     pEPS:[27.5,32.5,38.0,44.5,52.0],pND:[-9140,10260,34435,62061,93624],
     medEvFcf:23,medPER:22,medEvEbitda:14,
-    hEvF:[null,29,15,22,24,23,10,22,23,28],hPER:[null,33,17,25,27,24,11,23,24,29],
+    hEvF:[null,29,15,22,24,23,10,22,23,28],hPER:[null,33,17,25,27,24,11,23,24,29],hEvEbitda:[null,20.7,11.6,15.4,18.4,16.5,6.8,15.2,17.4,16.4],hEvEbit:[null,23.8,13.6,18.4,22.3,19.3,8.5,18.8,21.3,20.1],
     isD:{sg:[25.0,17.9,16.3,14.3,13.9],em:[44.1,43.8,44.2,46.2,46.6],tr:[17.0,17.0,17.0,17.0,17.0],di:[-1.5,-1.5,-1.5,-1.5,-1.5],cx:[9.0,9.0,9.0,9.0,9.0],wc:[5.4,5.4,5.4,5.4,5.4]}},
 
   NVDA:{name:"NVIDIA Corporation",ticker:"NVDA",tvSymbol:"NASDAQ:NVDA",finnhubTicker:"NVDA",
@@ -471,14 +509,31 @@ const DB={
     pEB:[127000,168000,204000,238000,266000],pF:[93000,128000,158000,187000,212000],
     pEPS:[3.85,5.15,6.35,7.60,8.80],pND:[-18000,-28000,-38000,-50000,-63000],
     medEvFcf:55,medPER:50,medEvEbitda:40,
-    hEvF:[null,35,31,22,31,38,30,28,80,42],hPER:[null,32,42,38,53,55,38,55,65,50],
+    hEvF:[null,35,31,22,31,38,30,28,80,42],hPER:[null,32,42,38,53,55,38,55,65,50],hEvEbitda:[null,22,18,14,20,28,22,20,62,31],hEvEbit:[null,27.2,20.8,16.6,24.6,31.8,24.4,21.6,68.0,32.4],
     isD:{sg:[50.0,26.5,19.0,14.5,10.7],em:[63.0,64.0,65.0,66.0,66.0],tr:[12.0,12.0,12.0,12.0,12.0],di:[-0.5,-0.5,-0.5,-0.5,-0.5],cx:[2.0,2.0,2.0,2.0,2.0],wc:[-5,-5,-5,-5,-5]}}
 };
 
+
+// ═══════════════════════════════════════════════════════════════════
+// COMPANY LOGOS (Clearbit / Google Favicon fallback)
+// ═══════════════════════════════════════════════════════════════════
+const LOGOS={
+  CSU: 'https://logo.clearbit.com/csisoftware.com',
+  ASML:'https://logo.clearbit.com/asml.com',
+  AMZN:'https://logo.clearbit.com/amazon.com',
+  MSFT:'https://logo.clearbit.com/microsoft.com',
+  AAPL:'https://logo.clearbit.com/apple.com',
+  GOOGL:'https://logo.clearbit.com/google.com',
+  META:'https://logo.clearbit.com/meta.com',
+  NVDA:'https://logo.clearbit.com/nvidia.com',
+};
+function getLogoKey(c){return Object.keys(DB).find(k=>DB[k]===c)||'';}
+function getLogo(c){const k=getLogoKey(c);return LOGOS[k]||'';}
 // ═══════════════════════════════════════════════════════════════════
 // STATE
 // ═══════════════════════════════════════════════════════════════════
 let co=DB.MSFT,price=388,gr=12,dr=10,tg=3,tEVF=30,tPER=35,tEVE=22,ret=15,hor=5;
+let simPrice=null; // null = use live/manual price
 let isSG,isEM,isTR,isDI,isCX,isWC;
 let curTab='resumen'; let charts={};
 
@@ -626,13 +681,15 @@ function updateEarningsBadge(){
 // COMPANY SWITCH
 // ═══════════════════════════════════════════════════════════════════
 function switchCo(k){
-  co=DB[k]; price=co.price;
+  co=DB[k]; price=co.price; simPrice=null;
   document.getElementById('price-inp').value=price;
   document.getElementById('price-change').textContent='';
   const b=_getLiveBadge();
   if(b){b.classList.remove('visible');b.textContent='● LIVE';}
   document.getElementById('co-name').textContent=co.name;
   document.getElementById('co-info').textContent=co.ticker+' · '+co.sector;
+  const logoEl=document.getElementById('co-logo');
+  if(logoEl){const lu=getLogo(co);if(lu){logoEl.src=lu;logoEl.style.display='block';}else{logoEl.style.display='none';}}
   document.querySelectorAll('.co-btn').forEach(b=>{
     const act=b.dataset.k===k;
     b.classList.toggle('active',act);
@@ -912,6 +969,250 @@ function rGraficos(){
   </div>`;
 }
 
+
+
+function buildMultHistChart(){
+  const c=document.getElementById('c-mult-hist');
+  if(!c) return;
+  if(_multChartInst){try{_multChartInst.destroy();}catch(e){}_multChartInst=null;}
+
+  const labels=co.years.map(String);
+  const gc='rgba(0,0,0,0.05)',tc='#9a958e';
+
+  // Current multiples (dot at right edge)
+  const curPER  =+(price/co.eps[9]).toFixed(1);
+  const curEvF  =+((price*co.shares+co.netDebt[9])/co.fcf[9]).toFixed(1);
+  const curEvEB =+((price*co.shares+co.netDebt[9])/co.ebitda[9]).toFixed(1);
+  const curEvEBIT=+((price*co.shares+co.netDebt[9])/co.ebit[9]).toFixed(1);
+
+  // Append current value to each series (replace last null if needed)
+  function appendCur(arr,cur){
+    const a=[...arr];
+    // replace last element with current computed value
+    a[a.length-1]=cur;
+    return a;
+  }
+
+  const perData   = appendCur(co.hPER,       curPER);
+  const evfData   = appendCur(co.hEvF,        curEvF);
+  const evebData  = appendCur(co.hEvEbitda||co.years.map(()=>null), curEvEB);
+  const evevData  = appendCur(co.hEvEbit||co.years.map(()=>null),   curEvEBIT);
+
+  // Median lines
+  const medPER   = co.years.map(()=>co.medPER);
+  const medEvF   = co.years.map(()=>co.medEvFcf);
+  const medEvEB  = co.years.map(()=>co.medEvEbitda);
+  const medEvEBIT= co.years.map(()=>+(co.medEvEbitda*(co.ebitdaM[9]/co.ebitM[9])).toFixed(1));
+
+  _multChartInst=new Chart(c,{
+    type:'line',
+    data:{
+      labels,
+      datasets:[
+        // ── Main series ──
+        {label:'PER',       data:perData,  borderColor:'#7c3aed',backgroundColor:'#7c3aed12',pointRadius:3,pointHoverRadius:5,borderWidth:2.5,tension:.3,spanGaps:true,fill:false,order:2},
+        {label:'EV/FCF',    data:evfData,  borderColor:'#b45309',backgroundColor:'#b4530912',pointRadius:3,pointHoverRadius:5,borderWidth:2.5,tension:.3,spanGaps:true,fill:false,order:2},
+        {label:'EV/EBITDA', data:evebData, borderColor:'#2563eb',backgroundColor:'#2563eb12',pointRadius:3,pointHoverRadius:5,borderWidth:2,  tension:.3,spanGaps:true,fill:false,order:2},
+        {label:'EV/EBIT',   data:evevData, borderColor:'#16a34a',backgroundColor:'#16a34a12',pointRadius:3,pointHoverRadius:5,borderWidth:2,  tension:.3,spanGaps:true,fill:false,order:2},
+        // ── Median lines (dashed, no points) ──
+        {label:'Med.PER '+co.medPER+'x',     data:medPER,    borderColor:'#7c3aed',borderWidth:1,borderDash:[5,4],pointRadius:0,fill:false,order:1,tension:0,spanGaps:true},
+        {label:'Med.EV/FCF '+co.medEvFcf+'x',data:medEvF,    borderColor:'#b45309',borderWidth:1,borderDash:[5,4],pointRadius:0,fill:false,order:1,tension:0,spanGaps:true},
+        {label:'Med.EV/EB '+co.medEvEbitda+'x',data:medEvEB, borderColor:'#2563eb',borderWidth:1,borderDash:[5,4],pointRadius:0,fill:false,order:1,tension:0,spanGaps:true},
+      ]
+    },
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{
+          display:true,
+          position:'top',
+          labels:{font:{size:9},boxWidth:10,padding:8,
+            filter:(item)=>!item.text.startsWith('Med.')  // hide median labels to keep legend clean
+          }
+        },
+        tooltip:{
+          callbacks:{
+            label:ctx=>`${ctx.dataset.label}: ${ctx.raw!=null?ctx.raw+'x':'—'}`
+          }
+        }
+      },
+      scales:{
+        x:{grid:{color:gc},ticks:{color:tc,font:{size:9}}},
+        y:{
+          grid:{color:gc},
+          ticks:{color:tc,font:{size:9},callback:v=>v+'x'},
+          suggestedMin:0,
+        }
+      }
+    }
+  });
+
+  // ── Update live price header ──
+  const pv=document.getElementById('mult-price-val');
+  if(pv) pv.textContent=N(price,2);
+
+  const ratiosEl=document.getElementById('mult-live-ratios');
+  if(ratiosEl){
+    const rats=[
+      {l:'EV/FCF',v:curEvF,  m:co.medEvFcf,  c:'#b45309'},
+      {l:'PER',   v:curPER,  m:co.medPER,    c:'#7c3aed'},
+      {l:'EV/EBITDA',v:curEvEB,m:co.medEvEbitda,c:'#2563eb'},
+    ];
+    ratiosEl.innerHTML=rats.map(r=>{
+      const pct=((r.v-r.m)/r.m*100);
+      const col=pct<=0?'#16a34a':'#dc2626';
+      return`<div style="background:#fff;border-radius:8px;padding:5px 8px;border:1.5px solid ${col}30;min-width:72px;">
+        <div style="font-size:8px;color:var(--muted);text-transform:uppercase;font-weight:700;">${r.l}</div>
+        <div style="font-size:14px;font-weight:800;color:${r.c};">${r.v}x</div>
+        <div style="font-size:9px;font-weight:700;color:${col};">${pct>=0?'+':''}${pct.toFixed(0)}% vs med.</div>
+      </div>`;
+    }).join('');
+  }
+
+  const fvEl=document.getElementById('mult-fv-display');
+  const fvUp=document.getElementById('mult-fv-upside');
+  if(fvEl){
+    const mult_=calcMult();
+    const fv=Math.round(mult_.avg);
+    const up=(fv-price)/price*100;
+    fvEl.textContent='$'+N(fv);
+    fvEl.style.color=up>0?'#16a34a':'#dc2626';
+    if(fvUp){fvUp.textContent=(up>0?'+':'')+up.toFixed(1)+'%';fvUp.style.color=up>0?'#16a34a':'#dc2626';}
+  }
+}
+
+function refreshMultHist(){
+  const panel=document.getElementById('mult-hist-panel');
+  if(panel){panel.outerHTML=rMultHist();}
+  setTimeout(buildMultHistChart,30);
+}
+
+function getSimPrice(){return simPrice!=null?simPrice:price;}
+
+function _semLight(up){
+  if(up>30) return{bg:'#dcfce7',border:'#86efac',text:'#15803d',label:'🟢 COMPRA FUERTE'};
+  if(up>15) return{bg:'#f0fdf4',border:'#bbf7d0',text:'#16a34a',label:'🟢 COMPRA'};
+  if(up>0)  return{bg:'#fffbeb',border:'#fde68a',text:'#d97706',label:'🟡 MANTENER'};
+  if(up>-15)return{bg:'#fff7ed',border:'#fdba74',text:'#ea580c',label:'🟠 PRECAUCIÓN'};
+  return{bg:'#fef2f2',border:'#fecaca',text:'#dc2626',label:'🔴 EVITAR'};
+}
+
+function rPriceSimulator(){
+  const sp=getSimPrice();
+  const isSimulating=simPrice!=null;
+  const chg=((sp-price)/price*100);
+
+  // Compute all metrics at simulated price
+  const evfcf_s=Math.round((sp*co.shares+co.netDebt[9])/co.fcf[9]*10)/10;
+  const per_s=Math.round(sp/co.eps[9]*10)/10;
+  const evebitda_s=Math.round((sp*co.shares+co.netDebt[9])/co.ebitda[9]*10)/10;
+  const mktcap_s=Math.round(sp*co.shares/1000);
+
+  // DCF upside at simulated price
+  const dcf_v=calcDCF();
+  const mult_v=calcMult();
+  const up_dcf=(dcf_v-sp)/sp*100;
+  const up_mult=(mult_v.avg-sp)/sp*100;
+  const up_evfcf=(mult_v.f-sp)/sp*100;
+  const up_per=(mult_v.p-sp)/sp*100;
+  const ms_s=Math.min(up_dcf,up_mult);
+  const sem=_semLight(ms_s);
+
+  // Price zones: 5 levels based on multiples targets
+  const p_bear=Math.round((co.pF[0]*Math.round(co.medEvFcf*0.45)-co.pND[0])/co.shares);
+  const p_cons=Math.round((co.pF[0]*Math.round(co.medEvFcf*0.65)-co.pND[0])/co.shares);
+  const p_base=Math.round((co.pF[0]*Math.round(co.medEvFcf*0.82)-co.pND[0])/co.shares);
+  const p_opt=Math.round((co.pF[0]*co.medEvFcf-co.pND[0])/co.shares);
+  const p_bull=Math.round((co.pF[0]*(co.medEvFcf*1.25)-co.pND[0])/co.shares);
+  const zones=[
+    {p:p_bear,lbl:'Pesimista',bg:'#fef2f2',border:'#fecaca',tc:'#dc2626'},
+    {p:p_cons,lbl:'Conserv.',bg:'#fff7ed',border:'#fdba74',tc:'#ea580c'},
+    {p:p_base,lbl:'Base',bg:'#fffbeb',border:'#fde68a',tc:'#d97706'},
+    {p:p_opt, lbl:'Optimista',bg:'#f0fdf4',border:'#bbf7d0',tc:'#16a34a'},
+    {p:p_bull,lbl:'Euforia',bg:'#f0fdfa',border:'#99f6e4',tc:'#0d9488'},
+  ];
+
+  // Metrics comparison table
+  const metrics=[
+    {lbl:'EV/FCF',sim:evfcf_s,ref:co.medEvFcf,unit:'x',color:'#b45309',good:v=>v<=co.medEvFcf},
+    {lbl:'PER',sim:per_s,ref:co.medPER,unit:'x',color:'#7c3aed',good:v=>v<=co.medPER},
+    {lbl:'EV/EBITDA',sim:evebitda_s,ref:co.medEvEbitda,unit:'x',color:'#2563eb',good:v=>v<=co.medEvEbitda},
+    {lbl:'Mkt Cap',sim:mktcap_s+'B',ref:'—',unit:'',color:'#1e3a5f',good:()=>true},
+  ];
+
+  return`<div class="card psim-wrap" style="border-color:${isSimulating?'#2563eb':'var(--border)'};${isSimulating?'background:#eff6ff08;':''}">
+    <div class="psim-header">
+      <div class="psim-title">🔮 Simulador de Precio Hipotético</div>
+      ${isSimulating?`<button onclick="simPrice=null;document.getElementById('psim-inp').value='';refreshSimulator();" style="font-size:10px;padding:3px 10px;border-radius:14px;border:1.5px solid #2563eb;color:#2563eb;background:#eff6ff;cursor:pointer;font-weight:700;">✕ Volver al precio real ($${N(price)})</button>`:''}
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:10px;">¿Qué pasaría si el precio fuera…? Introduce un precio hipotético y ve todos los ratios en tiempo real.</div>
+    <div class="psim-input-row">
+      <span style="font-size:13px;color:var(--muted);font-weight:600;">$</span>
+      <input id="psim-inp" class="psim-inp" type="number" placeholder="${N(price)}" value="${isSimulating?sp:''}"
+        oninput="simPrice=this.value&&+this.value>0?+this.value:null;refreshSimulator();"
+        style="border-color:${isSimulating?'#2563eb':'var(--border)'}"/>
+      ${isSimulating?`<span class="psim-badge" style="background:${chg>=0?'#f0fdf4':'#fef2f2'};color:${chg>=0?'#16a34a':'#dc2626'};border:1px solid ${chg>=0?'#bbf7d0':'#fecaca'};">${chg>=0?'▲':'▼'} ${chg>=0?'+':''}${chg.toFixed(1)}% vs actual</span>`:''}
+    </div>
+
+    ${isSimulating?`
+    <!-- Semáforo veredicto -->
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;margin-bottom:12px;background:${sem.bg};border:1.5px solid ${sem.border};">
+      <div style="font-size:22px;font-weight:800;color:${sem.text};">${sem.label}</div>
+      <div style="flex:1;">
+        <div style="font-size:11px;color:${sem.text};font-weight:600;">Margen de seguridad a $${N(sp)}: ${ms_s.toFixed(1)}%</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px;">DCF upside: ${up_dcf.toFixed(1)}% · Múlt. upside: ${up_mult.toFixed(1)}%</div>
+      </div>
+    </div>
+
+    <!-- KPIs grid -->
+    <div class="psim-grid" style="margin-bottom:12px;">
+      ${metrics.map(m=>{
+        const isGood=typeof m.good==='function'?m.good(parseFloat(m.sim)):true;
+        const bg=isGood?'#f0fdf4':'#fef2f2';
+        const bd=isGood?'#bbf7d0':'#fecaca';
+        const tc2=isGood?'#16a34a':'#dc2626';
+        return`<div class="psim-kpi" style="background:${bg};border-color:${bd};">
+          <div class="psim-kpi-lbl">${m.lbl}</div>
+          <div class="psim-kpi-val" style="color:${m.color};">${m.sim}${m.unit}</div>
+          ${m.ref!=='—'?`<div class="psim-kpi-sub" style="color:${tc2};">med. hist: ${m.ref}${m.unit} ${isGood?'✓ bajo media':'▲ sobre media'}</div>`:''}
+        </div>`;
+      }).join('')}
+    </div>
+
+    <!-- Upside cards -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:12px;">
+      ${[{l:'Upside EV/FCF',v:up_evfcf,c:'#b45309'},{l:'Upside PER',v:up_per,c:'#7c3aed'},{l:'Upside DCF',v:up_dcf,c:'#2563eb'},{l:'Marg. Seguridad',v:ms_s,c:ms_s>0?'#16a34a':'#dc2626'}].map(u=>`
+      <div style="background:#f7f6f3;border-radius:8px;padding:8px;text-align:center;border-top:2.5px solid ${u.v>0?'#16a34a':'#dc2626'};">
+        <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;">${u.l}</div>
+        <div style="font-size:16px;font-weight:800;color:${u.v>0?'#16a34a':'#dc2626'};margin-top:2px;">${u.v>0?'+':''}${u.v.toFixed(1)}%</div>
+      </div>`).join('')}
+    </div>`:''}
+
+    <!-- Semáforo de zonas de precio -->
+    <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:7px;">🚦 Zonas de precio (2026E)</div>
+    <div class="psim-semaforo">
+      ${zones.map(z=>{
+        const up2=((z.p-price)/price*100);
+        const isCur=isSimulating&&Math.abs(sp-z.p)<z.p*0.08;
+        return`<div class="psim-zone" style="background:${z.bg};border:${isCur?'2px solid '+z.tc:'1px solid '+z.border};"
+          onclick="simPrice=${z.p};document.getElementById('psim-inp').value=${z.p};refreshSimulator();">
+          <div class="psim-zone-price" style="color:${z.tc};">$${N(z.p)}</div>
+          <div class="psim-zone-lbl" style="color:${z.tc};">${z.lbl}</div>
+          <div class="psim-zone-upside" style="color:${up2>=0?'#16a34a':'#dc2626'};">${up2>=0?'+':''}${up2.toFixed(0)}%</div>
+        </div>`;
+      }).join('')}
+    </div>
+    <div style="font-size:9px;color:var(--muted);margin-top:5px;">Haz clic en una zona para simular ese precio.</div>
+  </div>`;
+}
+
+function refreshSimulator(){
+  const el=document.getElementById('price-sim-container');
+  if(el) el.innerHTML=rPriceSimulator();
+}
+
 // ═══════════════════════════════════════════════════════════════════
 // VALORACIÓN TAB — reordered: Múltiplos primero, DCF después
 // ═══════════════════════════════════════════════════════════════════
@@ -928,12 +1229,77 @@ function rValoracion(){
     <!-- 1. MÚLTIPLOS OBJETIVO (primero) -->
     <div class="card">
       <div class="ctitle">💰 1. Fair Value por Múltiplos (prioridad)</div>
-      <div class="scenbtns">
-        ${[{l:"🐂 Optimista",evf:co.medEvFcf,per:co.medPER,eve:co.medEvEbitda,c:"#16a34a"},{l:"⚖️ Base",evf:30,per:40,eve:25,c:"#2563eb"},{l:"🐻 Conservador",evf:22,per:28,eve:18,c:"#d97706"},{l:"😱 Pesimista",evf:15,per:18,eve:12,c:"#dc2626"}].map(s=>`<button class="scenbtn" style="border-color:${s.c};color:${s.c};background:${s.c}10;" onclick="tEVF=${s.evf};tPER=${s.per};tEVE=${s.eve};document.getElementById('rtEVF').value=${s.evf};document.getElementById('rtPER').value=${s.per};document.getElementById('rtEVE').value=${s.eve};showTab('valoracion')">${s.l}</button>`).join('')}
+
+      <!-- PRECIO ACTUAL ENCIMA DE LOS SLIDERS -->
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;padding:10px 14px;background:#f7f6f3;border-radius:10px;margin-bottom:12px;border:1.5px solid var(--border);">
+        <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+          <div>
+            <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px;">Precio actual</div>
+            <div style="font-size:22px;font-weight:800;color:var(--blue);" id="mult-price-display">$<span id="mult-price-val"></span></div>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;" id="mult-live-ratios"></div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px;">Fair Value promedio</div>
+          <div style="font-size:20px;font-weight:800;" id="mult-fv-display"></div>
+          <div style="font-size:11px;font-weight:700;" id="mult-fv-upside"></div>
+        </div>
       </div>
-      ${sld('tEVF','EV/FCF objetivo',tEVF,10,60,1,'x','#b45309','Mediana histórica: '+co.medEvFcf+'x')}
-      ${sld('tPER','PER objetivo',tPER,15,100,1,'x','#7c3aed','Mediana histórica: '+co.medPER+'x')}
-      ${sld('tEVE','EV/EBITDA objetivo',tEVE,10,50,1,'x','#2563eb','Mediana histórica: '+co.medEvEbitda+'x')}
+
+      <div class="scenbtns">
+        ${[{l:"🐂 Optimista",evf:co.medEvFcf,per:co.medPER,eve:co.medEvEbitda,c:"#16a34a"},{l:"⚖️ Base",evf:Math.round(co.medEvFcf*0.82),per:Math.round(co.medPER*0.82),eve:Math.round(co.medEvEbitda*0.82),c:"#2563eb"},{l:"🐻 Conservador",evf:Math.round(co.medEvFcf*0.65),per:Math.round(co.medPER*0.65),eve:Math.round(co.medEvEbitda*0.65),c:"#d97706"},{l:"😱 Pesimista",evf:Math.round(co.medEvFcf*0.45),per:Math.round(co.medPER*0.45),eve:Math.round(co.medEvEbitda*0.45),c:"#dc2626"}].map(s=>`<button class="scenbtn" style="border-color:${s.c};color:${s.c};background:${s.c}10;" onclick="tEVF=${s.evf};tPER=${s.per};tEVE=${s.eve};document.getElementById('rtEVF').value=${s.evf};document.getElementById('rtPER').value=${s.per};document.getElementById('rtEVE').value=${s.eve};showTab('valoracion')">${s.l}</button>`).join('')}
+      </div>
+      ${sld('tEVF','EV/FCF objetivo',tEVF,10,80,1,'x','#b45309','Mediana histórica: '+co.medEvFcf+'x')}
+      ${sld('tPER','PER objetivo',tPER,10,120,1,'x','#7c3aed','Mediana histórica: '+co.medPER+'x')}
+      ${sld('tEVE','EV/EBITDA objetivo',tEVE,5,60,1,'x','#2563eb','Mediana histórica: '+co.medEvEbitda+'x')}
+
+      <!-- HISTÓRICO CONJUNTO: todas las líneas en una gráfica -->
+      <div class="mult-hist-panel" id="mult-hist-panel">
+        <div class="mult-hist-title" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;">
+          <span>📈 Histórico de Múltiplos 2016–2025 — todas las series juntas</span>
+          <span style="font-size:9px;font-weight:400;color:var(--muted);font-style:italic;">Verde=bajo mediana · Medianas como líneas punteadas</span>
+        </div>
+        <div style="position:relative;height:220px;margin-bottom:10px;">
+          <canvas id="c-mult-hist"></canvas>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;">
+          ${[
+            {k:'hPER',  label:'PER',      med:'medPER',      color:'#7c3aed'},
+            {k:'hEvF',  label:'EV/FCF',   med:'medEvFcf',    color:'#b45309'},
+            {k:'hEvEbitda',label:'EV/EBITDA',med:'medEvEbitda',color:'#2563eb'},
+            {k:'hEvEbit',  label:'EV/EBIT',  med:null,         color:'#16a34a'},
+          ].map(m=>{
+            const vals=(co[m.k]||[]).filter(v=>v!=null);
+            const cur_val=m.k==='hPER'?+(price/co.eps[9]).toFixed(1):
+                          m.k==='hEvF'?+((price*co.shares+co.netDebt[9])/co.fcf[9]).toFixed(1):
+                          m.k==='hEvEbitda'?+((price*co.shares+co.netDebt[9])/co.ebitda[9]).toFixed(1):
+                          +((price*co.shares+co.netDebt[9])/co.ebit[9]).toFixed(1);
+            const med_val=m.med?co[m.med]:null;
+            const avg_val=vals.length?+(vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(1):null;
+            const pct_vs=med_val?((cur_val-med_val)/med_val*100):null;
+            const c_color=pct_vs!=null?(pct_vs<=0?'#16a34a':'#dc2626'):'#5a5650';
+            return`<div style="background:#f7f6f3;border-radius:9px;padding:8px 9px;border-left:3px solid ${m.color};">
+              <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">${m.label}</div>
+              <div style="font-size:17px;font-weight:800;color:${m.color};">${cur_val}x</div>
+              ${med_val?`<div style="font-size:9px;color:${c_color};font-weight:700;margin-top:2px;">${pct_vs>=0?'+':''}${pct_vs.toFixed(1)}% vs med.${med_val}x</div>`:''}
+              ${avg_val?`<div style="font-size:9px;color:var(--muted);margin-top:1px;">media hist: ${avg_val}x</div>`:''}
+            </div>`;
+          }).join('')}
+        </div>
+        <div style="margin-top:8px;background:#f7f6f3;border-radius:8px;padding:8px 11px;font-size:11px;color:var(--sub);line-height:1.65;">
+          <strong>Sliders objetivo:</strong>
+          EV/FCF <span style="color:#b45309;font-weight:700;">${tEVF}x</span>
+          · PER <span style="color:#7c3aed;font-weight:700;">${tPER}x</span>
+          · EV/EBITDA <span style="color:#2563eb;font-weight:700;">${tEVE}x</span>
+          &nbsp;—&nbsp;${(()=>{
+            const refs=[{v:tEVF,m:co.medEvFcf},{v:tPER,m:co.medPER},{v:tEVE,m:co.medEvEbitda}];
+            const avg_diff=refs.reduce((a,r)=>a+(r.v-r.m)/r.m*100,0)/3;
+            return avg_diff>5?`<span style="color:#d97706;font-weight:600;">Promedio +${avg_diff.toFixed(0)}% sobre medianas — escenario optimista 🐂</span>`:
+                   avg_diff<-5?`<span style="color:#16a34a;font-weight:600;">Promedio ${avg_diff.toFixed(0)}% bajo medianas — escenario conservador 🐻</span>`:
+                   `<span style="color:#2563eb;font-weight:600;">Próximo a medianas históricas — escenario neutro ⚖️</span>`;
+          })()}
+        </div>
+      </div>
     </div>
 
     <!-- 2. RETORNO OBJETIVO -->
@@ -993,6 +1359,9 @@ function rValoracion(){
         ${[{l:"DCF Upside",v:(ud>0?'+':'')+ud.toFixed(1)+'%',c:cu(ud)},{l:"Múlt. Upside",v:(um>0?'+':'')+um.toFixed(1)+'%',c:cu(um)},{l:"Marg. Seguridad",v:ms.toFixed(1)+'%',c:cu(ms)},{l:"ROIC 2025",v:P(co.roic[9]),c:'#b45309'}].map(d=>`<div class="minicard"><div class="minilbl">${d.l}</div><div class="minival" style="color:${d.c}">${d.v}</div></div>`).join('')}
       </div>
     </div>
+
+    <!-- SIMULADOR PRECIO HIPOTÉTICO -->
+    <div id="price-sim-container">${rPriceSimulator()}</div>
 
     <!-- 6 MODELOS -->
     <div class="card"><div class="ctitle">6 Modelos de Valoración</div>
@@ -1282,6 +1651,10 @@ function buildCharts(tab){
         }
       });
     }
+  }
+
+  if(tab==='valoracion'){
+    buildMultHistChart();
   }
 
   if(tab==='proyecciones'){
