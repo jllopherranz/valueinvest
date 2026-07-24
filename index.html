@@ -757,7 +757,7 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
   <!-- ── Calendarios: próximos resultados + eventos importantes (dos columnas cuadradas) ── -->
   <div class="dash-cal-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;align-items:stretch;">
     <div class="card card-sm">
-      <div class="dash-sec-title">📊 Próximos resultados</div>
+      <div class="dash-sec-title">Próximos resultados</div>
       <div id="dash-earnings-list"><!-- JS --></div>
     </div>
     <div class="card card-sm">
@@ -860,7 +860,7 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
       <div id="import-file-name" style="margin-top:8px;font-size:11px;font-weight:600;color:#1e3a5f;display:none;"></div>
     </div>
 
-    <div class="import-progress" id="import-progress">✅ <span id="import-progress-msg">Procesando…</span></div>
+    <div class="import-progress" id="import-progress"><span id="import-progress-msg">Procesando…</span></div>
     <div class="import-error" id="import-error">❌ <span id="import-error-msg"></span></div>
 
     <div style="display:flex;gap:8px;justify-content:flex-end;">
@@ -1478,7 +1478,7 @@ function estimatedBanner(){
   const usingFMP=(_projSource==='auto'&&w&&w.src==='fmp');
   const src=usingFMP?('consenso de analistas FMP'+(w.nA?' · '+w.nA+' analistas':'')):'estimación manteniendo los márgenes actuales';
   return `<div style="background:${_dm()?'#1a1200':'#fffbeb'};border:1.5px solid #f59e0b;border-radius:10px;padding:9px 13px;margin-bottom:10px;display:flex;gap:9px;align-items:flex-start;">
-    <span style="font-size:16px;flex-shrink:0;">⚠️</span>
+    <span style="font-size:16px;flex-shrink:0;"></span>
     <div style="font-size:11px;color:${_dm()?'#e3b341':'#92400e'};line-height:1.5;">
       <b>Datos ESTIMADOS — NO son de tu Excel.</b> ${co.name} se añadió con datos automáticos (SEC/Finnhub); las proyecciones y precios objetivo salen de una <b>${src}</b>, no de tus cálculos validados.
       Para una valoración fiable, <b>importa tu hoja de ${co.ticker}</b>${getFMPKey()?'':' (o conecta FMP para usar el consenso de analistas)'}.
@@ -1987,7 +1987,7 @@ function _fillAutoVal(key,isd){
       <thead><tr style="background:${_dm()?'#1c2333':'#f7f6f3'};">
         <th style="text-align:left;padding:6px 8px;color:var(--muted);font-weight:700;border-bottom:2px solid var(--border);">Precio objetivo (prom. 4 múlt.)</th>
         <th style="text-align:center;padding:6px 8px;color:#0891b2;font-weight:600;border-bottom:2px solid var(--border);background:#ecfeff;">🤖 Auto (SEC)</th>
-        <th style="text-align:center;padding:6px 8px;color:#1e3a5f;font-weight:600;border-bottom:2px solid var(--border);background:#eef2f7;">📊 Tu hoja</th>
+        <th style="text-align:center;padding:6px 8px;color:#1e3a5f;font-weight:600;border-bottom:2px solid var(--border);background:#eef2f7;">Tu hoja</th>
       </tr></thead><tbody>
         <tr><td style="padding:6px 8px;border-bottom:1px solid ${_dm()?'#2a3a52':'#f0ede8'};">Valor ${y1}e <span style="font-size:9px;color:var(--muted);">· vs precio</span></td>
           <td style="text-align:center;padding:6px 8px;border-bottom:1px solid ${_dm()?'#2a3a52':'#f0ede8'};background:#fafdff;font-weight:700;">${cell(auto[0],up(auto[0]))}</td>
@@ -2660,7 +2660,7 @@ function rSidebarEmpresa(){
       <div><div style="font-size:11px;font-weight:700;color:${c.color};margin-bottom:2px;">${c.title}</div><div style="font-size:10px;color:var(--muted);line-height:1.5;">${c.text}</div></div>
     </div>`).join('')+`
     <div style="background:#1e2a3a;border-radius:8px;padding:8px 12px;margin-top:2px;">
-      <div style="font-size:9px;color:rgba(255,255,255,.4);font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px;">⚠️ Riesgos</div>
+      <div style="font-size:9px;color:rgba(255,255,255,.4);font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px;">Riesgos</div>
       <div style="font-size:10px;color:rgba(255,255,255,.65);line-height:1.6;">${f.risks}</div>
     </div>`;
 
@@ -2677,7 +2677,7 @@ function rSidebarEmpresa(){
     </div>
 
     ${co.spinoffNote?`<div style="background:${_dm()?'#1a1200':'#fef3c7'};border-bottom:1.5px solid #f59e0b;padding:10px 14px;font-size:10px;font-weight:700;color:#92400e;line-height:1.5;display:flex;gap:7px;align-items:flex-start;">
-      <span style="font-size:14px;flex-shrink:0;">⚠️</span>
+      <span style="font-size:14px;flex-shrink:0;"></span>
       <span>${co.spinoffNote}</span>
     </div>`:''}
 
@@ -2863,7 +2863,7 @@ function rMiPosicion(vd,fv5){
     <div class="card" style="margin-bottom:10px;background:${_dm()?'#1c2333':'linear-gradient(135deg,#f7f6f3 0%,#fff 100%)'};border:1.5px dashed var(--border);">
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
         <div>
-          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:3px;">📌 Mi posición</div>
+          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:3px;">Mi posición</div>
           <div style="font-size:14px;color:var(--sub);">¿Ya tienes acciones de ${co.ticker}? Registra tu compra para ver tu P&amp;L y análisis personalizado.</div>
         </div>
         <button onclick="openMiPosicionForm()" style="background:${co.color};color:#fff;border:none;border-radius:8px;padding:9px 18px;font-size:12px;font-weight:700;cursor:pointer;">+ Añadir mi compra</button>
@@ -2904,7 +2904,7 @@ function rMiPosicion(vd,fv5){
   return`
   <div class="card" style="margin-bottom:10px;border-left:4px solid ${co.color};">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-      <div class="ctitle" style="margin-bottom:0;">📌 Mi posición en ${co.ticker}</div>
+      <div class="ctitle" style="margin-bottom:0;">Mi posición en ${co.ticker}</div>
       <div style="display:flex;gap:6px;">
         <button onclick="openMiPosicionForm()" style="font-size:10px;padding:4px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;font-weight:600;">✏️ Editar</button>
         <button onclick="if(confirm('¿Borrar tu posición?'))clearMiPosicion()" style="font-size:10px;padding:4px 10px;border-radius:8px;border:1px solid #fecaca;background:#fff;cursor:pointer;color:#dc2626;font-weight:600;">🗑️</button>
@@ -2963,7 +2963,7 @@ function rMiPosicion(vd,fv5){
   <!-- MODAL: formulario edición posición -->
   <div id="mp-form-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center;">
     <div style="background:var(--surface);border-radius:14px;padding:22px;max-width:420px;width:90%;box-shadow:0 10px 40px rgba(0,0,0,.2);">
-      <div style="font-size:14px;font-weight:600;color:${_dm()?'#e2e8f0':'#1a1814'};margin-bottom:14px;">📌 Mi posición en ${co.ticker}</div>
+      <div style="font-size:14px;font-weight:600;color:${_dm()?'#e2e8f0':'#1a1814'};margin-bottom:14px;">Mi posición en ${co.ticker}</div>
       <div style="display:grid;gap:10px;">
         <div>
           <label style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;font-weight:700;">Precio de compra (USD)</label>
@@ -3257,38 +3257,36 @@ function rResumen(){
   <div><!-- resumen layout -->
     ${estimatedBanner()}
 
-    <!-- ══ BANNER EMPRESA ══ -->
-    <div style="background:linear-gradient(135deg,${co.color} 0%,${co.color}cc 100%);border-radius:14px;padding:18px 22px;margin-bottom:10px;display:flex;align-items:center;gap:18px;flex-wrap:wrap;box-shadow:0 2px 12px ${co.color}40;">
-      <div style="width:58px;height:58px;border-radius:13px;background:var(--surface2);display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 2px 10px rgba(0,0,0,.18);">
-        <img src="${logosSrc.src||''}" onerror="this.src='${logosSrc.fb||''}'" style="width:42px;height:42px;object-fit:contain;" alt="${co.ticker}"/>
+    <!-- ══ BANNER EMPRESA (sobrio, acento en color corporativo) ══ -->
+    <div class="card" style="margin-bottom:10px;border-left:3px solid ${co.color};display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:12px 16px;">
+      <div style="width:44px;height:44px;border-radius:var(--radius-sm);background:var(--surface2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+        <img src="${logosSrc.src||''}" onerror="this.src='${logosSrc.fb||''}'" style="width:30px;height:30px;object-fit:contain;" alt="${co.ticker}"/>
       </div>
       <div style="flex:1;min-width:160px;">
-        <div style="font-size:22px;font-weight:700;color:#fff;line-height:1.1;">${co.name}</div>
-        <div style="font-size:11px;color:rgba(255,255,255,.55);margin-top:4px;font-weight:600;">${co.ticker} · ${co.sector}</div>
-        ${fichaData.exchange?`<div style="display:inline-block;margin-top:5px;background:rgba(255,255,255,.15);border-radius:5px;padding:2px 8px;font-size:8px;font-weight:700;color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:.06em;">${fichaData.exchange}</div>`:''}
-        ${(()=>{const e=_earningsInfo();return`<div id="resumen-earnings" style="display:${e.show?'inline-flex':'none'};align-items:center;margin-top:5px;margin-left:6px;background:rgba(255,255,255,.2);border-radius:6px;padding:3px 10px;font-size:9px;font-weight:700;color:#fff;">📅 ${e.text}</div>`;})()}
+        <div style="font-size:17px;font-weight:700;color:var(--text);line-height:1.15;">${co.name}</div>
+        <div style="font-size:10.5px;color:var(--muted);margin-top:3px;font-weight:600;">${co.ticker} · ${co.sector}${fichaData.exchange?` · <span style="text-transform:uppercase;letter-spacing:.05em;color:var(--sub);">${fichaData.exchange}</span>`:''}</div>
+        ${(()=>{const e=_earningsInfo();return`<div id="resumen-earnings" style="display:${e.show?'inline-flex':'none'};align-items:center;margin-top:5px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:2px 9px;font-size:9px;font-weight:700;color:var(--amber);">${e.text}</div>`;})()}
       </div>
       ${fichaData.lastQ?`<div style="display:flex;gap:8px;flex-wrap:wrap;flex-shrink:0;">
-        <div style="background:rgba(255,255,255,.13);border:1px solid rgba(255,255,255,.2);border-radius:10px;padding:9px 14px;min-width:120px;">
-          <div style="font-size:8px;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px;">Último: ${fichaData.lastQ.label}</div>
-          <div style="font-size:12px;font-weight:600;color:#fff;">${fichaData.lastQ.salesVal}</div>
-          <div style="font-size:10px;font-weight:700;color:${fichaData.lastQ.salesYoY>=0?'#4ade80':'#f87171'};margin-top:1px;">${fichaData.lastQ.salesYoY>=0?'+':''}${fichaData.lastQ.salesYoY}% ventas · ${fichaData.lastQ.epsYoY>=0?'+':''}${fichaData.lastQ.epsYoY}% EPS</div>
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 12px;min-width:118px;">
+          <div style="font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:3px;">Último: ${fichaData.lastQ.label}</div>
+          <div class="num" style="font-size:12px;font-weight:700;color:var(--text);">${fichaData.lastQ.salesVal}</div>
+          <div class="num" style="font-size:10px;font-weight:700;color:${fichaData.lastQ.salesYoY>=0?'var(--green)':'var(--red)'};margin-top:1px;">${fichaData.lastQ.salesYoY>=0?'+':''}${fichaData.lastQ.salesYoY}% v · ${fichaData.lastQ.epsYoY>=0?'+':''}${fichaData.lastQ.epsYoY}% EPS</div>
         </div>
-        ${fichaData.nextQ?`<div style="background:rgba(255,255,255,.13);border:1px solid rgba(255,255,255,.2);border-radius:10px;padding:9px 14px;min-width:120px;">
-          <div style="font-size:8px;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px;">Próx: ${fichaData.nextQ.label}</div>
-          <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.85);">${fichaData.nextQ.salesEst}</div>
-          <div style="font-size:10px;color:rgba(255,255,255,.7);">EPS est. ${fichaData.nextQ.epsEst}</div>
-          <div style="font-size:9px;color:rgba(255,255,255,.45);margin-top:2px;">${co.earningsLabel||''}</div>
+        ${fichaData.nextQ?`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 12px;min-width:118px;">
+          <div style="font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:3px;">Próx: ${fichaData.nextQ.label}</div>
+          <div class="num" style="font-size:11px;font-weight:700;color:var(--sub);">${fichaData.nextQ.salesEst}</div>
+          <div class="num" style="font-size:10px;color:var(--muted);">EPS est. ${fichaData.nextQ.epsEst}</div>
         </div>`:''}
       </div>`:''}
     </div>
 
-    ${co.spinoffNote?`<div style="background:linear-gradient(90deg,#fef3c7,#fffbeb);border:1.5px solid #f59e0b;border-radius:10px;padding:10px 14px;margin-bottom:10px;display:flex;gap:10px;align-items:flex-start;"><span style="font-size:18px;flex-shrink:0;">⚠️</span><div><div style="font-size:11px;font-weight:600;color:#92400e;margin-bottom:2px;">Cambio estructural reciente</div><div style="font-size:11px;color:#78350f;line-height:1.5;">${co.spinoffNote}</div></div></div>`:''}
+    ${co.spinoffNote?`<div class="card" style="margin-bottom:10px;border-left:3px solid var(--amber);padding:10px 14px;"><div style="font-size:9px;font-weight:700;color:var(--amber);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px;">Cambio estructural reciente</div><div style="font-size:11px;color:var(--sub);line-height:1.5;">${co.spinoffNote}</div></div>`:''}
 
     <!-- ══ BLOQUE 1: CONTEXTO DE EMPRESA ══ -->
     ${fichaData.descRich||fichaData.businessLines?`
     <div class="card" style="margin-bottom:10px;">
-      <div class="ctitle">🏢 Descripción · Posición competitiva · Tesis</div>
+      <div class="ctitle">Descripción · Posición competitiva · Tesis</div>
       <!-- Descripción negocio rica -->
       ${fichaData.descRich?`<div class="ficha-desc-card" style="margin-bottom:10px;">${fichaData.descRich}</div>`:''}
       <!-- Segmentos de negocio -->
@@ -3315,7 +3313,7 @@ function rResumen(){
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:${criticalPoints.length?'12px':'0'};">
         ${fichaData.catalysts&&fichaData.catalysts.length?`
         <div>
-          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#16a34a;margin-bottom:6px;">🚀 Catalizadores</div>
+          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#16a34a;margin-bottom:6px;">Catalizadores</div>
           ${fichaData.catalysts.map(c=>`
           <div style="display:flex;gap:7px;margin-bottom:7px;">
             <span style="font-size:16px;flex-shrink:0;">${c.icon}</span>
@@ -3324,21 +3322,21 @@ function rResumen(){
         </div>`:''}
         ${fichaData.risks?`
         <div>
-          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#dc2626;margin-bottom:6px;">⚠️ Riesgos</div>
+          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#dc2626;margin-bottom:6px;">Riesgos</div>
           <div style="background:#1e2a3a;border-radius:8px;padding:9px 12px;font-size:10px;color:rgba(255,255,255,.65);line-height:1.6;">${fichaData.risks}</div>
         </div>`:''}
       </div>
       <!-- Puntos críticos a vigilar -->
       ${criticalPoints.length?`
       <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 12px;">
-        <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#dc2626;margin-bottom:6px;">🚨 Puntos críticos a vigilar</div>
+        <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#dc2626;margin-bottom:6px;">Puntos críticos a vigilar</div>
         ${criticalPoints.map(p=>`<div style="display:flex;gap:6px;align-items:flex-start;padding:3px 0;"><span style="flex-shrink:0;">${p.icon}</span><span style="font-size:10px;color:#7f1d1d;line-height:1.5;">${p.txt}</span></div>`).join('')}
       </div>`:''}
     </div>`:''}
     <!-- Puntos críticos standalone (cuando no hay ficha) -->
     ${!fichaData.descRich&&criticalPoints.length?`
     <div class="card" style="margin-bottom:10px;background:#fef2f2;border:1px solid #fecaca;">
-      <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#dc2626;margin-bottom:6px;">🚨 Puntos críticos a vigilar</div>
+      <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#dc2626;margin-bottom:6px;">Puntos críticos a vigilar</div>
       ${criticalPoints.map(p=>`<div style="display:flex;gap:6px;align-items:flex-start;padding:3px 0;"><span style="flex-shrink:0;">${p.icon}</span><span style="font-size:10px;color:#7f1d1d;line-height:1.5;">${p.txt}</span></div>`).join('')}
     </div>`:''}
 
@@ -3346,7 +3344,7 @@ function rResumen(){
     <!-- ══ BLOQUE 2: MÉTRICAS CLAVE ══ -->
     <div class="card" style="margin-bottom:10px;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:6px;">
-        <div class="ctitle" style="margin-bottom:0;">📊 Métricas clave <span style="font-size:9px;font-weight:400;color:var(--muted);">— clic en cada métrica: qué es + su contexto en esta empresa</span></div>
+        <div class="ctitle" style="margin-bottom:0;">Métricas clave <span style="font-size:9px;font-weight:400;color:var(--muted);">— clic en cada métrica: qué es + su contexto en esta empresa</span></div>
         <div style="display:flex;gap:5px;flex-wrap:wrap;">
           ${[{l:'CAGR V.',v:P(cagr(co.sales[9],co.sales[0],9)),c:'#2563eb',ref:`>${sectorRef.cagr}% bueno`},
              {l:'FCF Mg',v:P(co.fcfM[9]),c:'#16a34a',ref:`>${sectorRef.fcfMg}% sector`},
@@ -3374,7 +3372,7 @@ function rResumen(){
     ${(()=>{const st=classifyStyle();const bar=(lbl,v,c,hint)=>`<div style="margin-bottom:5px;"><div style="display:flex;justify-content:space-between;font-size:8px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px;"><span>${lbl}</span><span style="color:${c};">${v}/100</span></div><div style="height:6px;background:${_dm()?'#2a3a52':'#ececec'};border-radius:10px;overflow:hidden;"><div style="height:100%;width:${v}%;background:${c};border-radius:10px;"></div></div><div style="font-size:8px;color:var(--muted);margin-top:1px;">${hint}</div></div>`;
       return`<div class="card" style="margin-bottom:10px;border-left:4px solid ${st.color};">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:6px;">
-        <div class="ctitle" style="margin-bottom:0;">🎚️ Estilo de inversión <span data-tip="estilo" style="cursor:pointer;color:${st.color};font-weight:700;border:1px solid ${st.color}55;border-radius:50%;width:14px;height:14px;display:inline-flex;align-items:center;justify-content:center;font-size:9px;">i</span></div>
+        <div class="ctitle" style="margin-bottom:0;">Estilo de inversión <span data-tip="estilo" style="cursor:pointer;color:${st.color};font-weight:700;border:1px solid ${st.color}55;border-radius:50%;width:14px;height:14px;display:inline-flex;align-items:center;justify-content:center;font-size:9px;">i</span></div>
         <span style="background:${st.color}15;color:${st.color};border:1.5px solid ${st.color}40;padding:3px 12px;border-radius:20px;font-size:13px;font-weight:600;">${st.icon} ${st.style}</span>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:center;">
@@ -3475,7 +3473,7 @@ function rResumen(){
 
     <!-- ══ BLOQUE 4: CHECKLIST con benchmarks ══ -->
     <div class="card" style="margin-bottom:10px;">
-      <div class="ctitle">✅ Checklist rápido</div>
+      <div class="ctitle">Checklist rápido</div>
       <div class="chk2-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">
         ${chkItems.map(it=>{
           const c=it.pos?'#16a34a':'#dc2626';
@@ -3512,7 +3510,7 @@ function rResumen(){
     <!-- ══ BLOQUE 6: GRÁFICO COTIZACIÓN ══ -->
     <div class="card" style="padding:0;overflow:hidden;margin-bottom:10px;">
       <div style="padding:7px 14px;background:${_dm()?'#161b27':'#f9f8f6'};border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
-        <span style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">📈 ${co.name} · Semanal · TradingView${tvLink?` · <span style="text-transform:none;color:var(--muted);font-weight:600;">ADR ${tvSymbol} (USD)</span>`:''}</span>
+        <span style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">${co.name} · Semanal · TradingView${tvLink?` · <span style="text-transform:none;color:var(--muted);font-weight:600;">ADR ${tvSymbol} (USD)</span>`:''}</span>
         ${tvLink?`<a href="https://www.tradingview.com/chart/?symbol=${encodeURIComponent(tvLink)}" target="_blank" rel="noopener" style="font-size:9px;font-weight:700;color:#2563eb;text-decoration:none;border:1px solid #2563eb55;border-radius:9px;padding:2px 8px;white-space:nowrap;">Ver ${tvLink} (bolsa local) ↗</a>`:''}
       </div>
       <div class="tv-wrap"><iframe
@@ -3523,7 +3521,7 @@ function rResumen(){
 
     <!-- ══ ANÁLISIS TÉCNICO — niveles de referencia ══ -->
     <div class="card" id="tech-card" style="margin-bottom:10px;">
-      <div class="ctitle">📈 Análisis técnico — niveles de referencia</div>
+      <div class="ctitle">Análisis técnico — niveles de referencia</div>
       <div id="tech-box" style="font-size:11px;color:var(--muted);padding:6px 0;">Cargando indicadores técnicos…</div>
       <div style="font-size:9px;color:var(--muted);margin-top:6px;line-height:1.5;">El análisis técnico refleja la <b>tendencia y el momento del precio</b> (corto plazo) — complementa, no sustituye, a la valoración fundamental.</div>
     </div>
@@ -3541,10 +3539,10 @@ function rResumen(){
 function rGraficos(){
   const H='position:relative;height:220px;'; // mismo tamaño para todos
   return`
-  <div class="card"><div class="ctitle">📊 Histórico — Ventas, FCF y EPS (${co.years[0]}–${co.years[9]})</div><div style="${H}"><canvas id="c-hist"></canvas></div><div class="chart-note">Ventas y FCF en $M (eje izq) · EPS en $ (eje der)</div></div>
-  <div class="card"><div class="ctitle">🔮 Proyecciones de tu hoja — Ventas, FCF y EPS (${co.pY[0]}–${co.pY[4]})</div><div style="${H}"><canvas id="c-proj"></canvas></div><div class="chart-note">Estimaciones de tu Excel · mismo formato que el histórico (Ventas/FCF $M eje izq · EPS $ eje der)</div></div>
-  <div class="card"><div class="ctitle">📈 Márgenes históricos — EBITDA %, EBIT % y FCF %</div><div style="${H}"><canvas id="c-mg"></canvas></div></div>
-  <div class="card"><div class="ctitle">🎯 ROIC vs WACC (${co.wacc}%) — Creación de valor</div><div style="${H}"><canvas id="c-roic"></canvas></div><div class="chart-note">Verde = ROIC > WACC (crea valor) · Rojo = destruye valor</div></div>
+  <div class="card"><div class="ctitle">Histórico — Ventas, FCF y EPS (${co.years[0]}–${co.years[9]})</div><div style="${H}"><canvas id="c-hist"></canvas></div><div class="chart-note">Ventas y FCF en $M (eje izq) · EPS en $ (eje der)</div></div>
+  <div class="card"><div class="ctitle">Proyecciones de tu hoja — Ventas, FCF y EPS (${co.pY[0]}–${co.pY[4]})</div><div style="${H}"><canvas id="c-proj"></canvas></div><div class="chart-note">Estimaciones de tu Excel · mismo formato que el histórico (Ventas/FCF $M eje izq · EPS $ eje der)</div></div>
+  <div class="card"><div class="ctitle">Márgenes históricos — EBITDA %, EBIT % y FCF %</div><div style="${H}"><canvas id="c-mg"></canvas></div></div>
+  <div class="card"><div class="ctitle">ROIC vs WACC (${co.wacc}%) — Creación de valor</div><div style="${H}"><canvas id="c-roic"></canvas></div><div class="chart-note">Verde = ROIC > WACC (crea valor) · Rojo = destruye valor</div></div>
   <div class="card"><div class="ctitle">💹 Múltiplos históricos — EV/FCF y PER</div><div style="${H}"><canvas id="c-mult"></canvas></div><div class="chart-note">Línea punteada = mediana histórica</div></div>`;
 }
 
@@ -3699,7 +3697,7 @@ function rValoracion(){
   <!-- PRECIO vs VALOR INTRÍNSECO (estilo FastGraphs) -->
   <div class="card" style="margin-bottom:10px;">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;margin-bottom:6px;">
-      <div class="ctitle" style="margin-bottom:0;">📊 Precio vs Valor intrínseco — ¿cara o barata?</div>
+      <div class="ctitle" style="margin-bottom:0;">Precio vs Valor intrínseco — ¿cara o barata?</div>
       <span style="font-size:9px;color:var(--muted);">Valor = EPS × PER normal (${Math.round(co.medPER)}x)</span>
     </div>
     <div style="position:relative;height:230px;"><canvas id="c-fairvalue"></canvas></div>
@@ -3731,7 +3729,7 @@ function rValoracion(){
   <!-- MÚLTIPLOS OBJETIVO + ESCENARIOS -->
   <div class="card" style="margin-bottom:10px;">
     <div class="ctitle">Múltiplos objetivo — Escenarios</div>
-    <div style="font-size:9px;color:var(--muted);margin:-4px 0 8px;">Por defecto se aplica <strong style="color:#1e3a5f;">📊 Tu hoja (Excel)</strong>. Los escenarios salen de los <strong>percentiles del histórico de CADA empresa</strong>: Optimista P90 · Base mediana · Conservador P25 o últimos 3 años (lo menor) · Pesimista P10.</div>
+    <div style="font-size:9px;color:var(--muted);margin:-4px 0 8px;">Por defecto se aplica <strong style="color:#1e3a5f;">Tu hoja (Excel)</strong>. Los escenarios salen de los <strong>percentiles del histórico de CADA empresa</strong>: Optimista P90 · Base mediana · Conservador P25 o últimos 3 años (lo menor) · Pesimista P10.</div>
     <div class="val-scen" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">
       ${(()=>{const gm=getCompanyMults(coKeyOf(co));const sm=scenarioMults();const scenarios=[
         {key:'hoja',l:'📊 Tu hoja',evf:gm.evf,per:gm.per,eve:gm.eveb,evei:gm.evei,c:'#1e3a5f',bg:'#eef2f7',bda:'#1e3a5f',txt:'Tus múltiplos del Excel (por defecto)'},
@@ -3813,10 +3811,10 @@ function rValoracion(){
   <div class="card" style="padding:0;overflow:hidden;margin-bottom:10px;">
     <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:${_dm()?'#161b27':'#f9f8f6'};cursor:pointer;user-select:none;" onclick="var b=this.nextElementSibling;b.style.display=b.style.display==='none'?'block':'none';this.querySelector('.is-arrow').style.transform=b.style.display!=='none'?'rotate(180deg)':'';">
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-        <span style="font-size:11px;font-weight:700;color:#1e3a5f;">🧮 Proyecciones IS / FCF</span>
+        <span style="font-size:11px;font-weight:700;color:#1e3a5f;">Proyecciones IS / FCF</span>
         <div onclick="event.stopPropagation();" style="display:inline-flex;align-items:center;background:${_dm()?'#1c2333':'#e9ecf0'};border-radius:9px;padding:2px;gap:2px;">
           <span style="font-size:8px;color:#64748b;font-weight:700;padding:0 4px;">Valorar con:</span>
-          <button onclick="event.stopPropagation();setProjSource('sheet')" title="Valorar con las proyecciones de tu hoja (Excel/TIKR)" style="font-size:9px;padding:3px 9px;border-radius:7px;border:none;cursor:pointer;font-weight:${_projSource==='sheet'?'800':'700'};background:${_projSource==='sheet'?(_dm()?'#1c2a42':'#fff'):'transparent'};color:${_projSource==='sheet'?(_dm()?'#7ab4f5':'#1e3a5f'):'#94a3b8'};box-shadow:${_projSource==='sheet'?'0 1px 3px rgba(0,0,0,.14)':'none'};">📊 Excel</button>
+          <button onclick="event.stopPropagation();setProjSource('sheet')" title="Valorar con las proyecciones de tu hoja (Excel/TIKR)" style="font-size:9px;padding:3px 9px;border-radius:7px;border:none;cursor:pointer;font-weight:${_projSource==='sheet'?'800':'700'};background:${_projSource==='sheet'?(_dm()?'#1c2a42':'#fff'):'transparent'};color:${_projSource==='sheet'?(_dm()?'#7ab4f5':'#1e3a5f'):'#94a3b8'};box-shadow:${_projSource==='sheet'?'0 1px 3px rgba(0,0,0,.14)':'none'};">Excel</button>
           <button onclick="event.stopPropagation();setProjSource('auto')" title="Valorar con las proyecciones web actualizadas (editables)" style="font-size:9px;padding:3px 9px;border-radius:7px;border:none;cursor:pointer;font-weight:${_projSource==='auto'?'800':'700'};background:${_projSource==='auto'?(_dm()?'#0c2233':'#fff'):'transparent'};color:${_projSource==='auto'?(_dm()?'#39c5cf':'#0891b2'):'#94a3b8'};box-shadow:${_projSource==='auto'?'0 1px 3px rgba(0,0,0,.14)':'none'};">🤖 Web</button>
         </div>
         ${_isEdited?'<span style="font-size:8px;font-weight:700;color:#d97706;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:1px 6px;">editado</span>':''}
@@ -3828,7 +3826,7 @@ function rValoracion(){
     </div>
     <div style="padding:10px 14px;display:block;">
       <div style="font-size:9px;color:var(--muted);margin-bottom:7px;line-height:1.5;">
-        Cada celda muestra las 2 opciones: <b style="color:#1e3a5f;">📊 Excel</b> (tu hoja) y <b style="color:#0891b2;">🤖 Web</b> (${_wp&&_wp.src==='fmp'?`consenso de analistas FMP${_wp.nA?' · '+_wp.nA+' analistas':''}`:_wp&&_wp.src==='sec'?'modelo sobre datos SEC (sin consenso FMP)':getFMPKey()?'consenso FMP':'modelo SEC'}). El botón de arriba elige con cuál se <b>VALORA</b> (precios objetivo + veredicto). ${_wp&&_wp.src==='fmp'?'<b style="color:#0891b2;">Los años web salen de FMP → ya en 2027e+ (2026 es definitivo).</b>':''}
+        Cada celda muestra las 2 opciones: <b style="color:#1e3a5f;">Excel</b> (tu hoja) y <b style="color:#0891b2;">🤖 Web</b> (${_wp&&_wp.src==='fmp'?`consenso de analistas FMP${_wp.nA?' · '+_wp.nA+' analistas':''}`:_wp&&_wp.src==='sec'?'modelo sobre datos SEC (sin consenso FMP)':getFMPKey()?'consenso FMP':'modelo SEC'}). El botón de arriba elige con cuál se <b>VALORA</b> (precios objetivo + veredicto). ${_wp&&_wp.src==='fmp'?'<b style="color:#0891b2;">Los años web salen de FMP → ya en 2027e+ (2026 es definitivo).</b>':''}
         ${!_wp?'<span style="color:#0891b2;"> (cargando consenso…)</span>':''}${_wp&&_wp.error?'<span style="color:#dc2626;"> '+_wp.error+'</span>':''}
         <button onclick="event.stopPropagation();promptFMPKey()" style="font-size:9px;padding:1px 7px;border-radius:8px;border:1px solid ${getFMPKey()?'#bbf7d0':'#a5f3fc'};background:${getFMPKey()?(_dm()?'#0d2117':'#f0fdf4'):(_dm()?'#0c1e2a':'#ecfeff')};color:#0891b2;cursor:pointer;font-weight:700;margin-left:4px;">${getFMPKey()?'🔑 FMP conectado ✓':'🔑 Conectar FMP (consenso analistas)'}</button>
       </div>
@@ -3837,8 +3835,8 @@ function rValoracion(){
           const exV=(_excelByYear[y]&&_excelByYear[y][r.ok]!=null)?_excelByYear[y][r.ok]:null;
           const wbV=(_webByYear[y]&&_webByYear[y][r.ok]!=null)?_webByYear[y][r.ok]:null;
           const sLine=_projSource==='sheet'
-            ? `<span style="font-size:8px;">📊</span><input class="isinp" type="number" value="${arr[i]!=null?arr[i]:(exV!=null?exV:'')}" step="${r.st}" onchange="${r.nm}[${i}]=+this.value;_isEdited=true;recalc()"/>`
-            : `<span style="font-size:8px;">📊</span><span style="font-size:9px;color:#64748b;font-weight:700;min-width:24px;text-align:right;">${exV!=null?exV:'—'}</span>`;
+            ? `<span style="font-size:8px;"></span><input class="isinp" type="number" value="${arr[i]!=null?arr[i]:(exV!=null?exV:'')}" step="${r.st}" onchange="${r.nm}[${i}]=+this.value;_isEdited=true;recalc()"/>`
+            : `<span style="font-size:8px;"></span><span style="font-size:9px;color:#64748b;font-weight:700;min-width:24px;text-align:right;">${exV!=null?exV:'—'}</span>`;
           const wLine=`<span style="font-size:8px;">🤖</span><span style="font-size:9px;color:#0891b2;font-weight:700;min-width:24px;text-align:right;">${wbV!=null?wbV:'—'}</span>`;
           return `<td style="text-align:center;padding:3px 4px;">
             <div style="display:flex;align-items:center;justify-content:center;gap:2px;${_projSource==='sheet'?'':'opacity:.65;'}">${sLine}<span style="font-size:8px;color:#94a3b8;">%</span></div>
@@ -3913,7 +3911,7 @@ function rDCF(){
   <div>
     <!-- DCF PARAMS (moved from Valoracion) -->
     <div class="card" style="margin-bottom:12px;">
-      <div class="ctitle">📐 Parámetros DCF — Ajusta las hipótesis del modelo
+      <div class="ctitle">Parámetros DCF — Ajusta las hipótesis del modelo
         <span data-tip="dcf" style="cursor:pointer;color:#2563eb;font-weight:700;border:1px solid #2563eb55;border-radius:50%;width:14px;height:14px;display:inline-flex;align-items:center;justify-content:center;font-size:9px;margin-left:4px;">i</span>
         <span data-tip="wacc" style="cursor:pointer;font-size:9px;font-weight:700;color:#6b7280;border:1px solid #6b728055;border-radius:10px;padding:1px 7px;margin-left:4px;">WACC ⓘ</span>
       </div>
@@ -3929,7 +3927,7 @@ function rDCF(){
 
     <!-- Reverse DCF Card -->
     <div class="rev-dcf-card" style="margin-bottom:12px;">
-      <div style="font-size:10px;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px;">🔄 Reverse DCF — ¿Qué crecimiento descuenta el precio actual?</div>
+      <div style="font-size:10px;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px;">Reverse DCF — ¿Qué crecimiento descuenta el precio actual?</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:center;">
         <div>
           <div style="font-size:9px;color:#92400e;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">CAGR FCF implícito en precio</div>
@@ -3969,7 +3967,7 @@ function rDCF(){
 
   <div>
     <div class="card">
-      <div class="ctitle">📐 Parámetros DCF</div>
+      <div class="ctitle">Parámetros DCF</div>
       <div class="dcf-info-box"><strong>DCF:</strong> Descuenta flujos futuros al presente. Fórmula: Σ [FCF_n/(1+r)^n] + TV/(1+r)^10 donde TV=FCF₁₀×(1+g)/(r−g).</div>
       ${sld('gr','Crecimiento FCF (10 años)',gr,0,30,0.5,'%','#2563eb','CAGR histórico: ~'+((((Math.pow(Math.max(co.fcf[9],.01)/Math.max(co.fcf[0],.01),1/9))-1)*100).toFixed(0))+'%')}
       ${sld('dr','Tasa de descuento',dr,6,20,0.5,'%','#1e3a5f','WACC ~10%')}
@@ -4064,7 +4062,7 @@ function rAnalisis(){
   const pos=cnt(all,a=>a.status==='pos'),warn=cnt(all,a=>a.status==='warn'),neg=cnt(all,a=>a.status==='neg');
   const stM={pos:{c:'#16a34a',bg:'#f0fdf4',bd:'#bbf7d0',l:'✓ Fuerte'},warn:{c:'#d97706',bg:'#fffbeb',bd:'#fde68a',l:'→ Vigilar'},neg:{c:'#dc2626',bg:'#fef2f2',bd:'#fecaca',l:'⚠ Red flag'}};
   return`
-   ${co.spinoffNote?`<div style="background:linear-gradient(90deg,#fef3c7,#fffbeb);border:1.5px solid #f59e0b;border-radius:12px;padding:11px 14px;margin-bottom:10px;display:flex;gap:10px;align-items:flex-start;"><span style="font-size:18px;flex-shrink:0;">⚠️</span><div><div style="font-size:11px;font-weight:600;color:#92400e;margin-bottom:2px;">Cambio estructural — léelo antes de juzgar el histórico</div><div style="font-size:11px;color:#78350f;line-height:1.5;">${co.spinoffNote} Los años en pérdidas/FCF negativo y los múltiplos antiguos corresponden a la empresa COMBINADA, no al negocio actual: pondera más los últimos años y la mediana 5Y.</div></div></div>`:''}
+   ${co.spinoffNote?`<div style="background:linear-gradient(90deg,#fef3c7,#fffbeb);border:1.5px solid #f59e0b;border-radius:12px;padding:11px 14px;margin-bottom:10px;display:flex;gap:10px;align-items:flex-start;"><span style="font-size:18px;flex-shrink:0;"></span><div><div style="font-size:11px;font-weight:600;color:#92400e;margin-bottom:2px;">Cambio estructural — léelo antes de juzgar el histórico</div><div style="font-size:11px;color:#78350f;line-height:1.5;">${co.spinoffNote} Los años en pérdidas/FCF negativo y los múltiplos antiguos corresponden a la empresa COMBINADA, no al negocio actual: pondera más los últimos años y la mediana 5Y.</div></div></div>`:''}
    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px;">
      <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:12px;text-align:center;"><div style="font-size:11px;font-weight:700;color:#16a34a;">Fortalezas</div><div style="font-size:32px;font-weight:600;color:#16a34a;">${pos}</div></div>
      <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:12px;text-align:center;"><div style="font-size:11px;font-weight:700;color:#d97706;">A vigilar</div><div style="font-size:32px;font-weight:600;color:#d97706;">${warn}</div></div>
@@ -4072,7 +4070,7 @@ function rAnalisis(){
    </div>
    <div style="font-size:10px;color:var(--muted);margin-bottom:10px;line-height:1.5;">Análisis automático de las partidas de TU hoja (IS · FCF · ROIC · Valoración). Cada métrica: dato + tendencia (últimos 6 años, rojo = negativo) + semáforo + qué es y qué vigilar.</div>
    ${(()=>{const moat=vd.moat;const ds=[...moat.items].sort((a,b)=>b.s-a.s);const strong=ds.slice(0,3),weak=ds.slice(-3).reverse();const dc=s=>s>=75?'#16a34a':s>=55?'#d97706':'#dc2626';return`<div class="card" style="margin-bottom:10px;">
-     <div class="ctitle" style="display:flex;justify-content:space-between;align-items:center;gap:8px;">🏰 Foso competitivo (MOAT) <span data-tip="moat" style="cursor:pointer;font-size:9px;font-weight:600;color:#0891b2;border:1px solid #0891b255;border-radius:10px;padding:2px 8px;">¿qué es? ⓘ</span></div>
+     <div class="ctitle" style="display:flex;justify-content:space-between;align-items:center;gap:8px;">Foso competitivo (MOAT) <span data-tip="moat" style="cursor:pointer;font-size:9px;font-weight:600;color:#0891b2;border:1px solid #0891b255;border-radius:10px;padding:2px 8px;">¿qué es? ⓘ</span></div>
      <div style="display:grid;grid-template-columns:96px 1fr;gap:14px;align-items:center;">
        <div style="text-align:center;background:${moat.color}10;border:1.5px solid ${moat.color}40;border-radius:12px;padding:10px 6px;">
          <div style="font-size:32px;font-weight:600;color:${moat.color};line-height:1;">${moat.overall}</div>
@@ -4144,7 +4142,7 @@ function rTesis(){
   <div class="params-row">${[{l:"Empresa",v:co.name},{l:"Precio",v:"$"+N(price)},{l:"Veredicto",v:vd.verdict+" ("+vd.totalScore+"/100)"},{l:"MOAT",v:vd.moat.overall+"/100"},{l:"Implícito",v:rev.impliedG+"% vs hist "+rev.historicalFCFCagr+"%"},{l:"FCF Quality",v:quality.label},{l:"Stress DCF",v:"$"+N(stress.stressedDCF)+" ("+stress.impact+"%impact)"}].map(p=>`<span class="ptag">${p.l}: <strong style="color:${_dm()?'#e2e8f0':'#1a1814'}">${p.v}</strong></span>`).join('')}</div>
   <button class="aibtn" id="t-btn" onclick="genTesis()">✍️ Generar Tesis de Inversión</button>
   <div id="t-out" class="aiout" style="display:none;"></div>
-  <div style="margin-top:9px;padding:9px 13px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;font-size:11px;color:#92400e;">⚠️ Esta tesis es generada por IA con carácter exclusivamente informativo. No constituye asesoramiento financiero.</div></div>`;
+  <div style="margin-top:9px;padding:9px 13px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;font-size:11px;color:#92400e;">Esta tesis es generada por IA con carácter exclusivamente informativo. No constituye asesoramiento financiero.</div></div>`;
 }
 // ═══════════════════════════════════════════════════════════════════
 // CHARTS
@@ -4778,10 +4776,10 @@ function renderWatchlist(){
       <td style="text-align:center;"><span style="font-size:10px;font-weight:600;color:${vcolor};background:${vcolor}14;border:1px solid ${vcolor}44;padding:2px 8px;border-radius:8px;white-space:nowrap;">${verdict}</span></td>
       <td style="text-align:center;">
         <div style="display:flex;gap:4px;justify-content:center;">
-          ${inDB?`<button class="cartera-action-btn" title="Ver análisis completo" onclick="setView('analysis');setTimeout(()=>switchCo('${e.id}'),60);">📈</button>`
-                :`<button class="cartera-action-btn" style="background:#f0fdf4;border-color:#bbf7d0;" title="Promover a análisis profundo (trae cuentas anuales de Finnhub/SEC)" onclick="promoteToAnalysis('${e.id}')">📈⤴</button>`}
+          ${inDB?`<button class="cartera-action-btn" title="Ver análisis completo" onclick="setView('analysis');setTimeout(()=>switchCo('${e.id}'),60);"></button>`
+                :`<button class="cartera-action-btn" style="background:#f0fdf4;border-color:#bbf7d0;" title="Promover a análisis profundo (trae cuentas anuales de Finnhub/SEC)" onclick="promoteToAnalysis('${e.id}')">⤴</button>`}
           <button class="cartera-action-btn" title="Detalle del pre-análisis" onclick="showPreAnalysis('${e.id}')">🔎</button>
-          ${inDB?'':`<button class="cartera-action-btn" title="Volver a traer datos de Finnhub" onclick="refreshWatchCompany('${e.id}')">🔄</button>`}
+          ${inDB?'':`<button class="cartera-action-btn" title="Volver a traer datos de Finnhub" onclick="refreshWatchCompany('${e.id}')"></button>`}
           <button class="cartera-action-btn red" title="Quitar de seguimiento" onclick="removeWatchCompany('${e.id}')">🗑</button>
         </div>
       </td>
@@ -4796,8 +4794,8 @@ function showPreAnalysis(id){
   if(!pre){alert('Sin pre-análisis disponible todavía (trayendo datos…).');return;}
   const lc={green:'🟢',amber:'🟡',red:'🔴',gray:'⚪'};
   const rows=pre.axes.map(a=>`<div style="display:flex;gap:9px;padding:7px 0;border-bottom:1px solid ${_dm()?'#2a3a52':'#f0ede8'};align-items:flex-start;"><span style="font-size:13px;">${lc[a.light]}</span><div><div style="font-weight:700;font-size:12px;color:${_dm()?'#e2e8f0':'#1a1814'};">${a.label}</div><div style="font-size:11px;color:var(--sub);">${a.note}</div></div></div>`).join('');
-  const pros=(pre.pros||[]).map(t=>`<li style="color:#15803d;margin:2px 0;">✅ ${t}</li>`).join('');
-  const cons=(pre.cons||[]).map(t=>`<li style="color:#b91c1c;margin:2px 0;">⚠️ ${t}</li>`).join('');
+  const pros=(pre.pros||[]).map(t=>`<li style="color:#15803d;margin:2px 0;">${t}</li>`).join('');
+  const cons=(pre.cons||[]).map(t=>`<li style="color:#b91c1c;margin:2px 0;">${t}</li>`).join('');
   const ov=document.createElement('div');
   ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px;';
   ov.onclick=ev=>{if(ev.target===ov)ov.remove();};
@@ -5685,7 +5683,7 @@ function renderStyleCompare(){
   const gvOpen=localStorage.getItem('vi_gv_open')==='1';
   el.innerHTML=`<div class="card">
     <div onclick="toggleGvCompare()" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;cursor:pointer;user-select:none;${gvOpen?'margin-bottom:10px;':''}">
-      <div class="dash-sec-title" style="margin:0;">🎚️ Growth vs Value — comparador de la cartera <span id="gv-chevron" style="font-size:9px;color:var(--muted);">${gvOpen?'▲ ocultar':'▼ mostrar'}</span></div>
+      <div class="dash-sec-title" style="margin:0;">Growth vs Value — comparador de la cartera <span id="gv-chevron" style="font-size:9px;color:var(--muted);">${gvOpen?'▲ ocultar':'▼ mostrar'}</span></div>
       <span style="display:flex;gap:6px;flex-wrap:wrap;">
         <span onclick="event.stopPropagation();showGvHelp()" style="cursor:pointer;font-size:9px;color:#2563eb;border:1px solid #2563eb55;border-radius:10px;padding:2px 8px;font-weight:700;">¿Qué significan las métricas? ⓘ</span>
         <span onclick="event.stopPropagation();showTip('estilo',this)" style="cursor:pointer;font-size:9px;color:#2563eb;border:1px solid #2563eb55;border-radius:10px;padding:2px 8px;font-weight:700;">¿Cómo se clasifica? ⓘ</span>
@@ -5757,7 +5755,7 @@ function showGvHelp(){
   m.onclick=e=>{ if(e.target===m) m.style.display='none'; };
   m.innerHTML=`<div style="background:var(--surface);border-radius:16px;max-width:560px;width:100%;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3);border:1.5px solid var(--border);">
     <div style="padding:16px 20px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--surface);">
-      <div style="font-size:14px;font-weight:700;color:var(--text);">🎚️ Métricas Growth vs Value</div>
+      <div style="font-size:14px;font-weight:700;color:var(--text);">Métricas Growth vs Value</div>
       <button onclick="document.getElementById('gv-help-modal').style.display='none'" style="border:none;background:var(--surface2);color:var(--sub);border-radius:8px;padding:4px 10px;cursor:pointer;font-size:12px;font-weight:700;">✕</button>
     </div>
     <div style="padding:14px 20px 18px;">
@@ -5884,7 +5882,7 @@ function renderCartera(){
   <td style="text-align:center;" onclick="event.stopPropagation();">
     <div style="display:flex;gap:3px;justify-content:center;align-items:center;">
       ${driveUrl
-        ? `<a href="${driveUrl}" target="_blank" rel="noopener" class="cartera-action-btn" title="Abrir hoja de cálculo en Drive para comparar" style="text-decoration:none;">📊</a>`
+        ? `<a href="${driveUrl}" target="_blank" rel="noopener" class="cartera-action-btn" title="Abrir hoja de cálculo en Drive para comparar" style="text-decoration:none;"></a>`
         : `<button class="cartera-action-btn" title="Añadir enlace de Google Sheets" onclick="promptDriveUrl('${k}')">＋📊</button>`}
       <button class="cartera-action-btn" style="${m.imp?'background:#f0fdf4;border-color:#bbf7d0;':''}" title="${m.imp?('Importada el '+new Date(m.imp.importDate).toLocaleDateString('es-ES')+' · pulsa para reimportar/editar'):'Pendiente de importar · pulsa para importar tu hoja'}" onclick="openImportModal('${k}')">${m.imp?'📂✓':'📂'}</button>
       <button class="cartera-action-btn red" title="${BUILTIN_KEYS.has(k)?'Ocultar empresa (restaurable)':'Eliminar empresa'}" onclick="deleteCompanyFull('${k}')">🗑</button>
