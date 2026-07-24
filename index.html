@@ -50,6 +50,8 @@ body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
 #co-dropdown .co-btn{width:100%;text-align:left;border-radius:8px;padding:7px 12px;}
 .co-btn.active{background:var(--amber);color:#0a0e14;border-color:transparent;font-weight:700;}
 .co-btn.active:hover{background:var(--amber);color:#0a0e14;filter:brightness(1.08);}
+.co-btn-primary{border-color:var(--blue);color:var(--blue);}
+.co-btn-primary:hover{background:var(--blue);color:#fff;border-color:var(--blue);}
 .coinfo{font-size:11px;color:var(--muted);}
 .coname{font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 #hdr-co-row{min-width:0;}
@@ -706,16 +708,16 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
   <!-- ═══ CARTERA (tabla rica unificada en el Dashboard) ═══ -->
   <div style="display:flex;align-items:center;justify-content:space-between;margin:4px 0 12px;flex-wrap:wrap;gap:10px;">
     <div>
-      <div style="font-size:16px;font-weight:600;color:var(--text);">📋 Mi cartera <span onclick="showCarteraHelp()" title="¿Qué significa cada columna?" style="cursor:pointer;font-size:10px;color:#2563eb;border:1px solid #2563eb55;border-radius:10px;padding:2px 8px;font-weight:700;vertical-align:middle;">¿Qué significan los datos? ⓘ</span></div>
+      <div style="font-size:15px;font-weight:600;color:var(--text);letter-spacing:.01em;">Mi cartera <span onclick="showCarteraHelp()" title="¿Qué significa cada columna?" style="cursor:pointer;font-size:10px;color:#2563eb;border:1px solid #2563eb55;border-radius:10px;padding:2px 8px;font-weight:700;vertical-align:middle;">¿Qué significan los datos? ⓘ</span></div>
       <div style="font-size:10px;color:var(--muted);">Precios en vivo · valor intrínseco y MdS recalculados al instante · importa o añade empresas</div>
       <div id="cartera-import-status" style="font-size:10px;margin-top:4px;"></div>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-      <button onclick="openImportModal('NUEVA')" style="padding:7px 16px;border-radius:10px;background:#16a34a;color:#fff;border:none;cursor:pointer;font-size:12px;font-weight:700;display:flex;align-items:center;gap:6px;">＋ Añadir empresa</button>
-      <button onclick="openImportModal(null)" style="padding:7px 16px;border-radius:10px;background:#1e3a5f;color:#fff;border:none;cursor:pointer;font-size:12px;font-weight:700;display:flex;align-items:center;gap:6px;">📂 Importar Excel</button>
-      <button id="btn-refresh-imports" onclick="refreshAllImports()" title="Re-descarga y reprocesa desde su hoja TODAS las empresas con enlace (incluidas las de fábrica) — iguala proyecciones y múltiplos a tu Excel" style="padding:7px 14px;border-radius:10px;background:#0891b2;color:#fff;border:none;cursor:pointer;font-size:12px;font-weight:700;">🔄 Sincronizar con hojas</button>
-      <button id="btn-restore-hidden" onclick="restoreHidden()" style="display:none;padding:7px 12px;border-radius:10px;background:#fffbeb;color:#92400e;border:1.5px solid #fde68a;cursor:pointer;font-size:12px;font-weight:700;">↺ Restaurar ocultas</button>
-      <button onclick="openBackupModal()" title="Copia tus empresas y precios de compra a otro dispositivo (móvil). Tus datos se guardan solo en este navegador." style="padding:7px 14px;border-radius:10px;background:#7c3aed;color:#fff;border:none;cursor:pointer;font-size:12px;font-weight:700;">📲 Copia / Pasar al móvil</button>
+      <button class="co-btn co-btn-primary" onclick="openImportModal('NUEVA')"><span id="aic-add"></span>Añadir empresa</button>
+      <button class="co-btn" onclick="openImportModal(null)"><span id="aic-imp"></span>Importar Excel</button>
+      <button id="btn-refresh-imports" class="co-btn" onclick="refreshAllImports()" title="Re-descarga y reprocesa desde su hoja TODAS las empresas con enlace (incluidas las de fábrica) — iguala proyecciones y múltiplos a tu Excel"><span id="aic-sync"></span>Sincronizar con hojas</button>
+      <button id="btn-restore-hidden" class="co-btn" style="display:none;" onclick="restoreHidden()"><span id="aic-restore"></span>Restaurar ocultas</button>
+      <button class="co-btn" onclick="openBackupModal()" title="Copia tus empresas y precios de compra a otro dispositivo (móvil). Tus datos se guardan solo en este navegador."><span id="aic-backup"></span>Copia / Pasar al móvil</button>
       <span id="dash-prices-ts" style="font-size:9px;color:var(--muted);">—</span>
     </div>
   </div>
@@ -5502,6 +5504,7 @@ function updateDashCoRow(key,price,pct,change){
   // Iconos de línea en cabecera y navegación
   const _setIc=(id,name)=>{const e=document.getElementById(id);if(e)e.innerHTML=svgIcon(name,'ic-lg');};
   _setIc('brand-ic','activity'); _setIc('nic-dash','briefcase'); _setIc('nic-watch','eye'); _setIc('nic-anly','activity');
+  _setIc('aic-add','plus'); _setIc('aic-imp','folder'); _setIc('aic-sync','refresh'); _setIc('aic-restore','refresh'); _setIc('aic-backup','share');
   BUILTIN_KEYS=new Set(Object.keys(DB));        // empresas de fábrica
   _BUILTIN_DB={...DB};                            // snapshot para restaurar ocultas
   hydrateImportedIntoDB();                        // recupera empresas añadidas por el usuario (localStorage) tras recargar
@@ -6596,8 +6599,8 @@ async function refreshAllImports(){
 (function(){
   const html=document.documentElement;
   const saved=localStorage.getItem('vi_dark');
-  // Terminal profesional → OSCURO por defecto (salvo que el usuario haya elegido claro)
-  if(saved!=='0') html.classList.add('dark');
+  // Claro por defecto (institucional); modo noche solo si el usuario lo activa
+  if(saved==='1') html.classList.add('dark');
   const _icon=n=>`<svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true">${n==='sun'?'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>':'<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>'}</svg>`;
   const _paint=btn=>{if(btn)btn.innerHTML=_icon(html.classList.contains('dark')?'sun':'moon')+(html.classList.contains('dark')?'Claro':'Noche');};
   window._toggleDark=function(){
