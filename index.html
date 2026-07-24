@@ -13,38 +13,43 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 :root{
-  /* Brand */
-  --navy:#1a3a5c;--blue:#2563eb;--green:#059669;--amber:#d97706;--red:#dc2626;
-  --gold:#b45309;--purple:#7c3aed;--teal:#0891b2;
-  /* Light mode surfaces */
-  --bg:#f0f4f8;--surface:#ffffff;--surface2:#f8fafc;--border:#e2e8f2;
-  --text:#0f172a;--sub:#475569;--muted:#94a3b8;
-  /* Semantic */
-  --shadow-sm:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.05);
-  --shadow-md:0 4px 12px rgba(0,0,0,.08),0 2px 4px rgba(0,0,0,.04);
-  --shadow-lg:0 12px 32px rgba(0,0,0,.12),0 4px 8px rgba(0,0,0,.06);
-  --radius-sm:8px;--radius-md:12px;--radius-lg:16px;
-  --transition:.15s cubic-bezier(.4,0,.2,1);
+  /* ── TERMINAL PROFESIONAL — modo oscuro es el aspecto primario ── */
+  --mono:ui-monospace,'SF Mono','JetBrains Mono','Roboto Mono',Menlo,Consolas,monospace;
+  /* Acentos (mínimos): azul interactivo · verde/rojo solo para señales financieras */
+  --navy:#4a9eff;--blue:#4a9eff;--green:#26a269;--amber:#c9862a;--red:#d1424f;
+  --gold:#b07a2a;--purple:#8256c4;--teal:#2a8fa0;
+  /* Modo claro (institucional sobrio) */
+  --bg:#eef1f5;--surface:#ffffff;--surface2:#f4f6f9;--border:#dde3ec;
+  --text:#111827;--sub:#4b5563;--muted:#8a94a3;
+  --shadow-sm:none;--shadow-md:0 2px 8px rgba(15,23,42,.06);--shadow-lg:0 8px 24px rgba(15,23,42,.10);
+  --radius-sm:3px;--radius-md:4px;--radius-lg:5px;
+  --transition:.12s ease;
 }
 .dark{
-  --bg:#0d1117;--surface:#161b27;--surface2:#1c2333;--border:#2a3a52;
-  --text:#f0f6fc;--sub:#bdc8d9;--muted:#7a90aa;
-  --navy:#2563a8;--blue:#58a6ff;--green:#3fb950;--amber:#e3b341;--red:#f78166;
-  --gold:#d29922;--purple:#a371f7;--teal:#39c5cf;
-  --shadow-sm:0 1px 3px rgba(0,0,0,.5),0 1px 2px rgba(0,0,0,.4);
-  --shadow-md:0 4px 12px rgba(0,0,0,.5),0 2px 4px rgba(0,0,0,.4);
-  --shadow-lg:0 12px 32px rgba(0,0,0,.6),0 4px 8px rgba(0,0,0,.5);
+  /* Terminal Bloomberg-like: casi negro, paneles planos, bordes finos */
+  --bg:#0a0e14;--surface:#0f141c;--surface2:#151b25;--border:#212a37;
+  --text:#e6edf3;--sub:#9aa7b8;--muted:#5d6b7d;
+  --navy:#4a9eff;--blue:#4a9eff;--green:#3fb950;--amber:#d9a441;--red:#f0616d;
+  --gold:#c9992e;--purple:#a274e0;--teal:#39b0c4;
+  --shadow-sm:none;--shadow-md:none;--shadow-lg:0 8px 30px rgba(0,0,0,.55);
 }
 body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:13px;background:var(--bg);color:var(--text);transition:background var(--transition),color var(--transition);-webkit-font-smoothing:antialiased;}
-.hdr{background:var(--surface);border-bottom:1.5px solid var(--border);padding:10px 20px;position:sticky;top:0;z-index:100;box-shadow:var(--shadow-sm);backdrop-filter:blur(8px);transition:background var(--transition),border-color var(--transition);}
+/* Cifras en monoespaciada tabular (aspecto de terminal) */
+.price-inp,.kval,.vval,.vms,.mkt-val,.mkt-chg,.cartera-price,.cartera-vi,.cartera-pot,.num,.mono,.verdict-price,.mt-val{font-variant-numeric:tabular-nums;font-feature-settings:'tnum' 1;font-family:var(--mono);}
+/* Icono de línea SVG en flujo de texto */
+.ic{display:inline-block;width:1em;height:1em;vertical-align:-0.14em;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;fill:none;flex-shrink:0;}
+.ic-lg{width:16px;height:16px;}
+.hdr{background:var(--surface);border-bottom:1px solid var(--border);padding:9px 18px;position:sticky;top:0;z-index:100;box-shadow:none;transition:background var(--transition),border-color var(--transition);}
 .hdr-top{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:8px;}
-.brand{font-weight:700;font-size:15px;color:var(--navy);display:flex;align-items:center;gap:7px;letter-spacing:-.3px;}
-.co-btns{display:flex;gap:5px;}
-.co-btn{padding:5px 15px;border-radius:20px;border:1.5px solid var(--border);background:var(--surface2);cursor:pointer;font-size:11.5px;font-weight:600;color:var(--sub);transition:all var(--transition);letter-spacing:-.1px;}
-.co-btn:hover{background:var(--border);color:var(--text);}
+.brand{font-weight:600;font-size:13px;color:var(--text);display:flex;align-items:center;gap:7px;letter-spacing:.02em;text-transform:uppercase;}
+.brand b{color:var(--amber);font-weight:700;}
+.co-btns{display:flex;gap:4px;}
+.co-btn{padding:5px 13px;border-radius:var(--radius-sm);border:1px solid var(--border);background:transparent;cursor:pointer;font-size:11px;font-weight:600;color:var(--sub);transition:all var(--transition);letter-spacing:.01em;display:inline-flex;align-items:center;gap:6px;}
+.co-btn:hover{background:var(--surface2);color:var(--text);border-color:var(--muted);}
 #co-dropdown .co-btns{flex-direction:column;gap:3px;}
 #co-dropdown .co-btn{width:100%;text-align:left;border-radius:8px;padding:7px 12px;}
-.co-btn.active{color:#fff;border-color:transparent;}
+.co-btn.active{background:var(--amber);color:#0a0e14;border-color:transparent;font-weight:700;}
+.co-btn.active:hover{background:var(--amber);color:#0a0e14;filter:brightness(1.08);}
 .coinfo{font-size:11px;color:var(--muted);}
 .coname{font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 #hdr-co-row{min-width:0;}
@@ -71,11 +76,12 @@ body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
 @keyframes pulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.5;transform:scale(1.3);}}
 .tabs{display:flex;gap:0;overflow-x:auto;border-top:1px solid var(--border);scrollbar-width:none;}
 .tabs::-webkit-scrollbar{display:none;}
-.tab{background:transparent;border:none;border-bottom:2.5px solid transparent;padding:7px 14px;cursor:pointer;font-size:11px;font-weight:600;color:var(--muted);white-space:nowrap;transition:all .15s;}
-.tab.active{color:var(--navy);border-bottom-color:var(--navy);}
-.cnt{padding:16px 20px;max-width:1280px;margin:0 auto;}
-.card{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius-lg);padding:16px;margin-bottom:12px;box-shadow:var(--shadow-sm);transition:background var(--transition),border-color var(--transition);}
-.ctitle{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:11px;}
+.tab{background:transparent;border:none;border-bottom:2px solid transparent;padding:8px 16px;cursor:pointer;font-size:10.5px;font-weight:600;color:var(--muted);white-space:nowrap;transition:all .12s;text-transform:uppercase;letter-spacing:.05em;display:inline-flex;align-items:center;gap:6px;}
+.tab:hover{color:var(--sub);}
+.tab.active{color:var(--text);border-bottom-color:var(--amber);}
+.cnt{padding:14px 18px;max-width:1320px;margin:0 auto;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);padding:14px 16px;margin-bottom:10px;box-shadow:none;transition:background var(--transition),border-color var(--transition);}
+.ctitle{font-size:9.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.09em;margin-bottom:11px;display:flex;align-items:center;gap:6px;}
 .kgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:12px;}
 .kpi{background:var(--surface2);border-radius:var(--radius-md);padding:0;overflow:hidden;cursor:pointer;transition:box-shadow var(--transition);}
 .kpi:hover{box-shadow:0 2px 10px rgba(0,0,0,.08);}
@@ -593,16 +599,16 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
   <div class="hdr-top" style="flex-direction:column;align-items:stretch;gap:8px;">
     <!-- Fila 1: navegación -->
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-      <div class="brand">📊 Value<span style="color:var(--blue);">Invest</span> JLH</div>
+      <div class="brand"><span id="brand-ic"></span>Value<b>Invest</b> JLH</div>
       <div style="display:flex;gap:4px;position:relative;">
-        <button id="nav-dash" onclick="setView('dash')" style="padding:5px 14px;border-radius:20px;border:1.5px solid var(--navy);background:var(--navy);cursor:pointer;font-size:11px;font-weight:700;color:#fff;">💼 Cartera</button>
-        <button id="nav-watch" onclick="setView('watch')" style="padding:5px 14px;border-radius:20px;border:1.5px solid var(--border);background:transparent;cursor:pointer;font-size:11px;font-weight:600;color:var(--sub);">👁️ Seguimiento</button>
-        <button id="nav-analysis" onclick="toggleAnalysisMenu(event)" style="padding:5px 14px;border-radius:20px;border:1.5px solid var(--border);background:transparent;cursor:pointer;font-size:11px;font-weight:600;color:var(--sub);">📈 Análisis ▾</button>
-        <div id="co-dropdown" style="display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:130;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,.16);padding:6px;min-width:210px;max-height:70vh;overflow:auto;">
+        <button id="nav-dash" class="co-btn active" onclick="setView('dash')"><span id="nic-dash"></span>Cartera</button>
+        <button id="nav-watch" class="co-btn" onclick="setView('watch')"><span id="nic-watch"></span>Seguimiento</button>
+        <button id="nav-analysis" class="co-btn" onclick="toggleAnalysisMenu(event)"><span id="nic-anly"></span>Análisis</button>
+        <div id="co-dropdown" style="display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:130;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);padding:6px;min-width:210px;max-height:70vh;overflow:auto;">
           <div style="font-size:8px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:2px 8px 6px;">Elige empresa</div>
           <div class="co-btns" id="co-btns"></div>
         </div>
-        <button id="dark-toggle" onclick="_toggleDark()">🌙 Noche</button>
+        <button id="dark-toggle" class="co-btn" onclick="_toggleDark()"></button>
       </div>
     </div>
     <!-- Fila 2: empresa (nombre · precio compañía · market cap) ........ precio live -->
@@ -1400,6 +1406,28 @@ const LOGOS={
   NVDA:{src:'https://logo.clearbit.com/nvidia.com',        fb:'https://www.google.com/s2/favicons?domain=nvidia.com&sz=64'},
   WDC: {src:'https://logo.clearbit.com/westerndigital.com', fb:'https://www.google.com/s2/favicons?domain=westerndigital.com&sz=64'},
 };
+// ── Iconos de línea SVG (estilo Lucide) — sustituyen a los emojis ──
+const _ICONS={
+  briefcase:'<rect x="2" y="7" width="20" height="14" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
+  eye:'<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>',
+  activity:'<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
+  layout:'<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>',
+  barchart:'<path d="M3 3v18h18"/><rect x="7" y="11" width="3" height="7"/><rect x="12" y="7" width="3" height="11"/><rect x="17" y="4" width="3" height="14"/>',
+  search:'<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>',
+  dollar:'<path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
+  book:'<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/>',
+  cpu:'<rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3"/>',
+  moon:'<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>',
+  sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>',
+  plus:'<path d="M12 5v14M5 12h14"/>',
+  folder:'<path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7l-2-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2Z"/>',
+  refresh:'<path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/>',
+  share:'<path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M16 6l-4-4-4 4M12 2v13"/>',
+  pin:'<path d="M12 17v5M9 10.8V4h6v6.8l2 3.2H7l2-3.2Z"/>',
+  alert:'<path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/>',
+  chevron:'<path d="m6 9 6 6 6-6"/>',
+};
+function svgIcon(name,cls){return `<svg class="ic${cls?' '+cls:''}" viewBox="0 0 24 24" aria-hidden="true">${_ICONS[name]||''}</svg>`;}
 function getLogoKey(c){return Object.keys(DB).find(k=>DB[k]===c)||'';}
 function setLogo(co){
   const el=document.getElementById('co-logo'),wrap=document.getElementById('co-logo-wrap');
@@ -4340,8 +4368,7 @@ function setView(v){
   const btnW=document.getElementById('nav-watch');
   const btnA=document.getElementById('nav-analysis');
   const hdrAnalysis=document.getElementById('hdr-analysis-zone');
-  const STYLE_ACTIVE='padding:5px 14px;border-radius:20px;border:1.5px solid var(--navy);background:var(--navy);cursor:pointer;font-size:11px;font-weight:700;color:#fff;';
-  const STYLE_IDLE='padding:5px 14px;border-radius:20px;border:1.5px solid var(--border);background:transparent;cursor:pointer;font-size:11px;font-weight:600;color:var(--sub);';
+  const _navIdle=b=>{if(b)b.classList.remove('active');}, _navOn=b=>{if(b)b.classList.add('active');};
 
   // hide all panels first
   dash.style.display='none';
@@ -4354,29 +4381,26 @@ function setView(v){
   ['co-info','co-name'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
   const coLogoWrap=document.getElementById('co-logo-wrap');if(coLogoWrap)coLogoWrap.style.display='none';
   const hdrPG=document.getElementById('hdr-price-group');if(hdrPG) hdrPG.style.display='none';
-  btnD.style.cssText=STYLE_IDLE;
-  if(btnC) btnC.style.cssText=STYLE_IDLE;
-  if(btnW) btnW.style.cssText=STYLE_IDLE;
-  btnA.style.cssText=STYLE_IDLE;
+  _navIdle(btnD);_navIdle(btnC);_navIdle(btnW);_navIdle(btnA);
   // Ticker de mercado (Bitcoin, S&P 500, Euríbor…): solo en Cartera/Seguimiento, no dentro del análisis
   const _mktBar=document.getElementById('dash-mkt-bar'); if(_mktBar) _mktBar.style.display=(v==='analysis')?'none':'';
 
   if(v==='watch'){
     if(watch) watch.style.display='block';
-    if(btnW) btnW.style.cssText=STYLE_ACTIVE;
+    _navOn(btnW);
     localStorage.setItem('vi_view','watch');
     renderWatchlist();
     if(getFinnhubKey()) setTimeout(()=>fetchWatchPrices(),250);
     document.getElementById('earnings-badge')?.classList.remove('visible');
   } else if(v==='cartera'){
     if(cartera) cartera.style.display='block';
-    if(btnC) btnC.style.cssText=STYLE_ACTIVE;
+    _navOn(btnC);
     localStorage.setItem('vi_view','cartera');
     renderCartera();
     if(getFinnhubKey()) setTimeout(()=>fetchCarteraPrices(),300);
   } else if(v==='dash'){
     dash.style.display='block';
-    btnD.style.cssText=STYLE_ACTIVE;
+    _navOn(btnD);
     localStorage.setItem('vi_view','dash');
     renderDashboard();
     renderCartera();                              // tabla rica de la cartera (fusionada)
@@ -4393,7 +4417,7 @@ function setView(v){
     ['co-info','co-name'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='';});
     if(coLogoWrap) coLogoWrap.style.display='flex';
     if(hdrPG) hdrPG.style.display='';
-    btnA.style.cssText=STYLE_ACTIVE;
+    _navOn(btnA);
     localStorage.setItem('vi_view','analysis');
     updateEarningsBadge();                          // resultados de la empresa actual
     if(!document.querySelector('.tab.active')) showTab('resumen');
@@ -5467,14 +5491,17 @@ function updateDashCoRow(key,price,pct,change){
 
 (function(){
   const TABS=[
-    {t:'resumen',l:'📋 Resumen'},
-    {t:'graficos',l:'📈 Gráficos'},
-    {t:'alertas',l:'🔍 Análisis'},
-    {t:'valoracion',l:'💰 Valoración'},
-    {t:'academia',l:'📚 Academia'},
-    {t:'tesis',l:'🤖 Tesis IA'},
+    {t:'resumen',l:'Resumen',ic:'layout'},
+    {t:'graficos',l:'Gráficos',ic:'barchart'},
+    {t:'alertas',l:'Análisis',ic:'search'},
+    {t:'valoracion',l:'Valoración',ic:'dollar'},
+    {t:'academia',l:'Academia',ic:'book'},
+    {t:'tesis',l:'Tesis IA',ic:'cpu'},
   ];
-  document.getElementById('tabs').innerHTML=TABS.map(t=>`<button class="tab" data-t="${t.t}" onclick="showTab('${t.t}')">${t.l}</button>`).join('');
+  document.getElementById('tabs').innerHTML=TABS.map(t=>`<button class="tab" data-t="${t.t}" onclick="showTab('${t.t}')">${svgIcon(t.ic)}${t.l}</button>`).join('');
+  // Iconos de línea en cabecera y navegación
+  const _setIc=(id,name)=>{const e=document.getElementById(id);if(e)e.innerHTML=svgIcon(name,'ic-lg');};
+  _setIc('brand-ic','activity'); _setIc('nic-dash','briefcase'); _setIc('nic-watch','eye'); _setIc('nic-anly','activity');
   BUILTIN_KEYS=new Set(Object.keys(DB));        // empresas de fábrica
   _BUILTIN_DB={...DB};                            // snapshot para restaurar ocultas
   hydrateImportedIntoDB();                        // recupera empresas añadidas por el usuario (localStorage) tras recargar
@@ -6569,19 +6596,16 @@ async function refreshAllImports(){
 (function(){
   const html=document.documentElement;
   const saved=localStorage.getItem('vi_dark');
-  if(saved==='1'||(saved===null&&window.matchMedia('(prefers-color-scheme: dark)').matches)){
-    html.classList.add('dark');
-  }
+  // Terminal profesional → OSCURO por defecto (salvo que el usuario haya elegido claro)
+  if(saved!=='0') html.classList.add('dark');
+  const _icon=n=>`<svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true">${n==='sun'?'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"/>':'<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>'}</svg>`;
+  const _paint=btn=>{if(btn)btn.innerHTML=_icon(html.classList.contains('dark')?'sun':'moon')+(html.classList.contains('dark')?'Claro':'Noche');};
   window._toggleDark=function(){
     const isDark=html.classList.toggle('dark');
     localStorage.setItem('vi_dark',isDark?'1':'0');
-    const btn=document.getElementById('dark-toggle');
-    if(btn) btn.innerHTML=isDark?'☀️ Claro':'🌙 Noche';
+    _paint(document.getElementById('dark-toggle'));
   };
-  document.addEventListener('DOMContentLoaded',function(){
-    const btn=document.getElementById('dark-toggle');
-    if(btn) btn.innerHTML=html.classList.contains('dark')?'☀️ Claro':'🌙 Noche';
-  });
+  document.addEventListener('DOMContentLoaded',function(){ _paint(document.getElementById('dark-toggle')); });
 })();
 </script>
 </body>
