@@ -708,14 +708,12 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
   <!-- ═══ CARTERA (tabla rica unificada en el Dashboard) ═══ -->
   <div style="display:flex;align-items:center;justify-content:space-between;margin:4px 0 12px;flex-wrap:wrap;gap:10px;">
     <div>
-      <div style="font-size:15px;font-weight:600;color:var(--text);letter-spacing:.01em;">Mi cartera <span onclick="showCarteraHelp()" title="¿Qué significa cada columna?" style="cursor:pointer;font-size:10px;color:#2563eb;border:1px solid #2563eb55;border-radius:10px;padding:2px 8px;font-weight:700;vertical-align:middle;">¿Qué significan los datos? ⓘ</span></div>
-      <div style="font-size:10px;color:var(--muted);">Precios en vivo · valor intrínseco y MdS recalculados al instante · importa o añade empresas</div>
-      <div id="cartera-import-status" style="font-size:10px;margin-top:4px;"></div>
+      <div style="font-size:15px;font-weight:600;color:var(--text);letter-spacing:.01em;">Mi cartera <span onclick="showCarteraHelp()" title="¿Qué significa cada columna?" style="cursor:pointer;font-size:10px;color:var(--blue);border:1px solid var(--border);border-radius:var(--radius-sm);padding:2px 8px;font-weight:600;vertical-align:middle;">¿Qué significan los datos?</span></div>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
       <button class="co-btn co-btn-primary" onclick="openImportModal('NUEVA')"><span id="aic-add"></span>Añadir empresa</button>
       <button class="co-btn" onclick="openImportModal(null)"><span id="aic-imp"></span>Importar Excel</button>
-      <button id="btn-refresh-imports" class="co-btn" onclick="refreshAllImports()" title="Re-descarga y reprocesa desde su hoja TODAS las empresas con enlace (incluidas las de fábrica) — iguala proyecciones y múltiplos a tu Excel"><span id="aic-sync"></span>Sincronizar con hojas</button>
+      <button id="btn-refresh-imports" class="co-btn" onclick="refreshAllImports()"><span id="aic-sync"></span>Sincronizar con hojas<span id="sync-check" style="display:inline-flex;align-items:center;margin-left:2px;"></span></button>
       <button id="btn-restore-hidden" class="co-btn" style="display:none;" onclick="restoreHidden()"><span id="aic-restore"></span>Restaurar ocultas</button>
       <button class="co-btn" onclick="openBackupModal()" title="Copia tus empresas y precios de compra a otro dispositivo (móvil). Tus datos se guardan solo en este navegador."><span id="aic-backup"></span>Copia / Pasar al móvil</button>
       <span id="dash-prices-ts" style="font-size:9px;color:var(--muted);">—</span>
@@ -1428,6 +1426,7 @@ const _ICONS={
   pin:'<path d="M12 17v5M9 10.8V4h6v6.8l2 3.2H7l2-3.2Z"/>',
   alert:'<path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/>',
   chevron:'<path d="m6 9 6 6 6-6"/>',
+  check:'<path d="M20 6 9 17l-5-5"/>',
 };
 function svgIcon(name,cls){return `<svg class="ic${cls?' '+cls:''}" viewBox="0 0 24 24" aria-hidden="true">${_ICONS[name]||''}</svg>`;}
 function getLogoKey(c){return Object.keys(DB).find(k=>DB[k]===c)||'';}
@@ -5895,17 +5894,19 @@ function renderCartera(){
   }).join('');
   _refreshRestoreBtn();
 
-  // Estado de importación: qué empresas usan tu hoja y cuáles faltan por importar
-  const st=document.getElementById('cartera-import-status');
-  if(st){
+  // Estado de importación resumido en el botón Sincronizar: check verde si todo OK, aviso si faltan
+  const chk=document.getElementById('sync-check');
+  const btn=document.getElementById('btn-refresh-imports');
+  if(chk){
     const imported=companies.filter(c=>getImportedData(c.key)).map(c=>c.key);
     const pending =companies.filter(c=>!getImportedData(c.key)).map(c=>c.key);
-    st.innerHTML=
-      `<span style="color:#16a34a;font-weight:700;">✓ Importadas (usan tus múltiplos): </span>`+
-      `<span style="color:var(--sub);">${imported.length?imported.join(', '):'ninguna'}</span>`+
-      ` &nbsp;·&nbsp; `+
-      `<span style="color:#d97706;font-weight:700;">⬇ Faltan por importar (usan mediana 5Y): </span>`+
-      `<span style="color:var(--sub);">${pending.length?pending.join(', '):'ninguna 🎉'}</span>`;
+    if(pending.length===0){
+      chk.innerHTML=svgIcon('check'); chk.style.color='var(--green)';
+      if(btn) btn.title='Todas las empresas usan tus múltiplos del Excel ('+imported.length+'). Pulsa para re-sincronizar desde las hojas.';
+    } else {
+      chk.innerHTML=svgIcon('alert'); chk.style.color='var(--amber)';
+      if(btn) btn.title='Faltan por importar ('+pending.length+'): '+pending.join(', ')+'. Usan mediana 5Y hasta que importes su hoja. Pulsa para sincronizar.';
+    }
   }
 }
 
