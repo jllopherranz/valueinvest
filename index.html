@@ -312,10 +312,19 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
 .ev-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
 @media(max-width:900px){.ev-grid{grid-template-columns:1fr;}}
 .dash-sec-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:8px;}
-#dash-news-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;align-items:start;}
+/* Columnas (no grid): al plegar/desplegar empresas las tarjetas se recolocan sin dejar huecos */
+#dash-news-list{columns:280px 4;column-gap:12px;}
+#dash-news-list>.news-co{break-inside:avoid;margin:0 0 12px;}
 @media(max-width:760px){.dash-cal-grid{grid-template-columns:1fr !important;}}
 .news-co{border:1px solid var(--border);border-radius:10px;padding:9px 12px;background:var(--surface);height:215px;display:flex;flex-direction:column;}
-.news-co-head{display:flex;align-items:center;gap:7px;margin-bottom:5px;flex-shrink:0;}
+/* Plegado: pulsar la cabecera de la empresa abre/cierra sus titulares */
+.news-co.collapsed{height:auto;}
+.news-co.collapsed .news-co-items{display:none;}
+.news-co.collapsed .news-co-head{margin-bottom:0;}
+.news-co-head{display:flex;align-items:center;gap:7px;margin-bottom:5px;flex-shrink:0;cursor:pointer;user-select:none;}
+.news-co-head:hover .news-co-name{color:var(--blue);}
+.news-co-caret{font-size:9px;color:var(--muted);width:9px;flex-shrink:0;line-height:1;}
+.news-fresh{font-size:7.5px;font-weight:700;color:#fff;background:var(--red);border-radius:5px;padding:1px 4px;margin-left:5px;letter-spacing:.03em;vertical-align:middle;}
 .news-co-logo{width:20px;height:20px;border-radius:5px;object-fit:contain;background:var(--surface);border:1.5px solid var(--border);padding:1px;flex-shrink:0;}
 .news-co-name{font-size:11px;font-weight:600;color:var(--text);}
 .news-co-tk{font-size:8px;font-weight:700;color:var(--muted);}
@@ -423,6 +432,24 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
 .cartera-tbl td{padding:11px 12px;border-bottom:1px solid var(--border);vertical-align:middle;}
 .cartera-tbl tr:hover td{background:var(--surface2);}
 .cartera-tbl tr:last-child td{border-bottom:none;}
+/* Tabla congelada: la fila de conceptos (arriba) y la columna Empresa (izquierda) no se mueven
+   al desplazar la tabla — imprescindible en el móvil, donde no cabe todo el ancho. */
+.cartera-scroll{overflow:auto;max-height:78vh;-webkit-overflow-scrolling:touch;}
+.cartera-tbl th{position:sticky;top:0;z-index:3;}
+.cartera-tbl tr:not(.cart-grp) td:first-child{position:sticky;left:0;z-index:2;background:var(--surface);box-shadow:1px 0 0 var(--border);}
+.cartera-tbl th:first-child{left:0;z-index:4;box-shadow:1px 0 0 var(--border);}
+.cartera-tbl tr:not(.cart-grp):hover td:first-child{background:var(--surface2);}
+/* Cabeceras de grupo (Invertidas / En seguimiento) */
+.cart-grp td{padding:0!important;background:var(--surface2);border-bottom:1px solid var(--border);}
+.cart-grp-inner{display:flex;align-items:center;gap:8px;padding:8px 12px 8px 0;cursor:pointer;user-select:none;}
+/* El título del grupo queda fijo a la izquierda igual que la columna Empresa
+   (fondo opaco: al desplazar, el texto de la derecha pasa por debajo) */
+.cart-grp-lead{position:sticky;left:0;display:flex;align-items:center;gap:8px;flex-shrink:0;padding:0 10px 0 12px;background:var(--surface2);}
+.cart-grp-inner:hover .cart-grp-title{color:var(--blue);}
+.cart-grp-caret{font-size:10px;color:var(--muted);width:9px;line-height:1;}
+.cart-grp-title{font-size:11px;font-weight:700;color:var(--text);letter-spacing:.01em;}
+.cart-grp-count{font-size:9px;font-weight:700;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:1px 7px;}
+.cart-grp-sub{font-size:9.5px;color:var(--muted);font-weight:600;}
 .cartera-co-name{font-size:12px;font-weight:700;color:var(--text);}
 .cartera-ticker{font-size:10px;color:var(--muted);font-weight:600;margin-top:1px;}
 .cartera-sector{font-size:10px;color:var(--sub);}
@@ -720,7 +747,7 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
     </div>
   </div>
 
-  <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.03);overflow-x:auto;margin-bottom:12px;">
+  <div class="cartera-scroll" style="background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 1px 4px rgba(0,0,0,.03);margin-bottom:12px;">
     <table class="cartera-tbl" id="cartera-table">
       <thead>
         <tr>
@@ -785,7 +812,7 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
     Las empresas con &lt;6 años de histórico se marcan <span class="joven-badge">JOVEN</span> (rúbrica clásica no aplica).
   </div>
 
-  <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.03);overflow-x:auto;margin-bottom:12px;">
+  <div class="cartera-scroll" style="background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 1px 4px rgba(0,0,0,.03);margin-bottom:12px;">
     <table class="cartera-tbl" id="watch-table">
       <thead>
         <tr>
@@ -1437,17 +1464,18 @@ function setLogo(co){
   if(!lg){_logoInitials(co,el,wrap);return;}
   el.onerror=function(){el.onerror=function(){_logoInitials(co,el,wrap);};el.src=lg.fb;};
   el.src=lg.src;el.style.display='block';
-  if(wrap) wrap.style.display='flex';
+  if(wrap) wrap.style.display=(_curView==='analysis')?'flex':'none';
 }
 function _logoInitials(co,el,wrap){
   const initials=co.ticker.replace('.TO','').replace('.AS','').substring(0,2);
   const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="${co.color||'#1e3a5f'}"/><text x="16" y="21" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="12" font-weight="800" fill="white">${initials}</text></svg>`;
   const url=URL.createObjectURL(new Blob([svg],{type:'image/svg+xml'}));
   el.onerror=null;el.src=url;el.style.display='block';
-  if(wrap) wrap.style.display='flex';
+  if(wrap) wrap.style.display=(_curView==='analysis')?'flex':'none';
 }
 
 // ── STATE ──
+let _curView='dash';        // vista activa: 'dash' | 'watch' | 'analysis' (la fija setView)
 let co=DB.MSFT,price=368,gr=12,dr=10,tg=3,tEVF=30,tPER=35,tEVE=22,tEVEI=25,ret=15,hor=5;
 let simPrice=null,simMode=false;
 let BUILTIN_KEYS=new Set(); // claves de empresas de fábrica; el resto son añadidas por el usuario
@@ -4355,6 +4383,7 @@ function startDashRefresh(){
 // ── Navegación entre vistas ──
 function setView(v){
   if(v==='cartera') v='dash'; // Cartera fusionada en el Dashboard
+  _curView=(v==='dash'||v==='watch')?v:'analysis';
   if(v!=='analysis'){const _dd=document.getElementById('co-dropdown');if(_dd)_dd.style.display='none';}
   const dash=document.getElementById('view-dash');
   const cartera=document.getElementById('view-cartera');
@@ -4377,7 +4406,9 @@ function setView(v){
   if(tabs) tabs.style.display='none';
   if(coBtns) coBtns.style.display='none';
   if(hdrAnalysis) hdrAnalysis.style.display='none';
-  ['co-info','co-name'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
+  // 'co-quickinfo' = « · $483 · Cap 3,5 B » — solo tiene sentido dentro del análisis de UNA empresa,
+  // en Cartera/Seguimiento confunde (no corresponde a lo que se está viendo) → oculto.
+  ['co-info','co-name','co-quickinfo'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
   const coLogoWrap=document.getElementById('co-logo-wrap');if(coLogoWrap)coLogoWrap.style.display='none';
   const hdrPG=document.getElementById('hdr-price-group');if(hdrPG) hdrPG.style.display='none';
   _navIdle(btnD);_navIdle(btnC);_navIdle(btnW);_navIdle(btnA);
@@ -4413,7 +4444,7 @@ function setView(v){
     if(tabs) tabs.style.display='flex';
     if(coBtns) coBtns.style.display='';
     if(hdrAnalysis) hdrAnalysis.style.display='';
-    ['co-info','co-name'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='';});
+    ['co-info','co-name','co-quickinfo'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='';});
     if(coLogoWrap) coLogoWrap.style.display='flex';
     if(hdrPG) hdrPG.style.display='';
     _navOn(btnA);
@@ -4776,10 +4807,10 @@ function renderWatchlist(){
       <td style="text-align:center;"><span style="font-size:10px;font-weight:600;color:${vcolor};background:${vcolor}14;border:1px solid ${vcolor}44;padding:2px 8px;border-radius:8px;white-space:nowrap;">${verdict}</span></td>
       <td style="text-align:center;">
         <div style="display:flex;gap:4px;justify-content:center;">
-          ${inDB?`<button class="cartera-action-btn" title="Ver análisis completo" onclick="setView('analysis');setTimeout(()=>switchCo('${e.id}'),60);"></button>`
+          ${inDB?`<button class="cartera-action-btn" title="Ver análisis completo" onclick="setView('analysis');setTimeout(()=>switchCo('${e.id}'),60);">📈</button>`
                 :`<button class="cartera-action-btn" style="background:#f0fdf4;border-color:#bbf7d0;" title="Promover a análisis profundo (trae cuentas anuales de Finnhub/SEC)" onclick="promoteToAnalysis('${e.id}')">⤴</button>`}
           <button class="cartera-action-btn" title="Detalle del pre-análisis" onclick="showPreAnalysis('${e.id}')">🔎</button>
-          ${inDB?'':`<button class="cartera-action-btn" title="Volver a traer datos de Finnhub" onclick="refreshWatchCompany('${e.id}')"></button>`}
+          ${inDB?'':`<button class="cartera-action-btn" title="Volver a traer datos de Finnhub" onclick="refreshWatchCompany('${e.id}')">↻</button>`}
           <button class="cartera-action-btn red" title="Quitar de seguimiento" onclick="removeWatchCompany('${e.id}')">🗑</button>
         </div>
       </td>
@@ -5194,6 +5225,10 @@ function scoreNews(n,own,others){
   const rel=(n.related||'').split(',').filter(Boolean).length;
   if(rel>=4) score-=12;                                    // etiquetada con muchos tickers → lista
   NEWS_EVENTS.forEach(ev=>{ if(ev.re.test(head)) score+=ev.w; else if(ev.re.test(sum)) score+=ev.w*0.5; });
+  // Bonus de frescura: buscamos lo DESTACADO de las últimas semanas, pero algo importante
+  // de hoy o de ayer no puede quedarse fuera por competir con noticias ya asentadas.
+  const hrs=n.datetime?(Date.now()-n.datetime*1000)/3600000:1e9;
+  if(hrs<=24) score+=10; else if(hrs<=48) score+=5;
   return score;
 }
 
@@ -5276,13 +5311,22 @@ async function fetchDashNews(){
   // 3) Agrupar por empresa · ordenar por RELEVANCIA y luego fecha · máx. 6
   const byKey={};
   kept.forEach(c=>{ (byKey[c.co.key]=byKey[c.co.key]||{co:c.co,items:[]}).items.push(c); });
+  const FRESH_H=36;                                        // "reciente" = últimas 36 horas
+  const _hrs=c=>c.n.datetime?(Date.now()-c.n.datetime*1000)/3600000:1e9;
   let groups=Object.values(byKey).map(g=>{
     g.items.sort((a,b)=>b.score-a.score||(b.n.datetime||0)-(a.n.datetime||0));
-    g.items=g.items.slice(0,6);
+    const top=g.items.slice(0,6);
+    // Garantiza que la mejor noticia RECIENTE aparezca aunque no entre por puntuación:
+    // así no se pierde nada importante de última hora dentro de la ventana de 3 semanas.
+    const fresh=g.items.filter(c=>_hrs(c)<=FRESH_H);
+    if(fresh.length&&!top.includes(fresh[0])){ if(top.length>=6) top.pop(); top.unshift(fresh[0]); }
+    top.forEach(c=>{c.fresh=_hrs(c)<=FRESH_H;});
+    g.fresh=top.filter(c=>c.fresh).length;
+    g.items=top;
     return g;
   });
-  // empresas con la noticia más relevante arriba
-  groups.sort((a,b)=>b.items[0].score-a.items[0].score);
+  // Empresas ordenadas ALFABÉTICAMENTE (siempre en el mismo sitio, fácil de encontrar)
+  groups.sort((a,b)=>(a.co.name||a.co.key).localeCompare(b.co.name||b.co.key,'es'));
   if(!groups.length){
     newsEl.innerHTML='<div style="grid-column:1/-1;font-size:11px;color:var(--muted);text-align:center;padding:14px;">No hay noticias relevantes ahora (revisa tu API key Finnhub) - pulsa Actualizar.</div>';
     return;
@@ -5294,18 +5338,41 @@ async function fetchDashNews(){
   const DOTTIP={pos:'Impacto esperado: positivo para la empresa',neu:'Impacto esperado: neutro / incierto',neg:'Impacto esperado: negativo para la empresa'};
   newsEl.innerHTML=groups.map(g=>{
     const logo=logoUrlFor(g.co.key);
-    return '<div class="news-co"><div class="news-co-head">'
+    const open=newsCoAbierta(g.co.key);
+    return '<div class="news-co'+(open?'':' collapsed')+'" id="newsco-'+g.co.key+'">'
+      +'<div class="news-co-head" onclick="toggleNewsCo(\''+g.co.key+'\')" title="Pulsa para ver u ocultar sus titulares">'
+      +'<span class="news-co-caret">'+(open?'▾':'▸')+'</span>'
       +(logo?'<img src="'+logo+'" class="news-co-logo" loading="lazy" onerror="this.style.display=\'none\'"/>':'')
-      +'<span class="news-co-name">'+g.co.name+'</span><span class="news-co-tk">'+g.co.ticker+'</span>'
-      +(g.items.length>3?'<span class="news-co-count">'+g.items.length+'</span>':'')
+      +'<span class="news-co-name">'+g.co.name+'</span>'
+      +(g.fresh?'<span class="news-fresh" title="'+g.fresh+' titular(es) de las últimas 36 h">NUEVO</span>':'')
+      +'<span class="news-co-tk">'+g.co.ticker+'</span>'
+      +'<span class="news-co-count">'+g.items.length+'</span>'
       +'</div>'
       +'<div class="news-co-items">'
       +g.items.map(c=>{const n=c.n;return '<a href="'+(n.url||'#')+'" target="_blank" rel="noopener" class="news-co-item">'
         +'<span class="news-co-title"><span class="news-dot '+DOT[c.impact]+'" title="'+DOTTIP[c.impact]+'"></span>'+(tr[n.headline]||n.headline)+'</span>'
-        +'<span class="news-co-meta">'+_newsAge(new Date((n.datetime||0)*1000))+' · '+(n.source||'')+'</span></a>';}).join('')
+        +'<span class="news-co-meta">'+(c.fresh?'<b style="color:var(--red);">● </b>':'')+_newsAge(new Date((n.datetime||0)*1000))+' · '+(n.source||'')+'</span></a>';}).join('')
       +'</div>'
       +'</div>';
   }).join('');
+}
+
+// ── Plegado de noticias por empresa (recuerda tu elección) ──
+// Por defecto TODAS plegadas: ves la lista de empresas y abres solo las que te interesan.
+function newsCoAbierta(key){
+  try{return (JSON.parse(localStorage.getItem('vi_news_open')||'[]')).includes(key);}catch(e){return false;}
+}
+function toggleNewsCo(key){
+  let open=[]; try{open=JSON.parse(localStorage.getItem('vi_news_open')||'[]');}catch(e){}
+  const i=open.indexOf(key);
+  if(i>=0) open.splice(i,1); else open.push(key);
+  try{localStorage.setItem('vi_news_open',JSON.stringify(open));}catch(e){}
+  const el=document.getElementById('newsco-'+key);
+  if(el){
+    const now=i<0;
+    el.classList.toggle('collapsed',!now);
+    const c=el.querySelector('.news-co-caret'); if(c) c.textContent=now?'▾':'▸';
+  }
 }
 
 function _newsAge(date){
@@ -5812,6 +5879,17 @@ function toggleGvCompare(){
 }
 
 // ── Render portfolio table (compacta y visual) ──
+// ── Plegado de las dos listas de la cartera (invertidas / en seguimiento) ──
+function carteraGrupoAbierto(gid){
+  try{return localStorage.getItem('vi_cart_grp_'+gid)!=='0';}catch(e){return true;}
+}
+function toggleCarteraGrupo(gid){
+  const open=!carteraGrupoAbierto(gid);
+  try{localStorage.setItem('vi_cart_grp_'+gid,open?'1':'0');}catch(e){}
+  document.querySelectorAll('.cart-r-'+gid).forEach(tr=>{tr.style.display=open?'':'none';});
+  const c=document.getElementById('cgc-'+gid); if(c) c.textContent=open?'▾':'▸';
+}
+
 function renderCartera(){
   if(!_carteraMultiplesReady){
     const s=DB.MSFT||DB[Object.keys(DB)[0]];
@@ -5830,7 +5908,7 @@ function renderCartera(){
   // Ordenar por POTENCIAL a 5 años = rendimiento anualizado (cagr5), de mayor a menor
   const ranked=companies.map(co=>({co,m:carteraMetrics(co)}))
     .sort((a,b)=>((b.m.cagr5==null?-1e9:b.m.cagr5)-(a.m.cagr5==null?-1e9:a.m.cagr5)));
-  tbody.innerHTML=ranked.map(({co,m})=>{
+  const rowFor=({co,m},gid,open)=>{
     const k=co.key;
     const logoUrl=logoUrlFor(k);
     const inZone=(m.price!=null&&m.price15!=null&&m.price<=m.price15*1.03);
@@ -5847,7 +5925,7 @@ function renderCartera(){
       }
       return `<span style="font-size:10px;color:#2563eb;font-weight:700;border:1px dashed #2563eb66;border-radius:8px;padding:2px 7px;white-space:nowrap;">+ coste</span>`;
     })();
-    return`<tr id="crow-${k}">
+    return`<tr id="crow-${k}" class="cart-r cart-r-${gid}"${open?'':' style="display:none;"'}>
   <td style="padding:7px 10px;cursor:pointer;" onclick="setView('analysis');setTimeout(()=>{if(DB['${k}'])switchCo('${k}');},80);" title="Abrir análisis de ${co.name}">
     <div style="display:flex;align-items:center;gap:9px;">
       ${logoUrl?`<img src="${logoUrl}" class="cartera-logo" loading="lazy" onerror="this.onerror=null;if(!this.dataset.fb){this.dataset.fb=1;this.src='${logoFallback(k)}';}else{this.style.display='none';this.nextElementSibling.style.display='flex';}"/>`:''}
@@ -5882,14 +5960,53 @@ function renderCartera(){
   <td style="text-align:center;" onclick="event.stopPropagation();">
     <div style="display:flex;gap:3px;justify-content:center;align-items:center;">
       ${driveUrl
-        ? `<a href="${driveUrl}" target="_blank" rel="noopener" class="cartera-action-btn" title="Abrir hoja de cálculo en Drive para comparar" style="text-decoration:none;"></a>`
+        ? `<a href="${driveUrl}" target="_blank" rel="noopener" class="cartera-action-btn" title="Abrir tu hoja de cálculo en Drive para comparar" style="text-decoration:none;display:inline-block;">📊</a>`
         : `<button class="cartera-action-btn" title="Añadir enlace de Google Sheets" onclick="promptDriveUrl('${k}')">＋📊</button>`}
       <button class="cartera-action-btn" style="${m.imp?'background:#f0fdf4;border-color:#bbf7d0;':''}" title="${m.imp?('Importada el '+new Date(m.imp.importDate).toLocaleDateString('es-ES')+' · pulsa para reimportar/editar'):'Pendiente de importar · pulsa para importar tu hoja'}" onclick="openImportModal('${k}')">${m.imp?'📂✓':'📂'}</button>
       <button class="cartera-action-btn red" title="${BUILTIN_KEYS.has(k)?'Ocultar empresa (restaurable)':'Eliminar empresa'}" onclick="deleteCompanyFull('${k}')">🗑</button>
     </div>
   </td>
 </tr>`;
-  }).join('');
+  };
+
+  // ── Dos listas: lo que TENGO en cartera vs lo que sigo (sin posición abierta) ──
+  // Se pliegan pulsando su cabecera; el estado se recuerda en localStorage.
+  const invested=ranked.filter(r=>{const p=getPositionFor(r.co.key);return !!(p&&p.buyPrice>0);});
+  const watched =ranked.filter(r=>{const p=getPositionFor(r.co.key);return !(p&&p.buyPrice>0);});
+  const grpHtml=(gid,title,sub,rows)=>{
+    if(!rows.length) return '';
+    const open=carteraGrupoAbierto(gid);
+    return `<tr class="cart-grp"><td colspan="9"><div class="cart-grp-inner" onclick="toggleCarteraGrupo('${gid}')" title="Pulsa para plegar o desplegar esta lista">`
+      +`<span class="cart-grp-lead">`
+      +`<span class="cart-grp-caret" id="cgc-${gid}">${open?'▾':'▸'}</span>`
+      +`<span class="cart-grp-title">${title}</span>`
+      +`<span class="cart-grp-count">${rows.length}</span>`
+      +`</span>`
+      +(sub?`<span class="cart-grp-sub">${sub}</span>`:'')
+      +`</div></td></tr>`
+      +rows.map(r=>rowFor(r,gid,open)).join('');
+  };
+  // Rentabilidad media de lo invertido (ponderada por acciones si las has guardado)
+  let invSub='';
+  if(invested.length){
+    let w=0,acc=0,simple=[];
+    invested.forEach(({co,m})=>{
+      const p=getPositionFor(co.key);
+      if(!p||!(p.buyPrice>0)||m.price==null) return;
+      const ret=(m.price-p.buyPrice)/p.buyPrice*100;
+      simple.push(ret);
+      const peso=(p.shares>0?p.shares*p.buyPrice:1);
+      w+=peso; acc+=ret*peso;
+    });
+    if(simple.length){
+      const r=w>0?acc/w:simple.reduce((a,b)=>a+b,0)/simple.length;
+      invSub=`· rentab. media <b style="color:${r>=0?'#16a34a':'#dc2626'};">${(r>=0?'+':'')+r.toFixed(1)}%</b>`;
+    }
+  }
+  tbody.innerHTML=
+     grpHtml('inv','💼 Empresas invertidas','Con precio de compra guardado '+invSub,invested)
+    +grpHtml('seg','👀 Empresas en seguimiento','Analizadas, aún sin posición · pon tu coste para pasarlas a invertidas',watched)
+    ||'<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--muted);font-size:12px;">Aún no hay empresas. Pulsa «Añadir empresa».</td></tr>';
   _refreshRestoreBtn();
 
   // Estado de importación resumido en el botón Sincronizar: check verde si todo OK, aviso si faltan
