@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>ValueInvest JLH — Análisis por empresa</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
-<script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+<!-- tv.js retirado: el gráfico de cotización usa el widget embebido por <iframe>, esta librería no se usaba -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -312,10 +312,19 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
 .ev-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
 @media(max-width:900px){.ev-grid{grid-template-columns:1fr;}}
 .dash-sec-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:8px;}
-#dash-news-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;align-items:start;}
+/* Columnas (no grid): al plegar/desplegar empresas las tarjetas se recolocan sin dejar huecos */
+#dash-news-list{columns:280px 4;column-gap:12px;}
+#dash-news-list>.news-co{break-inside:avoid;margin:0 0 12px;}
 @media(max-width:760px){.dash-cal-grid{grid-template-columns:1fr !important;}}
 .news-co{border:1px solid var(--border);border-radius:10px;padding:9px 12px;background:var(--surface);height:215px;display:flex;flex-direction:column;}
-.news-co-head{display:flex;align-items:center;gap:7px;margin-bottom:5px;flex-shrink:0;}
+/* Plegado: pulsar la cabecera de la empresa abre/cierra sus titulares */
+.news-co.collapsed{height:auto;}
+.news-co.collapsed .news-co-items{display:none;}
+.news-co.collapsed .news-co-head{margin-bottom:0;}
+.news-co-head{display:flex;align-items:center;gap:7px;margin-bottom:5px;flex-shrink:0;cursor:pointer;user-select:none;}
+.news-co-head:hover .news-co-name{color:var(--blue);}
+.news-co-caret{font-size:9px;color:var(--muted);width:9px;flex-shrink:0;line-height:1;}
+.news-fresh{font-size:7.5px;font-weight:700;color:#fff;background:var(--red);border-radius:5px;padding:1px 4px;margin-left:5px;letter-spacing:.03em;vertical-align:middle;}
 .news-co-logo{width:20px;height:20px;border-radius:5px;object-fit:contain;background:var(--surface);border:1.5px solid var(--border);padding:1px;flex-shrink:0;}
 .news-co-name{font-size:11px;font-weight:600;color:var(--text);}
 .news-co-tk{font-size:8px;font-weight:700;color:var(--muted);}
@@ -423,6 +432,71 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
 .cartera-tbl td{padding:11px 12px;border-bottom:1px solid var(--border);vertical-align:middle;}
 .cartera-tbl tr:hover td{background:var(--surface2);}
 .cartera-tbl tr:last-child td{border-bottom:none;}
+/* Tabla congelada: la fila de conceptos (arriba) y la columna Empresa (izquierda) no se mueven
+   al desplazar la tabla — imprescindible en el móvil, donde no cabe todo el ancho. */
+.cartera-scroll{overflow:auto;max-height:78vh;-webkit-overflow-scrolling:touch;}
+.cartera-tbl th{position:sticky;top:0;z-index:3;}
+.cartera-tbl tr:not(.cart-grp) td:first-child{position:sticky;left:0;z-index:2;background:var(--surface);box-shadow:1px 0 0 var(--border);}
+.cartera-tbl th:first-child{left:0;z-index:4;box-shadow:1px 0 0 var(--border);}
+.cartera-tbl tr:not(.cart-grp):hover td:first-child{background:var(--surface2);}
+/* Cabeceras de grupo (Invertidas / En seguimiento) */
+.cart-grp td{padding:0!important;background:var(--surface2);border-bottom:1px solid var(--border);}
+.cart-grp-inner{display:flex;align-items:center;gap:8px;padding:8px 12px 8px 0;cursor:pointer;user-select:none;}
+/* El título del grupo queda fijo a la izquierda igual que la columna Empresa
+   (fondo opaco: al desplazar, el texto de la derecha pasa por debajo) */
+.cart-grp-lead{position:sticky;left:0;display:flex;align-items:center;gap:8px;flex-shrink:0;padding:0 10px 0 12px;background:var(--surface2);}
+.cart-grp-inner:hover .cart-grp-title{color:var(--blue);}
+.cart-grp-caret{font-size:10px;color:var(--muted);width:9px;line-height:1;}
+.cart-grp-title{font-size:11px;font-weight:700;color:var(--text);letter-spacing:.01em;}
+.cart-grp-count{font-size:9px;font-weight:700;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:1px 7px;}
+.cart-grp-sub{font-size:9.5px;color:var(--muted);font-weight:600;}
+/* Cabeceras ordenables + icono de ayuda de columna */
+.cartera-tbl th[data-sort]{cursor:pointer;}
+.cartera-tbl th[data-sort]:hover{color:var(--blue);}
+.cartera-tbl th.sorted{color:var(--blue);}
+.cartera-tbl th .sort-ind{font-size:8px;}
+.col-i{font-style:normal;cursor:help;opacity:.6;}
+.col-i:hover{opacity:1;color:var(--blue);}
+/* Columnas de calidad: ocultas salvo que se pida «Calidad del negocio» */
+.col-cal{display:none;}
+#cartera-table.show-cal .col-cal{display:table-cell;}
+/* Procedencia del dato de cada empresa */
+.cart-src{font-size:7.5px;font-weight:700;padding:1px 5px;border-radius:5px;margin-left:4px;white-space:nowrap;}
+.cart-src.ok{background:color-mix(in srgb,var(--green) 12%,transparent);color:var(--green);}
+.cart-src.est{background:color-mix(in srgb,var(--amber) 16%,transparent);color:var(--amber);}
+.cart-src.app{background:var(--surface2);color:var(--muted);}
+/* Chips de filtro */
+.cart-chip{font-size:10px;font-weight:700;padding:4px 11px;border-radius:9px;border:1px solid var(--border);background:var(--surface);color:var(--sub);cursor:pointer;}
+.cart-chip:hover{border-color:var(--blue);color:var(--blue);}
+.cart-chip.on{background:var(--navy);border-color:var(--navy);color:#fff;}
+.dark .cart-chip.on{background:var(--blue);border-color:var(--blue);color:#04101f;}
+/* ═══ RESUMEN DE CARTERA ═══ */
+.pf-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:9px;}
+.pf-cur{font-size:10px;font-weight:700;padding:3px 7px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;}
+.pf-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:9px;}
+.pf-tile{background:var(--surface2);border:1px solid var(--border);border-radius:11px;padding:9px 12px;}
+.pf-lbl{font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);}
+.pf-val{font-size:19px;font-weight:700;line-height:1.25;margin-top:2px;}
+.pf-sub{font-size:9.5px;color:var(--muted);font-weight:600;}
+.pf-conc{margin-top:11px;padding-top:10px;border-top:1px solid var(--border);}
+.pf-conc-t{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:5px;}
+.pf-bar{display:flex;height:9px;border-radius:5px;overflow:hidden;background:var(--surface2);}
+.pf-bar>div{height:100%;}
+.pf-leg{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:6px;font-size:9.5px;color:var(--sub);font-weight:600;}
+.pf-leg i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:4px;}
+.pf-warn{margin-top:9px;font-size:10px;font-weight:600;color:var(--amber);background:color-mix(in srgb,var(--amber) 10%,transparent);border:1px solid color-mix(in srgb,var(--amber) 35%,transparent);border-radius:9px;padding:6px 10px;}
+/* ═══ QUÉ MIRAR HOY ═══ */
+.today-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;margin-bottom:12px;}
+.today-col{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:9px 12px;}
+.today-t{font-size:10.5px;font-weight:700;color:var(--text);border-left:3px solid var(--border);padding-left:8px;margin-bottom:6px;}
+.today-t span{display:block;font-size:9px;font-weight:600;color:var(--muted);}
+.today-item{display:flex;align-items:center;gap:7px;padding:4px 0;border-top:.5px solid var(--border);cursor:pointer;text-decoration:none;}
+.today-item:first-of-type{border-top:none;}
+.today-item:hover .today-n{color:var(--blue);}
+.today-k{font-size:9.5px;font-weight:700;min-width:44px;}
+.today-n{font-size:10.5px;color:var(--sub);font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.today-v{font-size:11px;font-weight:700;}
+.today-empty{font-size:10px;color:var(--muted);padding:5px 0;}
 .cartera-co-name{font-size:12px;font-weight:700;color:var(--text);}
 .cartera-ticker{font-size:10px;color:var(--muted);font-weight:600;margin-top:1px;}
 .cartera-sector{font-size:10px;color:var(--sub);}
@@ -720,23 +794,37 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
     </div>
   </div>
 
-  <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.03);overflow-x:auto;margin-bottom:12px;">
+  <!-- ── Resumen de cartera: valor, ganancia, vs índice, concentración ── -->
+  <div class="card" id="cartera-summary" style="margin-bottom:12px;"></div>
+
+  <!-- ── Qué mirar hoy ── -->
+  <div id="cartera-today" class="today-grid"></div>
+
+  <!-- ── Filtros rápidos de la tabla ── -->
+  <div id="cartera-filters" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px;"></div>
+
+  <div class="cartera-scroll" style="background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 1px 4px rgba(0,0,0,.03);margin-bottom:12px;">
     <table class="cartera-tbl" id="cartera-table">
       <thead>
         <tr>
-          <th style="text-align:left;">Empresa</th>
-          <th style="text-align:right;cursor:help;" onclick="showColInfo('cartera','precio',event)" title="¿Qué es? Pulsa para ver">Precio ⓘ<br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">live · hoy</span></th>
-          <th style="text-align:right;cursor:help;" onclick="showColInfo('cartera','coste',event)" title="¿Qué es? Pulsa para ver">Mi coste ⓘ<br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">medio · rdto.</span></th>
-          <th style="text-align:right;cursor:help;" onclick="showColInfo('cartera','sem',event)" title="¿Qué es? Pulsa para ver">Sem. ⓘ</th>
-          <th style="text-align:right;background:color-mix(in srgb, var(--amber) 10%, var(--surface));cursor:help;" onclick="showColInfo('cartera','obj',event)" title="¿Qué es? Pulsa para ver">Obj. precio ⓘ<br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">prom. 4 múlt. · MdS</span></th>
-          <th style="text-align:right;cursor:help;" onclick="showColInfo('cartera','entrada',event)" title="¿Qué es? Pulsa para ver">Entrada ⓘ<br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">15% anual</span></th>
-          <th style="text-align:right;cursor:help;" onclick="showColInfo('cartera','obj5',event)" title="¿Qué es? Pulsa para ver">Obj. 5Y ⓘ<br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">promedio · ret. anual</span></th>
-          <th style="text-align:center;cursor:help;" onclick="showColInfo('cartera','peg',event)" title="¿Qué es? Pulsa para ver">PEG ⓘ</th>
+          <th style="text-align:left;" data-sort="name" onclick="sortCartera('name')">Empresa <span class="sort-ind"></span></th>
+          <th style="text-align:right;" data-sort="price" onclick="sortCartera('price')">Precio <i class="col-i" onclick="event.stopPropagation();showColInfo('cartera','precio',event)" title="¿Qué es? Pulsa para ver">ⓘ</i> <span class="sort-ind"></span><br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">live · hoy</span></th>
+          <th style="text-align:right;" data-sort="retPct" onclick="sortCartera('retPct')">Mi coste <i class="col-i" onclick="event.stopPropagation();showColInfo('cartera','coste',event)" title="¿Qué es? Pulsa para ver">ⓘ</i> <span class="sort-ind"></span><br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">medio · rdto. · peso</span></th>
+          <th style="text-align:right;" data-sort="weeklyPct" onclick="sortCartera('weeklyPct')">Sem. <i class="col-i" onclick="event.stopPropagation();showColInfo('cartera','sem',event)" title="¿Qué es? Pulsa para ver">ⓘ</i> <span class="sort-ind"></span></th>
+          <th style="text-align:right;background:color-mix(in srgb, var(--amber) 10%, var(--surface));" data-sort="mds" onclick="sortCartera('mds')">Obj. precio <i class="col-i" onclick="event.stopPropagation();showColInfo('cartera','obj',event)" title="¿Qué es? Pulsa para ver">ⓘ</i> <span class="sort-ind"></span><br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">prom. 4 múlt. · MdS · prudente</span></th>
+          <th style="text-align:right;" data-sort="mds15" onclick="sortCartera('mds15')">Entrada <i class="col-i" onclick="event.stopPropagation();showColInfo('cartera','entrada',event)" title="¿Qué es? Pulsa para ver">ⓘ</i> <span class="sort-ind"></span><br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">15% anual</span></th>
+          <th style="text-align:right;" data-sort="cagr5" onclick="sortCartera('cagr5')">Obj. 5Y <i class="col-i" onclick="event.stopPropagation();showColInfo('cartera','obj5',event)" title="¿Qué es? Pulsa para ver">ⓘ</i> <span class="sort-ind"></span><br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">promedio · ret. anual</span></th>
+          <th style="text-align:center;" data-sort="peg" onclick="sortCartera('peg')">PEG <i class="col-i" onclick="event.stopPropagation();showColInfo('cartera','peg',event)" title="¿Qué es? Pulsa para ver">ⓘ</i> <span class="sort-ind"></span></th>
+          <th style="text-align:center;" data-sort="score" onclick="sortCartera('score')">Veredicto <i class="col-i" onclick="event.stopPropagation();showColInfo('cartera','veredicto',event)" title="¿Qué es? Pulsa para ver">ⓘ</i> <span class="sort-ind"></span><br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">score /100</span></th>
+          <th class="col-cal" style="text-align:right;" data-sort="roic5" onclick="sortCartera('roic5')">ROIC 5Y <span class="sort-ind"></span></th>
+          <th class="col-cal" style="text-align:right;" data-sort="fcfM" onclick="sortCartera('fcfM')">Mgn. FCF <span class="sort-ind"></span></th>
+          <th class="col-cal" style="text-align:right;" data-sort="ndEbitda" onclick="sortCartera('ndEbitda')">DN/EBITDA <span class="sort-ind"></span></th>
+          <th class="col-cal" style="text-align:right;" data-sort="salesG5" onclick="sortCartera('salesG5')">Ventas 5Y <span class="sort-ind"></span></th>
           <th style="text-align:center;"></th>
         </tr>
       </thead>
       <tbody id="cartera-tbody">
-        <tr><td colspan="9" style="text-align:center;padding:30px;color:var(--muted);font-size:12px;">Cargando cartera…</td></tr>
+        <tr><td colspan="14" style="text-align:center;padding:30px;color:var(--muted);font-size:12px;">Cargando cartera…</td></tr>
       </tbody>
     </table>
   </div>
@@ -749,7 +837,10 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
   <div class="card" style="margin-bottom:12px;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:6px;">
       <div class="dash-sec-title" style="margin:0;">📰 Noticias del mercado</div>
-      <button onclick="fetchDashNews()" style="font-size:10px;padding:3px 10px;border-radius:8px;border:1px solid var(--border);background:#f0ede8;color:var(--sub);cursor:pointer;font-weight:600;">↻ Actualizar</button>
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+        <span id="news-filter"></span>
+        <button onclick="fetchDashNews()" style="font-size:10px;padding:3px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--sub);cursor:pointer;font-weight:600;">↻ Actualizar</button>
+      </div>
     </div>
     <div id="dash-news-list"><!-- JS: titulares --></div>
   </div>
@@ -785,7 +876,7 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
     Las empresas con &lt;6 años de histórico se marcan <span class="joven-badge">JOVEN</span> (rúbrica clásica no aplica).
   </div>
 
-  <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.03);overflow-x:auto;margin-bottom:12px;">
+  <div class="cartera-scroll" style="background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 1px 4px rgba(0,0,0,.03);margin-bottom:12px;">
     <table class="cartera-tbl" id="watch-table">
       <thead>
         <tr>
@@ -1437,17 +1528,18 @@ function setLogo(co){
   if(!lg){_logoInitials(co,el,wrap);return;}
   el.onerror=function(){el.onerror=function(){_logoInitials(co,el,wrap);};el.src=lg.fb;};
   el.src=lg.src;el.style.display='block';
-  if(wrap) wrap.style.display='flex';
+  if(wrap) wrap.style.display=(_curView==='analysis')?'flex':'none';
 }
 function _logoInitials(co,el,wrap){
   const initials=co.ticker.replace('.TO','').replace('.AS','').substring(0,2);
   const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="${co.color||'#1e3a5f'}"/><text x="16" y="21" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="12" font-weight="800" fill="white">${initials}</text></svg>`;
   const url=URL.createObjectURL(new Blob([svg],{type:'image/svg+xml'}));
   el.onerror=null;el.src=url;el.style.display='block';
-  if(wrap) wrap.style.display='flex';
+  if(wrap) wrap.style.display=(_curView==='analysis')?'flex':'none';
 }
 
 // ── STATE ──
+let _curView='dash';        // vista activa: 'dash' | 'watch' | 'analysis' (la fija setView)
 let co=DB.MSFT,price=368,gr=12,dr=10,tg=3,tEVF=30,tPER=35,tEVE=22,tEVEI=25,ret=15,hor=5;
 let simPrice=null,simMode=false;
 let BUILTIN_KEYS=new Set(); // claves de empresas de fábrica; el resto son añadidas por el usuario
@@ -2812,12 +2904,19 @@ function openBackupModal(){
 // Añade/edita/borra el precio de compra MEDIO desde la cartera (mantiene acciones/fecha si ya existían)
 function setCarteraPos(key){
   const nm=(DB[key]&&DB[key].name)||key, prev=getPositionFor(key)||{};
-  const bp=prompt('Precio de compra MEDIO de '+nm+':\n(deja vacío y pulsa Aceptar para borrar tu posición)', prev.buyPrice||'');
+  const sym=(typeof curSymOf==='function')?curSymOf(key):'';
+  const bp=prompt('Precio de compra MEDIO de '+nm+' (en '+sym.trim()+'):\n(deja vacío y pulsa Aceptar para borrar tu posición)', prev.buyPrice||'');
   if(bp===null) return;                                   // canceló
   if(String(bp).trim()===''){ localStorage.removeItem('pos_'+key); if(typeof renderCartera==='function')renderCartera(); return; }
   const p=parseFloat(String(bp).replace(',','.'));
   if(!(p>0)){ alert('Introduce un precio válido.'); return; }
-  const data=Object.assign({shares:0,buyDate:'',spReturn:0},prev,{buyPrice:p});
+  // Nº de acciones: sin él no hay peso de la posición ni totales de cartera.
+  const sh=prompt('Nº de acciones de '+nm+':\n(puedes dejarlo vacío, pero entonces esta posición no cuenta en los totales ni en el peso de la cartera)', prev.shares||'');
+  const shares=sh===null?(prev.shares||0):(parseFloat(String(sh).replace(',','.'))||0);
+  // Fecha de compra: permite comparar tu rentabilidad con el S&P 500 del mismo periodo.
+  const bd=prompt('Fecha de compra (AAAA-MM-DD):\n(opcional — sirve para comparar tu rentabilidad con la del S&P 500 en el mismo periodo)', prev.buyDate||'');
+  const buyDate=bd===null?(prev.buyDate||''):String(bd).trim();
+  const data=Object.assign({shares:0,buyDate:'',spReturn:0},prev,{buyPrice:p,shares,buyDate});
   try{localStorage.setItem('pos_'+key,JSON.stringify(data));}catch(e){}
   if(typeof renderCartera==='function')renderCartera();
 }
@@ -4355,6 +4454,7 @@ function startDashRefresh(){
 // ── Navegación entre vistas ──
 function setView(v){
   if(v==='cartera') v='dash'; // Cartera fusionada en el Dashboard
+  _curView=(v==='dash'||v==='watch')?v:'analysis';
   if(v!=='analysis'){const _dd=document.getElementById('co-dropdown');if(_dd)_dd.style.display='none';}
   const dash=document.getElementById('view-dash');
   const cartera=document.getElementById('view-cartera');
@@ -4377,7 +4477,9 @@ function setView(v){
   if(tabs) tabs.style.display='none';
   if(coBtns) coBtns.style.display='none';
   if(hdrAnalysis) hdrAnalysis.style.display='none';
-  ['co-info','co-name'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
+  // 'co-quickinfo' = « · $483 · Cap 3,5 B » — solo tiene sentido dentro del análisis de UNA empresa,
+  // en Cartera/Seguimiento confunde (no corresponde a lo que se está viendo) → oculto.
+  ['co-info','co-name','co-quickinfo'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='none';});
   const coLogoWrap=document.getElementById('co-logo-wrap');if(coLogoWrap)coLogoWrap.style.display='none';
   const hdrPG=document.getElementById('hdr-price-group');if(hdrPG) hdrPG.style.display='none';
   _navIdle(btnD);_navIdle(btnC);_navIdle(btnW);_navIdle(btnA);
@@ -4403,6 +4505,8 @@ function setView(v){
     localStorage.setItem('vi_view','dash');
     renderDashboard();
     renderCartera();                              // tabla rica de la cartera (fusionada)
+    // Tipos de cambio y S&P 500: hacen falta para los totales y la comparación con el índice
+    Promise.allSettled([fetchFX(),_loadSPHistory()]).then(()=>{ if(_curView==='dash') renderCartera(); });
     setTimeout(()=>fetchCarteraPrices(),250);     // precios en vivo de la tabla rica
     setTimeout(()=>fetchDashPrices(),200);         // barra de mercado (Yahoo, no necesita Finnhub)
     if(_dashAllNews.length===0) setTimeout(()=>fetchDashNews(),1000);
@@ -4413,7 +4517,7 @@ function setView(v){
     if(tabs) tabs.style.display='flex';
     if(coBtns) coBtns.style.display='';
     if(hdrAnalysis) hdrAnalysis.style.display='';
-    ['co-info','co-name'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='';});
+    ['co-info','co-name','co-quickinfo'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='';});
     if(coLogoWrap) coLogoWrap.style.display='flex';
     if(hdrPG) hdrPG.style.display='';
     _navOn(btnA);
@@ -4776,10 +4880,10 @@ function renderWatchlist(){
       <td style="text-align:center;"><span style="font-size:10px;font-weight:600;color:${vcolor};background:${vcolor}14;border:1px solid ${vcolor}44;padding:2px 8px;border-radius:8px;white-space:nowrap;">${verdict}</span></td>
       <td style="text-align:center;">
         <div style="display:flex;gap:4px;justify-content:center;">
-          ${inDB?`<button class="cartera-action-btn" title="Ver análisis completo" onclick="setView('analysis');setTimeout(()=>switchCo('${e.id}'),60);"></button>`
+          ${inDB?`<button class="cartera-action-btn" title="Ver análisis completo" onclick="setView('analysis');setTimeout(()=>switchCo('${e.id}'),60);">📈</button>`
                 :`<button class="cartera-action-btn" style="background:#f0fdf4;border-color:#bbf7d0;" title="Promover a análisis profundo (trae cuentas anuales de Finnhub/SEC)" onclick="promoteToAnalysis('${e.id}')">⤴</button>`}
           <button class="cartera-action-btn" title="Detalle del pre-análisis" onclick="showPreAnalysis('${e.id}')">🔎</button>
-          ${inDB?'':`<button class="cartera-action-btn" title="Volver a traer datos de Finnhub" onclick="refreshWatchCompany('${e.id}')"></button>`}
+          ${inDB?'':`<button class="cartera-action-btn" title="Volver a traer datos de Finnhub" onclick="refreshWatchCompany('${e.id}')">↻</button>`}
           <button class="cartera-action-btn red" title="Quitar de seguimiento" onclick="removeWatchCompany('${e.id}')">🗑</button>
         </div>
       </td>
@@ -5194,6 +5298,10 @@ function scoreNews(n,own,others){
   const rel=(n.related||'').split(',').filter(Boolean).length;
   if(rel>=4) score-=12;                                    // etiquetada con muchos tickers → lista
   NEWS_EVENTS.forEach(ev=>{ if(ev.re.test(head)) score+=ev.w; else if(ev.re.test(sum)) score+=ev.w*0.5; });
+  // Bonus de frescura: buscamos lo DESTACADO de las últimas semanas, pero algo importante
+  // de hoy o de ayer no puede quedarse fuera por competir con noticias ya asentadas.
+  const hrs=n.datetime?(Date.now()-n.datetime*1000)/3600000:1e9;
+  if(hrs<=24) score+=10; else if(hrs<=48) score+=5;
   return score;
 }
 
@@ -5239,7 +5347,13 @@ async function fetchDashNews(){
   if(!newsEl) return;
   newsEl.innerHTML='<div style="grid-column:1/-1;padding:16px;text-align:center;color:var(--muted);font-size:11px;">Analizando y filtrando noticias...</div>';
   const k=getFinnhubKey();
-  const cos=getAllPortfolioCompanies();
+  let cos=getAllPortfolioCompanies();
+  // Filtro «solo mis invertidas»: cuando tienes muchas empresas, el ruido se dispara
+  if(newsSoloInvertidas()){
+    const inv=cos.filter(c=>{const p=getPositionFor(c.key);return p&&p.buyPrice>0;});
+    if(inv.length) cos=inv;
+  }
+  _paintNewsFilter();
   const to=new Date().toISOString().slice(0,10);
   const from=new Date(Date.now()-21*864e5).toISOString().slice(0,10); // ventana ~3 semanas: buscamos lo DESTACADO, no lo último
   const aliasByKey={}; cos.forEach(c=>aliasByKey[c.key]=newsAliasesFor(c));
@@ -5276,13 +5390,22 @@ async function fetchDashNews(){
   // 3) Agrupar por empresa · ordenar por RELEVANCIA y luego fecha · máx. 6
   const byKey={};
   kept.forEach(c=>{ (byKey[c.co.key]=byKey[c.co.key]||{co:c.co,items:[]}).items.push(c); });
+  const FRESH_H=36;                                        // "reciente" = últimas 36 horas
+  const _hrs=c=>c.n.datetime?(Date.now()-c.n.datetime*1000)/3600000:1e9;
   let groups=Object.values(byKey).map(g=>{
     g.items.sort((a,b)=>b.score-a.score||(b.n.datetime||0)-(a.n.datetime||0));
-    g.items=g.items.slice(0,6);
+    const top=g.items.slice(0,6);
+    // Garantiza que la mejor noticia RECIENTE aparezca aunque no entre por puntuación:
+    // así no se pierde nada importante de última hora dentro de la ventana de 3 semanas.
+    const fresh=g.items.filter(c=>_hrs(c)<=FRESH_H);
+    if(fresh.length&&!top.includes(fresh[0])){ if(top.length>=6) top.pop(); top.unshift(fresh[0]); }
+    top.forEach(c=>{c.fresh=_hrs(c)<=FRESH_H;});
+    g.fresh=top.filter(c=>c.fresh).length;
+    g.items=top;
     return g;
   });
-  // empresas con la noticia más relevante arriba
-  groups.sort((a,b)=>b.items[0].score-a.items[0].score);
+  // Empresas ordenadas ALFABÉTICAMENTE (siempre en el mismo sitio, fácil de encontrar)
+  groups.sort((a,b)=>(a.co.name||a.co.key).localeCompare(b.co.name||b.co.key,'es'));
   if(!groups.length){
     newsEl.innerHTML='<div style="grid-column:1/-1;font-size:11px;color:var(--muted);text-align:center;padding:14px;">No hay noticias relevantes ahora (revisa tu API key Finnhub) - pulsa Actualizar.</div>';
     return;
@@ -5294,18 +5417,53 @@ async function fetchDashNews(){
   const DOTTIP={pos:'Impacto esperado: positivo para la empresa',neu:'Impacto esperado: neutro / incierto',neg:'Impacto esperado: negativo para la empresa'};
   newsEl.innerHTML=groups.map(g=>{
     const logo=logoUrlFor(g.co.key);
-    return '<div class="news-co"><div class="news-co-head">'
+    const open=newsCoAbierta(g.co.key);
+    return '<div class="news-co'+(open?'':' collapsed')+'" id="newsco-'+g.co.key+'">'
+      +'<div class="news-co-head" onclick="toggleNewsCo(\''+g.co.key+'\')" title="Pulsa para ver u ocultar sus titulares">'
+      +'<span class="news-co-caret">'+(open?'▾':'▸')+'</span>'
       +(logo?'<img src="'+logo+'" class="news-co-logo" loading="lazy" onerror="this.style.display=\'none\'"/>':'')
-      +'<span class="news-co-name">'+g.co.name+'</span><span class="news-co-tk">'+g.co.ticker+'</span>'
-      +(g.items.length>3?'<span class="news-co-count">'+g.items.length+'</span>':'')
+      +'<span class="news-co-name">'+g.co.name+'</span>'
+      +(g.fresh?'<span class="news-fresh" title="'+g.fresh+' titular(es) de las últimas 36 h">NUEVO</span>':'')
+      +'<span class="news-co-tk">'+g.co.ticker+'</span>'
+      +'<span class="news-co-count">'+g.items.length+'</span>'
       +'</div>'
       +'<div class="news-co-items">'
       +g.items.map(c=>{const n=c.n;return '<a href="'+(n.url||'#')+'" target="_blank" rel="noopener" class="news-co-item">'
         +'<span class="news-co-title"><span class="news-dot '+DOT[c.impact]+'" title="'+DOTTIP[c.impact]+'"></span>'+(tr[n.headline]||n.headline)+'</span>'
-        +'<span class="news-co-meta">'+_newsAge(new Date((n.datetime||0)*1000))+' · '+(n.source||'')+'</span></a>';}).join('')
+        +'<span class="news-co-meta">'+(c.fresh?'<b style="color:var(--red);">● </b>':'')+_newsAge(new Date((n.datetime||0)*1000))+' · '+(n.source||'')+'</span></a>';}).join('')
       +'</div>'
       +'</div>';
   }).join('');
+}
+
+// ── Filtro de noticias: todas las empresas o solo las que tengo en cartera ──
+function newsSoloInvertidas(){try{return localStorage.getItem('vi_news_inv')==='1';}catch(e){return false;}}
+function toggleNewsInvertidas(){
+  try{localStorage.setItem('vi_news_inv',newsSoloInvertidas()?'0':'1');}catch(e){}
+  fetchDashNews();
+}
+function _paintNewsFilter(){
+  const el=document.getElementById('news-filter'); if(!el) return;
+  const on=newsSoloInvertidas();
+  el.innerHTML=`<button class="cart-chip${on?' on':''}" onclick="toggleNewsInvertidas()" title="Muestra solo las noticias de las empresas en las que tienes posición">Solo mis invertidas</button>`;
+}
+
+// ── Plegado de noticias por empresa (recuerda tu elección) ──
+// Por defecto TODAS plegadas: ves la lista de empresas y abres solo las que te interesan.
+function newsCoAbierta(key){
+  try{return (JSON.parse(localStorage.getItem('vi_news_open')||'[]')).includes(key);}catch(e){return false;}
+}
+function toggleNewsCo(key){
+  let open=[]; try{open=JSON.parse(localStorage.getItem('vi_news_open')||'[]');}catch(e){}
+  const i=open.indexOf(key);
+  if(i>=0) open.splice(i,1); else open.push(key);
+  try{localStorage.setItem('vi_news_open',JSON.stringify(open));}catch(e){}
+  const el=document.getElementById('newsco-'+key);
+  if(el){
+    const now=i<0;
+    el.classList.toggle('collapsed',!now);
+    const c=el.querySelector('.news-co-caret'); if(c) c.textContent=now?'▾':'▸';
+  }
 }
 
 function _newsAge(date){
@@ -5534,6 +5692,7 @@ function updateDashCoRow(key,price,pct,change){
 // ═══════════════════════════════════════════════════════════════════
 
 let _carteraPrices={};
+let _cartTotal=0;          // valor total de las posiciones (divisa base) — base de los pesos
 let _carteraMultiples={per:30,evf:28,eveb:22,evei:26};
 let _carteraMultiplesReady=false;
 let _importedFile=null;
@@ -5542,6 +5701,72 @@ let _importedFile=null;
 function getImportedData(ticker){
   try{return JSON.parse(localStorage.getItem('vi_import_'+ticker)||'null');}
   catch(e){return null;}
+}
+
+// ══════════════════════════════════════════════════════════════════
+// DIVISAS — cada empresa cotiza en la suya; los totales necesitan una divisa base
+// ══════════════════════════════════════════════════════════════════
+const _CUR_BY_SUFFIX={TO:'CAD',V:'CAD',NE:'CAD',AS:'EUR',PA:'EUR',DE:'EUR',F:'EUR',MC:'EUR',MI:'EUR',BR:'EUR',LS:'EUR',VI:'EUR',HE:'EUR',IR:'EUR',
+  L:'GBP',SW:'CHF',ST:'SEK',OL:'NOK',CO:'DKK',T:'JPY',HK:'HKD',TW:'TWD',TWO:'TWD',AX:'AUD',SI:'SGD',NS:'INR',BO:'INR',SA:'BRL',MX:'MXN'};
+const CUR_SYM={USD:'$',EUR:'€',CAD:'C$',GBP:'£',CHF:'CHF ',JPY:'¥',TWD:'NT$',AUD:'A$',SEK:'kr ',NOK:'kr ',DKK:'kr ',HKD:'HK$',SGD:'S$',INR:'₹',BRL:'R$',MXN:'MX$'};
+// Excepciones: empresas cuyo precio en la app y en tu hoja es el de su bolsa local
+// aunque el ticker no lleve sufijo.
+const CUR_FORCE={ASML:'EUR'};
+function curOf(key){
+  if(CUR_FORCE[key]) return CUR_FORCE[key];
+  const d=DB[key]||{}, imp=getImportedData(key);
+  const t=String((imp&&imp.ticker)||d.ticker||key).toUpperCase().trim();
+  const m=t.match(/\.([A-Z]+)$/);
+  if(m&&_CUR_BY_SUFFIX[m[1]]) return _CUR_BY_SUFFIX[m[1]];
+  if(/^\d{4}$/.test(t)) return 'TWD';                 // código numérico taiwanés
+  return 'USD';
+}
+function curSymOf(key){return CUR_SYM[curOf(key)]||'$';}
+
+// ── Divisa base de la cartera (en la que se suman los totales) ──
+function baseCur(){try{return localStorage.getItem('vi_base_cur')||'EUR';}catch(e){return 'EUR';}}
+function setBaseCur(c){
+  try{localStorage.setItem('vi_base_cur',c);}catch(e){}
+  fetchFX().then(()=>{renderCartera();renderPortfolioSummary();});
+}
+// Tipos de cambio hacia la divisa base. _FX[X] = cuántas unidades de la BASE vale 1 X.
+let _FX={}, _fxTs=0;
+// Arranque: recupera el último cambio conocido. Si hoy falla la descarga, los totales
+// siguen saliendo (con el aviso de que el cambio no es de hoy) en vez de quedarse en blanco.
+(function(){try{const c=JSON.parse(localStorage.getItem('vi_fx_'+baseCur())||'null');if(c&&c.r){_FX=c.r;_fxTs=c.ts||0;}}catch(e){}})();
+function fxStale(){return _fxTs>0&&(Date.now()-_fxTs)>36*3600*1000;}
+function fxRate(cur){
+  if(cur===baseCur()) return 1;
+  const r=_FX[cur];
+  return (r&&isFinite(r)&&r>0)?r:null;
+}
+function toBase(v,cur){const r=fxRate(cur);return (v==null||r==null)?null:v*r;}
+async function fetchFX(){
+  const base=baseCur();
+  const need=[...new Set(getAllPortfolioCompanies().map(c=>curOf(c.key)))].filter(c=>c!==base);
+  const cacheKey='vi_fx_'+base, ttl=6*3600*1000;
+  let cached=null;
+  try{cached=JSON.parse(localStorage.getItem(cacheKey)||'null');}catch(e){}
+  if(cached&&cached.r){ _FX={...cached.r,..._FX}; _fxTs=cached.ts||_fxTs; }   // parte del último cambio conocido
+  if(cached&&Date.now()-cached.ts<ttl&&need.every(x=>cached.r&&cached.r[x])) return _FX;
+  const out={...(_FX||{})};
+  let algo=false;
+  await Promise.allSettled(need.map(async cur=>{
+    // Yahoo cotiza BASECUR=X como "1 BASE = N CUR" → el factor CUR→BASE es 1/N
+    const q=await fetchQuoteYF(base+cur+'=X');
+    if(q&&q.c>0){ out[cur]=1/q.c; algo=true; }
+  }));
+  _FX=out;
+  if(algo){ _fxTs=Date.now(); try{localStorage.setItem(cacheKey,JSON.stringify({r:_FX,ts:_fxTs}));}catch(e){} }
+  return _FX;
+}
+// Formato de importes en la divisa base (totales de cartera)
+function fmtBase(v,dec){
+  if(v==null||!isFinite(v)) return '—';
+  const sym=CUR_SYM[baseCur()]||'';
+  const a=Math.abs(v);
+  const d=dec!=null?dec:(a>=10000?0:a>=100?0:2);
+  return sym+new Intl.NumberFormat('es-ES',{minimumFractionDigits:d,maximumFractionDigits:d}).format(v);
 }
 
 function getAllPortfolioCompanies(){
@@ -5617,7 +5842,49 @@ function carteraMetrics(co){
   else if(d?.eps&&d.eps[0]>0&&d.eps[9]>0) g=(Math.pow(d.eps[9]/d.eps[0],1/9)-1)*100; // EPS hist
   const peg=(per!=null&&g&&g>0)?per/g:null;
   const mds15=(price15!=null&&price>0)?(price15-price)/price*100:null; // margen del precio actual hasta el precio de entrada 15%
-  return {key,imp,d,price,dailyPct,weeklyPct,objEVF,mds,obj5,cagr5,price15,mds15,per,g,peg};
+
+  // ── Escenario prudente: mismo objetivo con múltiplos un 20% por debajo ──
+  // (el múltiplo es la parte más frágil de cualquier valoración: si se contrae, ¿aún gano?)
+  const objCons=objEVF!=null?objEVF*0.8:null;
+  const mdsCons=(objCons!=null&&price>0)?(objCons-price)/price*100:null;
+  const obj5Cons=obj5!=null?obj5*0.8:null;
+  const cagr5Cons=(obj5Cons&&price)?(Math.pow(Math.max(obj5Cons,.01)/Math.max(price,.01),0.2)-1)*100:null;
+
+  // ── Mi posición (divisa de la empresa → divisa base de la cartera) ──
+  const cur=curOf(key);
+  const pos=getPositionFor(key);
+  const shares=(pos&&pos.shares>0)?pos.shares:null;
+  const buyPrice=(pos&&pos.buyPrice>0)?pos.buyPrice:null;
+  const retPct=(buyPrice&&price!=null)?((price-buyPrice)/buyPrice*100):null;
+  const fxOk=fxRate(cur)!=null;                                         // ¿sabemos convertir su divisa?
+  const mktValue=(shares&&price!=null)?toBase(shares*price,cur):null;   // valor de mercado hoy
+  const costValue=(shares&&buyPrice)?toBase(shares*buyPrice,cur):null;  // lo que te costó
+  const pnl=(mktValue!=null&&costValue!=null)?mktValue-costValue:null;
+
+  // ── Calidad del negocio (lo primero que mira un value: el negocio, no el precio) ──
+  const roicArr=(imp?.roic&&imp.roic.some(v=>v!=null))?imp.roic:d?.roic;
+  const roic5=(()=>{const a=(roicArr||[]).filter(v=>v!=null&&isFinite(v)).slice(-5);return a.length?a.reduce((x,y)=>x+y,0)/a.length:null;})();
+  const fcfMArr=(imp?.fcfM&&imp.fcfM.some(v=>v!=null))?imp.fcfM:d?.fcfM;
+  const fcfM=(fcfMArr||[]).filter(v=>v!=null).slice(-1)[0]??null;
+  const ebitdaArr=(imp?.ebitda)||d?.ebitda;
+  const ndArr=(imp?.netDebt)||d?.netDebt;
+  const ebitda9=(ebitdaArr||[]).filter(v=>v!=null).slice(-1)[0]??null;
+  const nd9=(ndArr||[]).filter(v=>v!=null).slice(-1)[0]??null;
+  const ndEbitda=(ebitda9>0&&nd9!=null)?nd9/ebitda9:null;
+  const salesArr=(imp?.sales)||d?.sales;
+  const salesG5=(()=>{const a=(salesArr||[]).filter(v=>v!=null&&v>0);
+    if(a.length<6) return null;
+    const last=a[a.length-1],prev=a[a.length-6];
+    return prev>0?(Math.pow(last/prev,1/5)-1)*100:null;})();
+
+  // ── Procedencia del dato (¿sale de tu Excel o está estimado?) ──
+  const origen=imp?'excel':(d&&d.estimated?'estimado':'app');
+  const impAge=(imp&&imp.importDate)?Math.floor((Date.now()-new Date(imp.importDate))/86400000):null;
+
+  return {key,imp,d,price,dailyPct,weeklyPct,objEVF,mds,obj5,cagr5,price15,mds15,per,g,peg,
+          objCons,mdsCons,obj5Cons,cagr5Cons,
+          cur,fxOk,pos,shares,buyPrice,retPct,mktValue,costValue,pnl,
+          roic5,fcfM,ndEbitda,salesG5,origen,impAge};
 }
 function pegColor(peg){return peg==null?'#9a958e':peg<1?'#16a34a':peg<=2?'#eab308':'#dc2626';}
 function pegBar(peg,per,g){
@@ -5696,12 +5963,13 @@ function renderStyleCompare(){
 const COL_INFO={
   cartera:{
     precio:['💵 Precio','Cotización en vivo (Yahoo Finance) y variación del día. Si no hay conexión, muestra el último precio guardado.'],
-    coste:['📌 Mi coste','Tu <b>precio de compra medio</b> en esta empresa y tu <b>rendimiento</b>: cuánto ganas (+, verde) o pierdes (−, rojo) respecto al precio actual.<br><br>Pulsa la celda para introducir o editar tu coste. Se guarda en este navegador y también aparece en «Mi posición» dentro del análisis de la empresa.'],
+    coste:['📌 Mi coste','Tu <b>precio de compra medio</b> en esta empresa y tu <b>rendimiento</b>: cuánto ganas (+, verde) o pierdes (−, rojo) respecto al precio actual.<br><br>Si además guardas el <b>número de acciones</b>, la tercera línea muestra el valor de la posición y su <b>peso</b> sobre el total de la cartera — sin eso no se puede medir el riesgo de concentración ni sumar los totales.<br><br>Pulsa la celda para introducir o editar tus datos. Se guardan en este navegador y también aparecen en «Mi posición» dentro del análisis de la empresa.'],
     sem:['📅 Semanal','Variación del precio en la última semana (5 sesiones de mercado).'],
     obj:['🎯 Objetivo de precio','Valor intrínseco HOY: promedio de los 4 múltiplos objetivo (PER, EV/FCF, EV/EBITDA, EV/EBIT) aplicados a los datos del año en curso de tu Excel.<br><br>El % es el <b>Margen de Seguridad (MdS)</b>: cuánto está el precio por debajo (+, verde) o por encima (−, rojo) del valor intrínseco.'],
     entrada:['🟢 Precio de entrada','Precio máximo de compra para lograr un <b>15% anual durante 5 años</b>. Si el precio actual está en o por debajo de esta zona, la fila se resalta: es zona de compra.'],
     obj5:['🔮 Objetivo a 5 años','Precio objetivo a 5 años (promedio de los 4 múltiplos sobre las proyecciones de tu Excel) y el retorno anualizado (CAGR) comprando al precio actual.<br><br>Verde ≥15%/año · ámbar ≥8% · rojo por debajo.'],
     peg:['⚖️ PEG','PER dividido por el crecimiento esperado.<br><br>&lt;1: pagas poco por el crecimiento (barato)<br>1–2: razonable<br>&gt;2: caro.'],
+    veredicto:['🧭 Veredicto','El mismo veredicto que verás dentro del análisis de la empresa (COMPRAR / MANTENER / EVITAR) con su puntuación sobre 100.<br><br>Combina cuatro cosas: retorno esperado a 5 años (35), foso competitivo o MOAT (30), ROIC (20) y margen de seguridad del próximo año (15).<br><br>No es una orden: es un resumen. La decisión sigue siendo tuya y la tesis manda sobre el número.'],
   },
   gv:{
     estilo:['🏷️ Estilo','Clasificación automática según crecimiento y valoración: Hyper-growth, Growth, GARP (crecimiento a precio razonable), Calidad/Compounder, Value o Madura/Cíclica.'],
@@ -5780,6 +6048,11 @@ function showCarteraHelp(){
     ['Entrada','Precio máximo de compra para lograr un 15% anual durante 5 años. Si el precio actual está en o por debajo de esta zona, la fila se resalta: es zona de compra.'],
     ['Obj. 5Y','Precio objetivo a 5 años (promedio de los 4 múltiplos sobre las proyecciones de tu Excel) y el retorno anualizado (CAGR) que implica comprando al precio actual. Verde ≥15%/año, ámbar ≥8%, rojo por debajo.'],
     ['PEG','PER dividido por el crecimiento esperado. Por debajo de 1 suele indicar que pagas poco por el crecimiento; por encima de 2, caro.'],
+    ['Veredicto','COMPRAR / MANTENER / EVITAR con su puntuación sobre 100, el mismo que aparece dentro del análisis de la empresa. Pondera retorno esperado 5Y (35), MOAT (30), ROIC (20) y margen de seguridad a un año (15).'],
+    ['Escenario prudente','La línea «prud.» de las columnas Obj. precio y Obj. 5Y repite el cálculo con los múltiplos un 20% más bajos. El múltiplo es la parte más frágil de cualquier valoración: si aun contrayéndose el retorno sigue siendo bueno, la tesis es robusta.'],
+    ['Calidad del negocio','El botón «⚙ Calidad del negocio» añade cuatro columnas: ROIC medio de 5 años, margen de caja libre, deuda neta ÷ EBITDA y crecimiento de ventas a 5 años. Un inversor value filtra primero por calidad y solo después mira el precio.'],
+    ['Excel / estimado','La etiqueta junto al ticker dice de dónde salen los números: «Excel» (de tu hoja, con aviso si se importó hace más de 6 meses), «estimado» (proyecciones calculadas por la app, NO son tuyas) o «sin Excel» (datos de fábrica).'],
+    ['Divisa','Cada empresa muestra su precio en la divisa de su bolsa (USD, EUR, CAD…). Los totales del resumen se convierten a la divisa base que elijas arriba, con el cambio de Yahoo Finance.'],
     ['Barra lateral','Semáforo visual del potencial anualizado a 5 años: cuanto más larga y verde, mayor retorno esperado.'],
   ];
   m=document.createElement('div');
@@ -5812,6 +6085,55 @@ function toggleGvCompare(){
 }
 
 // ── Render portfolio table (compacta y visual) ──
+// ── Plegado de las dos listas de la cartera (invertidas / en seguimiento) ──
+function carteraGrupoAbierto(gid){
+  try{return localStorage.getItem('vi_cart_grp_'+gid)!=='0';}catch(e){return true;}
+}
+function toggleCarteraGrupo(gid){
+  const open=!carteraGrupoAbierto(gid);
+  try{localStorage.setItem('vi_cart_grp_'+gid,open?'1':'0');}catch(e){}
+  document.querySelectorAll('.cart-r-'+gid).forEach(tr=>{tr.style.display=open?'':'none';});
+  const c=document.getElementById('cgc-'+gid); if(c) c.textContent=open?'▾':'▸';
+}
+
+// ── Estado de la tabla: orden y filtro (se recuerdan) ──
+let _cartSort=(()=>{try{return JSON.parse(localStorage.getItem('vi_cart_sort')||'null')||{col:'cagr5',dir:-1};}catch(e){return{col:'cagr5',dir:-1};}})();
+let _cartFilter=(()=>{try{return localStorage.getItem('vi_cart_filter')||'all';}catch(e){return 'all';}})();
+let _cartCalidad=(()=>{try{return localStorage.getItem('vi_cart_calidad')==='1';}catch(e){return false;}})();
+const CART_COLS=14;   // nº de columnas de la tabla (para los colspan)
+
+function sortCartera(col){
+  if(_cartSort.col===col) _cartSort.dir=-_cartSort.dir;
+  else _cartSort={col,dir:(col==='name'?1:-1)};
+  try{localStorage.setItem('vi_cart_sort',JSON.stringify(_cartSort));}catch(e){}
+  renderCartera();
+}
+function filterCartera(f){
+  _cartFilter=f;
+  try{localStorage.setItem('vi_cart_filter',f);}catch(e){}
+  renderCartera();
+}
+function toggleCalidad(){
+  _cartCalidad=!_cartCalidad;
+  try{localStorage.setItem('vi_cart_calidad',_cartCalidad?'1':'0');}catch(e){}
+  renderCartera();
+}
+
+// Veredicto (COMPRAR/MANTENER/EVITAR) de CUALQUIER empresa sin salir de la cartera.
+// calcVerdict() lee el estado global (co, price, múltiplos objetivo); aquí se sustituye
+// temporalmente y se restaura SIEMPRE, para no alterar la pestaña Análisis.
+function verdictFor(key,px){
+  const d=DB[key];
+  if(!d||!d.fcf||!d.roic||!d.netDebt||!d.eps) return null;
+  const _co=co,_px=price,_evf=tEVF,_per=tPER,_eve=tEVE,_evei=tEVEI,_ps=_projSource,_ed=_isEdited;
+  try{
+    co=d; price=px||d.price||0; _projSource='sheet'; _isEdited=false;
+    applyCompanyMults(d);
+    return calcVerdict();
+  }catch(e){ return null; }
+  finally{ co=_co; price=_px; tEVF=_evf; tPER=_per; tEVE=_eve; tEVEI=_evei; _projSource=_ps; _isEdited=_ed; }
+}
+
 function renderCartera(){
   if(!_carteraMultiplesReady){
     const s=DB.MSFT||DB[Object.keys(DB)[0]];
@@ -5820,41 +6142,87 @@ function renderCartera(){
   }
   const tbody=document.getElementById('cartera-tbody');
   if(!tbody) return;
+  const table=document.getElementById('cartera-table');
+  if(table) table.classList.toggle('show-cal',_cartCalidad);
   const companies=getAllPortfolioCompanies();
-  const cur=k=>(k==='ASML'||k==='CSU')?'€':'$';
-  const fmt=(v,k)=>v!=null?(cur(k)+(Math.abs(v)>=1000?new Intl.NumberFormat('es-ES',{maximumFractionDigits:0}).format(Math.round(v)):v.toFixed(2))):'—';
+  const fmt=(v,k)=>v!=null?(curSymOf(k)+(Math.abs(v)>=1000?new Intl.NumberFormat('es-ES',{maximumFractionDigits:0}).format(Math.round(v)):v.toFixed(2))):'—';
   const sp=(v,dec=1)=>v!=null?((v>=0?'+':'')+v.toFixed(dec)+'%'):'—';
   const retCol=v=>v==null?'#9a958e':v>=15?'#16a34a':v>=8?'#d97706':'#dc2626';
   const mdsCol=v=>v==null?'#9a958e':v>=15?'#16a34a':v>=0?'#d97706':'#dc2626';
+  const nz=v=>v==null?-1e9:v;
 
-  // Ordenar por POTENCIAL a 5 años = rendimiento anualizado (cagr5), de mayor a menor
-  const ranked=companies.map(co=>({co,m:carteraMetrics(co)}))
-    .sort((a,b)=>((b.m.cagr5==null?-1e9:b.m.cagr5)-(a.m.cagr5==null?-1e9:a.m.cagr5)));
-  tbody.innerHTML=ranked.map(({co,m})=>{
+  let ranked=companies.map(co=>({co,m:carteraMetrics(co)}));
+  // Veredicto por empresa (score 0-100) — se calcula una vez por render
+  ranked.forEach(r=>{ const v=verdictFor(r.co.key,r.m.price); r.v=v; r.m.score=v?v.totalScore:null; r.m.verdict=v?v.verdict:null; r.m.vcolor=v?v.verdictColor:null; });
+
+  // ── Filtros rápidos ──
+  const FILTERS={
+    all:  {lbl:'Todas',      test:()=>true},
+    zona: {lbl:'En zona de compra', test:r=>r.m.price!=null&&r.m.price15!=null&&r.m.price<=r.m.price15*1.03},
+    comprar:{lbl:'Veredicto COMPRAR', test:r=>r.m.verdict==='COMPRAR'},
+    mds:  {lbl:'MdS > 15%',  test:r=>r.m.mds!=null&&r.m.mds>=15},
+  };
+  if(!FILTERS[_cartFilter]) _cartFilter='all';
+  const hidden=ranked.filter(r=>!FILTERS[_cartFilter].test(r)).length;
+  ranked=ranked.filter(r=>FILTERS[_cartFilter].test(r));
+
+  // ── Orden ──
+  const SORTV={
+    name:r=>r.co.name||r.co.key, price:r=>nz(r.m.price), retPct:r=>nz(r.m.retPct),
+    weeklyPct:r=>nz(r.m.weeklyPct), mds:r=>nz(r.m.mds), mds15:r=>nz(r.m.mds15),
+    cagr5:r=>nz(r.m.cagr5), peg:r=>r.m.peg==null?1e9:r.m.peg, score:r=>nz(r.m.score),
+    roic5:r=>nz(r.m.roic5), fcfM:r=>nz(r.m.fcfM), ndEbitda:r=>r.m.ndEbitda==null?1e9:r.m.ndEbitda, salesG5:r=>nz(r.m.salesG5),
+  };
+  const getv=SORTV[_cartSort.col]||SORTV.cagr5;
+  ranked.sort((a,b)=>{
+    const x=getv(a),y=getv(b);
+    if(typeof x==='string') return _cartSort.dir*x.localeCompare(y,'es');
+    return _cartSort.dir*(x-y);
+  });
+  _paintSortIndicators();
+
+  // Peso de cada posición sobre el total invertido (solo con nº de acciones guardado)
+  const totalMkt=ranked.reduce((a,r)=>a+(r.m.mktValue||0),0);
+  _cartTotal=totalMkt;
+
+  const rowFor=({co,m},gid,open)=>{
     const k=co.key;
     const logoUrl=logoUrlFor(k);
     const inZone=(m.price!=null&&m.price15!=null&&m.price<=m.price15*1.03);
     const dCol=m.dailyPct==null?'#9a958e':m.dailyPct>=0?'#16a34a':'#dc2626';
     const wCol=m.weeklyPct==null?'#9a958e':m.weeklyPct>=0?'#16a34a':'#dc2626';
     const driveUrl=m.imp?.driveUrl||co.drive||localStorage.getItem('vi_drive_'+k)||null;
-    const pos=getPositionFor(k);
+    // Procedencia del dato: de tu Excel (y cuándo), o estimado por la app
+    const org=m.origen==='excel'
+      ? `<span class="cart-src ok" title="Datos de tu Excel · importado hace ${m.impAge!=null?m.impAge+' días':'—'}">Excel${m.impAge!=null&&m.impAge>180?' ⚠':''}</span>`
+      : m.origen==='estimado'
+        ? `<span class="cart-src est" title="Proyecciones estimadas por la app: NO salen de tu Excel">estimado</span>`
+        : `<span class="cart-src app" title="Datos de fábrica de la app · aún sin importar tu hoja">sin Excel</span>`;
     const posCell=(()=>{
-      if(pos&&pos.buyPrice>0){
-        const ret=m.price!=null?((m.price-pos.buyPrice)/pos.buyPrice*100):null;
-        const rc=ret==null?'#9a958e':ret>=0?'#16a34a':'#dc2626';
-        return `<div style="font-size:12px;font-weight:700;color:${_dm()?'#e2e8f0':'#1a1814'};">${fmt(pos.buyPrice,k)}</div>`
-          +`<div style="font-size:10px;font-weight:700;color:${rc};">${ret!=null?(ret>=0?'+':'')+ret.toFixed(1)+'%':'—'}</div>`;
+      if(m.buyPrice){
+        const rc=m.retPct==null?'#9a958e':m.retPct>=0?'#16a34a':'#dc2626';
+        const peso=(m.mktValue!=null&&totalMkt>0)?(m.mktValue/totalMkt*100):null;
+        return `<div style="font-size:12px;font-weight:700;color:var(--text);">${fmt(m.buyPrice,k)}</div>`
+          +`<div style="font-size:10px;font-weight:700;color:${rc};">${sp(m.retPct)}</div>`
+          +(m.mktValue!=null
+             ? `<div style="font-size:9px;color:var(--muted);font-weight:600;" title="${m.shares} acciones · valor ${fmtBase(m.mktValue)} · ${peso.toFixed(1)}% de tu cartera">${m.shares} acc · ${fmtBase(m.mktValue,0)} · <b>${peso.toFixed(0)}%</b></div>`
+             : `<div style="font-size:9px;color:var(--amber);font-weight:700;" title="Sin nº de acciones no se puede calcular el peso de la posición">+ nº acciones</div>`);
       }
       return `<span style="font-size:10px;color:#2563eb;font-weight:700;border:1px dashed #2563eb66;border-radius:8px;padding:2px 7px;white-space:nowrap;">+ coste</span>`;
     })();
-    return`<tr id="crow-${k}">
+    const qual=(v,fmtF,good,bad,tip)=>{
+      if(v==null) return `<td class="col-cal" style="text-align:right;color:#9a958e;font-size:11px;">—</td>`;
+      const c=good(v)?'#16a34a':bad(v)?'#dc2626':'#d97706';
+      return `<td class="col-cal" style="text-align:right;font-size:11.5px;font-weight:700;color:${c};" title="${tip}">${fmtF(v)}</td>`;
+    };
+    return`<tr id="crow-${k}" class="cart-r cart-r-${gid}"${open?'':' style="display:none;"'}>
   <td style="padding:7px 10px;cursor:pointer;" onclick="setView('analysis');setTimeout(()=>{if(DB['${k}'])switchCo('${k}');},80);" title="Abrir análisis de ${co.name}">
     <div style="display:flex;align-items:center;gap:9px;">
       ${logoUrl?`<img src="${logoUrl}" class="cartera-logo" loading="lazy" onerror="this.onerror=null;if(!this.dataset.fb){this.dataset.fb=1;this.src='${logoFallback(k)}';}else{this.style.display='none';this.nextElementSibling.style.display='flex';}"/>`:''}
       <div class="cartera-logo-fallback" style="background:${co.color};display:none;">${k.substring(0,2)}</div>
       <div>
         <div class="cartera-co-name">${co.name}</div>
-        <div class="cartera-ticker">${co.ticker}</div>
+        <div class="cartera-ticker">${co.ticker} · ${m.cur} ${org}</div>
       </div>
     </div>
   </td>
@@ -5862,35 +6230,86 @@ function renderCartera(){
     <div class="cartera-price" id="cprice-${k}">${fmt(m.price,k)}</div>
     <div id="cday-${k}" style="font-size:9px;font-weight:700;color:${dCol};">${m.dailyPct!=null?sp(m.dailyPct,2):''}</div>
   </td>
-  <td style="text-align:right;cursor:pointer;" onclick="event.stopPropagation();setCarteraPos('${k}')" title="Pulsa para poner/editar tu precio de compra medio">${posCell}</td>
+  <td id="cpos-${k}" style="text-align:right;cursor:pointer;" onclick="event.stopPropagation();setCarteraPos('${k}')" title="Pulsa para poner/editar tu precio de compra medio y tus acciones">${posCell}</td>
   <td style="text-align:right;">
     <div id="cweek-${k}" style="font-size:12px;font-weight:600;color:${wCol};">${m.weeklyPct!=null?(m.weeklyPct>=0?'▲':'▼')+sp(m.weeklyPct,1):'—'}</div>
   </td>
   <td style="text-align:right;background:color-mix(in srgb, var(--amber) 10%, var(--surface));">
-    <div id="cobjevf-${k}" style="font-size:13px;font-weight:600;color:${_dm()?'#e2e8f0':'#1a1814'};">${fmt(m.objEVF,k)}</div>
+    <div id="cobjevf-${k}" style="font-size:13px;font-weight:600;color:var(--text);">${fmt(m.objEVF,k)}</div>
     <div id="cmds-${k}" style="font-size:10px;font-weight:600;color:${mdsCol(m.mds)};">${m.mds!=null?sp(m.mds,0)+' MdS':'—'}</div>
+    <div id="cprud-${k}" style="font-size:9px;color:var(--muted);font-weight:600;" title="Escenario prudente: mismo objetivo con múltiplos un 20% más bajos">prud. ${m.mdsCons!=null?sp(m.mdsCons,0):'—'}</div>
   </td>
   <td style="text-align:right;">
-    <div id="c15-${k}" style="font-size:12px;font-weight:700;color:${inZone?'#16a34a':'#1a1814'};">${fmt(m.price15,k)}</div>
+    <div id="c15-${k}" style="font-size:12px;font-weight:700;color:${inZone?'#16a34a':'var(--text)'};">${fmt(m.price15,k)}</div>
     <div id="cmds15-${k}" style="font-size:10px;font-weight:600;color:${mdsCol(m.mds15)};">${m.mds15!=null?sp(m.mds15,0)+' MdS':'—'}</div>
   </td>
   <td style="text-align:right;">
-    <div id="cobj5-${k}" style="font-size:12px;font-weight:700;color:#1e3a5f;">${fmt(m.obj5,k)}</div>
+    <div id="cobj5-${k}" style="font-size:12px;font-weight:700;color:var(--navy);">${fmt(m.obj5,k)}</div>
     <div id="cret-${k}" style="font-size:10px;font-weight:700;color:${retCol(m.cagr5)};">${m.cagr5!=null?sp(m.cagr5,0)+'/año':''}</div>
+    <div id="cprud5-${k}" style="font-size:9px;color:var(--muted);font-weight:600;" title="Escenario prudente: múltiplos un 20% más bajos">prud. ${m.cagr5Cons!=null?sp(m.cagr5Cons,0)+'/año':'—'}</div>
   </td>
   <td style="text-align:center;" id="cpeg-${k}">${pegBar(m.peg,m.per,m.g)}</td>
+  <td style="text-align:center;">${m.verdict
+      ? `<span class="verd-pill-sm" style="background:${m.vcolor}15;color:${m.vcolor};" title="Score ${m.score}/100 — mismo veredicto que la pestaña Análisis">${m.verdict}</span><div style="font-size:9px;color:var(--muted);font-weight:700;margin-top:2px;">${m.score}/100</div>`
+      : '<span style="color:#9a958e;font-size:11px;">—</span>'}</td>
+  ${qual(m.roic5,v=>v.toFixed(0)+'%',v=>v>=15,v=>v<8,'ROIC medio de los últimos 5 años · >15% excelente, <8% flojo')}
+  ${qual(m.fcfM,v=>v.toFixed(0)+'%',v=>v>=15,v=>v<5,'Margen de caja libre del último año · >15% muy bueno')}
+  ${qual(m.ndEbitda,v=>v.toFixed(1)+'x',v=>v<1,v=>v>3,'Deuda neta / EBITDA · <1x sólida, >3x apalancada')}
+  ${qual(m.salesG5,v=>(v>=0?'+':'')+v.toFixed(0)+'%',v=>v>=10,v=>v<3,'Crecimiento anual de ventas de los últimos 5 años')}
   <td style="text-align:center;" onclick="event.stopPropagation();">
     <div style="display:flex;gap:3px;justify-content:center;align-items:center;">
       ${driveUrl
-        ? `<a href="${driveUrl}" target="_blank" rel="noopener" class="cartera-action-btn" title="Abrir hoja de cálculo en Drive para comparar" style="text-decoration:none;"></a>`
+        ? `<a href="${driveUrl}" target="_blank" rel="noopener" class="cartera-action-btn" title="Abrir tu hoja de cálculo en Drive para comparar" style="text-decoration:none;display:inline-block;">📊</a>`
         : `<button class="cartera-action-btn" title="Añadir enlace de Google Sheets" onclick="promptDriveUrl('${k}')">＋📊</button>`}
       <button class="cartera-action-btn" style="${m.imp?'background:#f0fdf4;border-color:#bbf7d0;':''}" title="${m.imp?('Importada el '+new Date(m.imp.importDate).toLocaleDateString('es-ES')+' · pulsa para reimportar/editar'):'Pendiente de importar · pulsa para importar tu hoja'}" onclick="openImportModal('${k}')">${m.imp?'📂✓':'📂'}</button>
       <button class="cartera-action-btn red" title="${BUILTIN_KEYS.has(k)?'Ocultar empresa (restaurable)':'Eliminar empresa'}" onclick="deleteCompanyFull('${k}')">🗑</button>
     </div>
   </td>
 </tr>`;
-  }).join('');
+  };
+
+  // ── Dos listas: lo que TENGO en cartera vs lo que sigo (sin posición abierta) ──
+  // Se pliegan pulsando su cabecera; el estado se recuerda en localStorage.
+  const invested=ranked.filter(r=>r.m.buyPrice!=null);
+  const watched =ranked.filter(r=>r.m.buyPrice==null);
+  const grpHtml=(gid,title,sub,rows)=>{
+    if(!rows.length) return '';
+    const open=carteraGrupoAbierto(gid);
+    return `<tr class="cart-grp"><td colspan="${CART_COLS}"><div class="cart-grp-inner" onclick="toggleCarteraGrupo('${gid}')" title="Pulsa para plegar o desplegar esta lista">`
+      +`<span class="cart-grp-lead">`
+      +`<span class="cart-grp-caret" id="cgc-${gid}">${open?'▾':'▸'}</span>`
+      +`<span class="cart-grp-title">${title}</span>`
+      +`<span class="cart-grp-count">${rows.length}</span>`
+      +`</span>`
+      +(sub?`<span class="cart-grp-sub">${sub}</span>`:'')
+      +`</div></td></tr>`
+      +rows.map(r=>rowFor(r,gid,open)).join('');
+  };
+  // Rentabilidad media de lo invertido (ponderada por el valor de cada posición)
+  let invSub='';
+  if(invested.length){
+    let w=0,acc=0,simple=[];
+    invested.forEach(({m})=>{
+      if(m.retPct==null) return;
+      simple.push(m.retPct);
+      const peso=m.costValue||1;
+      w+=peso; acc+=m.retPct*peso;
+    });
+    if(simple.length){
+      const r=w>0?acc/w:simple.reduce((a,b)=>a+b,0)/simple.length;
+      invSub=`· rentab. media <b style="color:${r>=0?'#16a34a':'#dc2626'};">${(r>=0?'+':'')+r.toFixed(1)}%</b>`;
+    }
+  }
+  const vacio=`<tr><td colspan="${CART_COLS}" style="text-align:center;padding:26px;color:var(--muted);font-size:12px;">`
+    +(hidden?`Ninguna empresa cumple el filtro «${FILTERS[_cartFilter].lbl}». <a href="#" onclick="event.preventDefault();filterCartera('all')" style="color:var(--blue);font-weight:700;">Ver todas</a>`
+            :'Aún no hay empresas. Pulsa «Añadir empresa».')+`</td></tr>`;
+  tbody.innerHTML=
+     (grpHtml('inv','💼 Empresas invertidas','Con precio de compra guardado '+invSub,invested)
+     +grpHtml('seg','👀 Empresas en seguimiento','Analizadas, aún sin posición · pon tu coste para pasarlas a invertidas',watched))
+    ||vacio;
   _refreshRestoreBtn();
+  _paintFilterChips(FILTERS,hidden);
+  renderPortfolioSummary();
 
   // Estado de importación resumido en el botón Sincronizar: check verde si todo OK, aviso si faltan
   const chk=document.getElementById('sync-check');
@@ -5906,6 +6325,217 @@ function renderCartera(){
       if(btn) btn.title='Faltan por importar ('+pending.length+'): '+pending.join(', ')+'. Usan mediana 5Y hasta que importes su hoja. Pulsa para sincronizar.';
     }
   }
+}
+
+// Flecha de orden en la cabecera pulsada
+function _paintSortIndicators(){
+  document.querySelectorAll('#cartera-table th[data-sort]').forEach(th=>{
+    const on=th.dataset.sort===_cartSort.col;
+    th.classList.toggle('sorted',on);
+    const ind=th.querySelector('.sort-ind');
+    if(ind) ind.textContent=on?(_cartSort.dir>0?'▲':'▼'):'';
+  });
+}
+// Chips de filtro rápido encima de la tabla
+function _paintFilterChips(FILTERS,hidden){
+  const el=document.getElementById('cartera-filters'); if(!el) return;
+  el.innerHTML=Object.keys(FILTERS).map(f=>
+    `<button class="cart-chip${f===_cartFilter?' on':''}" onclick="filterCartera('${f}')">${FILTERS[f].lbl}</button>`).join('')
+    +`<button class="cart-chip${_cartCalidad?' on':''}" onclick="toggleCalidad()" title="Muestra ROIC, margen de caja, deuda y crecimiento: la calidad del negocio antes que el precio">⚙ Calidad del negocio</button>`
+    +(hidden?`<span style="font-size:9.5px;color:var(--muted);font-weight:600;">${hidden} oculta(s) por el filtro</span>`:'');
+}
+
+
+// ══════════════════════════════════════════════════════════════════
+// RESUMEN DE CARTERA — las cifras que un inversor mira antes que nada
+// ══════════════════════════════════════════════════════════════════
+// Sector amplio a partir del texto libre de `sector` (para medir concentración)
+const _SECTOR_RULES=[
+  [/semicond|chip|gpu|litograf|euv|foundry|wafer/i,'Semiconductores'],
+  [/software|cloud|saas|vms|internet|search|social|platform|ia\b|inteligencia/i,'Software / Internet'],
+  [/hardware|storage|hdd|device|consumer tech|electr/i,'Hardware / Electrónica'],
+  [/ecommerce|retail|consumo|consumer|food|beverage|bebida|lujo|luxury|apparel/i,'Consumo'],
+  [/salud|health|pharma|farma|biotech|medical|medic/i,'Salud'],
+  [/banco|bank|financ|seguro|insur|asset manage|payment|pago/i,'Financiero'],
+  [/energ|oil|gas|petról|petrol|renovable|solar/i,'Energía'],
+  [/industri|aero|defen|maquinar|construc|transport|logíst|logist/i,'Industrial'],
+  [/telecom|media|entertain|streaming/i,'Telecom / Media'],
+  [/inmobil|reit|real estate/i,'Inmobiliario'],
+  [/utilit|agua|eléctric|electric/i,'Utilities'],
+];
+function sectorBucket(key){
+  const t=String((DB[key]&&DB[key].sector)||(getImportedData(key)||{}).sector||'');
+  for(const [re,name] of _SECTOR_RULES) if(re.test(t)) return name;
+  return t?'Otros':'Sin clasificar';
+}
+
+// Rentabilidad del S&P 500 desde cada fecha de compra (para saber si bates al índice)
+let _spHist=null;
+async function _loadSPHistory(){
+  if(_spHist) return _spHist;
+  try{
+    const c=JSON.parse(localStorage.getItem('vi_sp_hist')||'null');
+    if(c&&Date.now()-c.ts<12*3600*1000){_spHist=c.d;return _spHist;}
+  }catch(e){}
+  const url='https://query1.finance.yahoo.com/v8/finance/chart/%5EGSPC?interval=1d&range=10y';
+  const parse=d=>{const q=d?.chart?.result?.[0];const t=q?.timestamp,c=q?.indicators?.quote?.[0]?.close;
+    if(!Array.isArray(t)||!Array.isArray(c)) return null;
+    const out={t:[],c:[]};
+    t.forEach((ts,i)=>{if(c[i]!=null){out.t.push(ts);out.c.push(c[i]);}});
+    return out.c.length?out:null;};
+  for(const wrap of ['https://corsproxy.io/?url=','https://api.allorigins.win/get?url=']){
+    try{
+      const r=await fetch(wrap+encodeURIComponent(url),{signal:AbortSignal.timeout(9000)});
+      if(!r.ok) continue;
+      const raw=wrap.includes('allorigins')?JSON.parse((await r.json()).contents||'{}'):await r.json();
+      const d=parse(raw);
+      if(d){_spHist=d;try{localStorage.setItem('vi_sp_hist',JSON.stringify({d,ts:Date.now()}));}catch(e){}return d;}
+    }catch(e){}
+  }
+  return null;
+}
+function _spReturnSince(dateStr){
+  if(!_spHist||!dateStr) return null;
+  const ts=new Date(dateStr).getTime()/1000;
+  if(!isFinite(ts)) return null;
+  let idx=_spHist.t.findIndex(x=>x>=ts);
+  if(idx<0) return null;                       // fecha posterior al último dato
+  const from=_spHist.c[idx], to=_spHist.c[_spHist.c.length-1];
+  return (from>0)?(to-from)/from*100:null;
+}
+
+// Agregados de la cartera (solo posiciones con nº de acciones: sin eso no hay pesos reales)
+function portfolioStats(rows){
+  const inv=rows.filter(r=>r.m.buyPrice!=null);
+  const conValor=inv.filter(r=>r.m.mktValue!=null);
+  const totalMkt=conValor.reduce((a,r)=>a+r.m.mktValue,0);
+  const totalCost=conValor.reduce((a,r)=>a+(r.m.costValue||0),0);
+  const pnl=totalMkt-totalCost;
+  const pnlPct=totalCost>0?pnl/totalCost*100:null;
+  const wAvg=(sel)=>{
+    let w=0,acc=0;
+    conValor.forEach(r=>{const v=sel(r.m); if(v==null) return; w+=r.m.mktValue; acc+=v*r.m.mktValue;});
+    if(w>0) return acc/w;
+    // sin acciones guardadas: media simple de lo invertido, para no dejarlo en blanco
+    const vals=inv.map(r=>sel(r.m)).filter(v=>v!=null);
+    return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null;
+  };
+  // Concentración por sector y posición
+  const bySector={};
+  conValor.forEach(r=>{const s=sectorBucket(r.co.key);bySector[s]=(bySector[s]||0)+r.m.mktValue;});
+  const sectors=Object.entries(bySector).map(([n,v])=>({n,v,pct:totalMkt>0?v/totalMkt*100:0}))
+    .sort((a,b)=>b.v-a.v);
+  const top=conValor.map(r=>({key:r.co.key,name:r.co.name,color:r.co.color,pct:totalMkt>0?r.m.mktValue/totalMkt*100:0}))
+    .sort((a,b)=>b.pct-a.pct);
+  // Comparación con el S&P 500 desde tus fechas de compra
+  let spW=null;
+  {
+    let w=0,acc=0;
+    inv.forEach(r=>{
+      const p=r.m.pos||{};
+      const sp=(p.buyDate?_spReturnSince(p.buyDate):null) ?? (p.spReturn?+p.spReturn:null);
+      if(sp==null) return;
+      const peso=r.m.costValue||1; w+=peso; acc+=sp*peso;
+    });
+    if(w>0) spW=acc/w;
+  }
+  return {inv,conValor,totalMkt,totalCost,pnl,pnlPct,
+    mdsW:wAvg(m=>m.mds), cagrW:wAvg(m=>m.cagr5), roicW:wAvg(m=>m.roic5),
+    sinAcciones:inv.filter(r=>!r.m.shares).length,
+    sinCambio:inv.filter(r=>r.m.shares&&!r.m.fxOk).map(r=>r.m.cur),
+    conFecha:inv.filter(r=>r.m.pos&&r.m.pos.buyDate).length, spHistOk:!!_spHist,
+    sectors, top, spW};
+}
+
+function renderPortfolioSummary(){
+  const el=document.getElementById('cartera-summary'); if(!el) return;
+  const rows=getAllPortfolioCompanies().map(co=>({co,m:carteraMetrics(co)}));
+  const st=portfolioStats(rows);
+  const bc=baseCur();
+  const col=v=>v==null?'var(--muted)':v>=0?'var(--green)':'var(--red)';
+  const pct=(v,d=1)=>v==null?'—':((v>=0?'+':'')+v.toFixed(d)+'%');
+  const tile=(lbl,val,sub,c)=>`<div class="pf-tile"><div class="pf-lbl">${lbl}</div>`
+    +`<div class="pf-val" style="color:${c||'var(--text)'};">${val}</div>`
+    +`<div class="pf-sub">${sub||''}</div></div>`;
+
+  const sinPos=st.inv.length===0;
+  const tiles=sinPos
+    ? `<div style="grid-column:1/-1;font-size:11.5px;color:var(--sub);padding:6px 2px;">
+         Aún no has guardado ninguna posición. Pulsa <b>«+ coste»</b> en cualquier empresa para indicar tu
+         precio medio de compra y el número de acciones — a partir de ahí verás aquí el valor de tu cartera,
+         la ganancia, el peso de cada posición y si bates al S&amp;P 500.</div>`
+    : tile('Valor de la cartera', st.totalMkt>0?fmtBase(st.totalMkt,0):'—',
+           st.totalMkt>0?('coste '+fmtBase(st.totalCost,0))
+                        :(st.sinCambio.length?'falta el tipo de cambio':'falta el nº de acciones'))
+     +tile('Ganancia / pérdida', st.totalMkt>0?fmtBase(st.pnl,0):'—', pct(st.pnlPct), col(st.pnl))
+     +tile('vs S&P 500', st.spW==null?'—':pct(st.pnlPct!=null&&st.spW!=null?st.pnlPct-st.spW:null),
+           st.spW!=null?'S&P '+pct(st.spW)+' en el mismo periodo'
+             :(st.conFecha===0?'añade la fecha de compra':(st.spHistOk?'—':'no se pudo cargar el S&P 500')),
+           col(st.pnlPct!=null&&st.spW!=null?st.pnlPct-st.spW:null))
+     +tile('Margen de seguridad', pct(st.mdsW,0), 'medio ponderado · próx. año', col(st.mdsW))
+     +tile('Retorno esperado 5Y', st.cagrW==null?'—':pct(st.cagrW,0)+'/año', 'ponderado por peso',
+           st.cagrW==null?null:(st.cagrW>=15?'var(--green)':st.cagrW>=8?'var(--amber)':'var(--red)'))
+     +tile('ROIC medio', st.roicW==null?'—':st.roicW.toFixed(0)+'%', 'calidad del conjunto',
+           st.roicW==null?null:(st.roicW>=15?'var(--green)':st.roicW>=10?'var(--amber)':'var(--red)'));
+
+  // ── Concentración: sectores y mayores posiciones, con avisos ──
+  const PAL=['#1e3a5f','#2563eb','#0891b2','#16a34a','#d97706','#dc2626','#7c3aed','#9a958e'];
+  const avisos=[];
+  if(st.top[0]&&st.top[0].pct>25) avisos.push(`<b>${st.top[0].name}</b> pesa el ${st.top[0].pct.toFixed(0)}% de la cartera`);
+  if(st.sectors[0]&&st.sectors[0].pct>40) avisos.push(`el sector <b>${st.sectors[0].n}</b> pesa el ${st.sectors[0].pct.toFixed(0)}%`);
+  if(st.sinAcciones>0) avisos.push(`${st.sinAcciones} posición(es) sin nº de acciones: no cuentan en los totales`);
+  if(st.sinCambio.length) avisos.push(`sin tipo de cambio ${[...new Set(st.sinCambio)].join('/')}→${bc}: esas posiciones quedan fuera de los totales`);
+  if(fxStale()) avisos.push(`el tipo de cambio no es de hoy (último disponible: ${new Date(_fxTs).toLocaleDateString('es-ES')})`);
+  const conc=st.totalMkt>0?`
+    <div class="pf-conc">
+      <div class="pf-conc-t">Concentración por sector</div>
+      <div class="pf-bar">${st.sectors.map((s,i)=>`<div style="width:${s.pct}%;background:${PAL[i%PAL.length]};" title="${s.n}: ${s.pct.toFixed(1)}%"></div>`).join('')}</div>
+      <div class="pf-leg">${st.sectors.map((s,i)=>`<span><i style="background:${PAL[i%PAL.length]};"></i>${s.n} ${s.pct.toFixed(0)}%</span>`).join('')}</div>
+      <div class="pf-conc-t" style="margin-top:9px;">Mayores posiciones</div>
+      <div class="pf-leg">${st.top.slice(0,5).map(t=>`<span><i style="background:${t.color};"></i>${t.key} ${t.pct.toFixed(0)}%</span>`).join('')}</div>
+    </div>`:'';
+  const avisoHtml=avisos.length?`<div class="pf-warn">⚠ ${avisos.join(' · ')}</div>`:'';
+
+  el.innerHTML=`<div class="pf-head">
+      <div class="dash-sec-title" style="margin:0;">Resumen de mi cartera</div>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <span style="font-size:9.5px;color:var(--muted);font-weight:600;">Divisa base</span>
+        <select class="pf-cur" onchange="setBaseCur(this.value)">
+          ${['EUR','USD','CAD','GBP'].map(c=>`<option value="${c}"${c===bc?' selected':''}>${c}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="pf-tiles">${tiles}</div>
+    ${conc}${avisoHtml}`;
+  renderTodayPanel(rows);
+}
+
+// ── «Qué mirar hoy»: las tres listas que de verdad piden una decisión ──
+function renderTodayPanel(rows){
+  const el=document.getElementById('cartera-today'); if(!el) return;
+  const zona=rows.filter(r=>r.m.price!=null&&r.m.price15!=null&&r.m.price<=r.m.price15*1.03)
+    .sort((a,b)=>(b.m.mds15??-1e9)-(a.m.mds15??-1e9));
+  const caras=rows.filter(r=>r.m.mds!=null&&r.m.mds<-10).sort((a,b)=>(a.m.mds)-(b.m.mds));
+  const caidas=rows.filter(r=>r.m.weeklyPct!=null&&r.m.weeklyPct<=-7).sort((a,b)=>a.m.weeklyPct-b.m.weeklyPct);
+  const item=(r,txt,c)=>`<a class="today-item" onclick="setView('analysis');setTimeout(()=>{if(DB['${r.co.key}'])switchCo('${r.co.key}');},80);">
+      <span class="today-k" style="color:${r.co.color};">${r.co.key}</span>
+      <span class="today-n">${r.co.name}</span>
+      <span class="today-v" style="color:${c};">${txt}</span></a>`;
+  const listas=[
+    {t:'En zona de compra',s:'precio ≤ tu entrada para +15% anual',c:'var(--green)',
+     items:zona.map(r=>item(r,(r.m.mds15>=0?'+':'')+ (r.m.mds15??0).toFixed(0)+'%','var(--green)')),
+     vacio:'Ninguna a precio de entrada hoy.'},
+    {t:'Por encima del objetivo',s:'cotizan por encima de tu precio objetivo',c:'var(--red)',
+     items:caras.map(r=>item(r,r.m.mds.toFixed(0)+'% MdS','var(--red)')),
+     vacio:'Ninguna claramente por encima.'},
+    {t:'Caídas de la semana',s:'−7% o más en 5 sesiones',c:'var(--amber)',
+     items:caidas.map(r=>item(r,r.m.weeklyPct.toFixed(1)+'%','var(--red)')),
+     vacio:'Sin caídas fuertes esta semana.'},
+  ];
+  el.innerHTML=listas.map(l=>`<div class="today-col">
+      <div class="today-t" style="border-color:${l.c};">${l.t}<span>${l.s}</span></div>
+      ${l.items.length?l.items.join(''):`<div class="today-empty">${l.vacio}</div>`}
+    </div>`).join('');
 }
 
 // ── Multiple sliders ──
@@ -6067,12 +6697,24 @@ async function fetchCarteraPrices(){
     await new Promise(r=>setTimeout(r,260));
   }
   if(typeof renderStyleCompare==='function') renderStyleCompare(); // refresca comparador con precios live
+  _refreshCarteraWeights();                                        // pesos coherentes: un único total
+  if(typeof renderPortfolioSummary==='function') renderPortfolioSummary(); // totales y avisos con los precios live
+}
+
+// Recalcula el total de la cartera con TODOS los precios ya actualizados y repinta los pesos.
+// (Durante la descarga los precios llegan de uno en uno; calcular el peso en ese momento daría
+//  porcentajes que no suman 100.)
+function _refreshCarteraWeights(){
+  const cos=getAllPortfolioCompanies();
+  const ms=cos.map(c=>({c,m:carteraMetrics(c)}));
+  _cartTotal=ms.reduce((a,x)=>a+(x.m.mktValue||0),0);
+  ms.forEach(({c})=>updateCarteraRow(c.key));
 }
 
 function updateCarteraRow(key){
   const co=getAllPortfolioCompanies().find(c=>c.key===key)||{key,ticker:key};
   const m=carteraMetrics(co);
-  const cur=(key==='ASML'||key==='CSU')?'€':'$';
+  const cur=curSymOf(key);
   const fmt=v=>v!=null?(cur+(Math.abs(v)>=1000?new Intl.NumberFormat('es-ES',{maximumFractionDigits:0}).format(Math.round(v)):v.toFixed(2))):'—';
   const sp=(v,dec=1)=>v!=null?((v>=0?'+':'')+v.toFixed(dec)+'%'):'—';
   const retCol=v=>v==null?'#9a958e':v>=15?'#16a34a':v>=8?'#d97706':'#dc2626';
@@ -6083,11 +6725,23 @@ function updateCarteraRow(key){
   if(p('cweek-'+key)){const c=m.weeklyPct==null?'#9a958e':m.weeklyPct>=0?'#16a34a':'#dc2626';p('cweek-'+key).innerHTML=m.weeklyPct!=null?(m.weeklyPct>=0?'▲':'▼')+sp(m.weeklyPct,1):'—';p('cweek-'+key).style.color=c;}
   if(p('cobjevf-'+key)) p('cobjevf-'+key).textContent=fmt(m.objEVF);
   if(p('cmds-'+key)){p('cmds-'+key).textContent=m.mds!=null?sp(m.mds,0)+' MdS':'—';p('cmds-'+key).style.color=mdsCol(m.mds);}
-  if(p('c15-'+key)){const inZone=(m.price!=null&&m.price15!=null&&m.price<=m.price15*1.03);p('c15-'+key).textContent=fmt(m.price15);p('c15-'+key).style.color=inZone?'#16a34a':'#1a1814';}
+  if(p('c15-'+key)){const inZone=(m.price!=null&&m.price15!=null&&m.price<=m.price15*1.03);p('c15-'+key).textContent=fmt(m.price15);p('c15-'+key).style.color=inZone?'#16a34a':'var(--text)';}
   if(p('cmds15-'+key)){p('cmds15-'+key).textContent=m.mds15!=null?sp(m.mds15,0)+' MdS':'—';p('cmds15-'+key).style.color=mdsCol(m.mds15);}
   if(p('cobj5-'+key)) p('cobj5-'+key).textContent=fmt(m.obj5);
   if(p('cret-'+key)){p('cret-'+key).textContent=m.cagr5!=null?sp(m.cagr5,0)+'/año':'';p('cret-'+key).style.color=retCol(m.cagr5);}
   if(p('cpeg-'+key)) p('cpeg-'+key).innerHTML=pegBar(m.peg,m.per,m.g);
+  if(p('cprud-'+key)) p('cprud-'+key).textContent='prud. '+(m.mdsCons!=null?sp(m.mdsCons,0):'—');
+  if(p('cprud5-'+key)) p('cprud5-'+key).textContent='prud. '+(m.cagr5Cons!=null?sp(m.cagr5Cons,0)+'/año':'—');
+  // Mi coste: el rendimiento y el peso dependen del precio, así que también se refrescan
+  if(p('cpos-'+key)&&m.buyPrice){
+    const rc=m.retPct==null?'#9a958e':m.retPct>=0?'#16a34a':'#dc2626';
+    const peso=(m.mktValue!=null&&_cartTotal>0)?(m.mktValue/_cartTotal*100):null;
+    p('cpos-'+key).innerHTML=`<div style="font-size:12px;font-weight:700;color:var(--text);">${fmt(m.buyPrice)}</div>`
+      +`<div style="font-size:10px;font-weight:700;color:${rc};">${sp(m.retPct)}</div>`
+      +(m.mktValue!=null
+        ? `<div style="font-size:9px;color:var(--muted);font-weight:600;">${m.shares} acc · ${fmtBase(m.mktValue,0)}${peso!=null?' · <b>'+peso.toFixed(0)+'%</b>':''}</div>`
+        : `<div style="font-size:9px;color:var(--amber);font-weight:700;">+ nº acciones</div>`);
+  }
 }
 
 // ── Drive URL ──
