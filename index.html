@@ -461,6 +461,12 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
 .col-cal{display:none;}
 #cartera-table.show-cal .col-cal{display:table-cell;}
 /* Procedencia del dato de cada empresa */
+/* Ficha automática de empresa (las que añades tú, sin análisis escrito a mano) */
+.perfil-auto{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--amber);background:color-mix(in srgb,var(--amber) 14%,transparent);border:1px solid color-mix(in srgb,var(--amber) 35%,transparent);border-radius:6px;padding:2px 7px;}
+.perfil-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:7px;}
+.perfil-dato{background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:7px 10px;}
+.perfil-lbl{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);}
+.perfil-val{font-size:14px;font-weight:700;color:var(--text);margin-top:2px;}
 .cart-cur{font-size:8px;font-weight:700;padding:1px 5px;border-radius:5px;background:var(--surface2);color:var(--sub);border:1px solid var(--border);cursor:pointer;white-space:nowrap;}
 .cart-cur:hover{border-color:var(--blue);color:var(--blue);}
 .cart-cur.guess{border-style:dashed;}
@@ -472,6 +478,9 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
 .cart-chip{font-size:10px;font-weight:700;padding:4px 11px;border-radius:9px;border:1px solid var(--border);background:var(--surface);color:var(--sub);cursor:pointer;}
 .cart-chip:hover{border-color:var(--blue);color:var(--blue);}
 .cart-chip.on{background:var(--navy);border-color:var(--navy);color:#fff;}
+/* Modo privado activo: el botón se destaca para que no se olvide encendido */
+#priv-toggle.on{background:var(--navy);border-color:var(--navy);color:#fff;}
+.dark #priv-toggle.on{background:var(--blue);border-color:var(--blue);color:#04101f;}
 .dark .cart-chip.on{background:var(--blue);border-color:var(--blue);color:#04101f;}
 /* ═══ RESUMEN DE CARTERA ═══ */
 .pf-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:9px;}
@@ -687,6 +696,7 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
           <div style="font-size:8px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:2px 8px 6px;">Elige empresa</div>
           <div class="co-btns" id="co-btns"></div>
         </div>
+        <button id="priv-toggle" class="co-btn" onclick="togglePrivado()" title="Modo privado: oculta tu dinero y deja solo las rentabilidades"></button>
         <button id="dark-toggle" class="co-btn" onclick="_toggleDark()"></button>
       </div>
     </div>
@@ -936,6 +946,8 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
       <input type="text" id="import-nueva-ticker" class="import-inp" placeholder="Ej: NFLX" style="text-transform:uppercase;"/>
       <label class="import-label">Sector</label>
       <input type="text" id="import-nueva-sector" class="import-inp" placeholder="Ej: Streaming / Entertainment"/>
+      <label class="import-label">Web de la empresa (para el logo)</label>
+      <input type="text" id="import-nueva-domain" class="import-inp" placeholder="Ej: dell.com — déjalo vacío y se busca solo"/>
       <label class="import-label">Color corporativo (hex)</label>
       <input type="text" id="import-nueva-color" class="import-inp" placeholder="#E50914" value="#1e3a5f"/>
     </div>
@@ -1504,6 +1516,7 @@ const LOGOS={
 const _ICONS={
   briefcase:'<rect x="2" y="7" width="20" height="14" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
   eye:'<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>',
+  eyeoff:'<path d="M9.9 4.24A9.1 9.1 0 0 1 12 4c6.5 0 10 7 10 7a17.6 17.6 0 0 1-2.7 3.7M6.6 6.6A17.5 17.5 0 0 0 2 11s3.5 7 10 7a9 9 0 0 0 4.5-1.1"/><path d="m2 2 20 20"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/>',
   activity:'<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
   layout:'<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>',
   barchart:'<path d="M3 3v18h18"/><rect x="7" y="11" width="3" height="7"/><rect x="12" y="7" width="3" height="11"/><rect x="17" y="4" width="3" height="14"/>',
@@ -1527,10 +1540,12 @@ function getLogoKey(c){return Object.keys(DB).find(k=>DB[k]===c)||'';}
 function setLogo(co){
   const el=document.getElementById('co-logo'),wrap=document.getElementById('co-logo-wrap');
   if(!el) return;
-  const k=getLogoKey(co),lg=LOGOS[k];
-  if(!lg){_logoInitials(co,el,wrap);return;}
-  el.onerror=function(){el.onerror=function(){_logoInitials(co,el,wrap);};el.src=lg.fb;};
-  el.src=lg.src;el.style.display='block';
+  const k=getLogoKey(co);
+  const src=(typeof logoUrlFor==='function'?logoUrlFor(k):null)||(LOGOS[k]&&LOGOS[k].src);
+  const fb=(typeof logoFallback==='function'?logoFallback(k):'')||(LOGOS[k]&&LOGOS[k].fb)||'';
+  if(!src&&!fb){_logoInitials(co,el,wrap);return;}
+  el.onerror=function(){el.onerror=function(){_logoInitials(co,el,wrap);};el.src=fb;};
+  el.src=src||fb;el.style.display='block';
   if(wrap) wrap.style.display=(_curView==='analysis')?'flex':'none';
 }
 function _logoInitials(co,el,wrap){
@@ -1631,6 +1646,100 @@ function _lastKnownPrice(key){
 //     respecto a unos objetivos calculados en dólares.
 // Se puede cambiar por empresa desde la cartera (pulsando su divisa) → 'vi_yf_<KEY>'.
 const YF_TICKER={CSU:'CNSWF',ASML:'ASML.AS',AMZN:'AMZN',MSFT:'MSFT',AAPL:'AAPL',GOOGL:'GOOGL',META:'META',NVDA:'NVDA',WDC:'WDC'};
+
+// ══════════════════════════════════════════════════════════════════
+// PERFIL PÚBLICO DE LA EMPRESA (Finnhub) — logo, web, sector, bolsa, país
+// ══════════════════════════════════════════════════════════════════
+// El catálogo interno solo cubre unas pocas empresas; cualquier otra que añadas
+// (Dell, por ejemplo) se quedaba sin logo, sin sector y sin contexto. Esto lo
+// resuelve de forma general: se pide la ficha pública a Finnhub y se guarda.
+function companyProfile(key){
+  try{const p=JSON.parse(localStorage.getItem('vi_profile_'+key)||'null');return (p&&p.name)?p:null;}catch(e){return null;}
+}
+function _hostOf(url){
+  try{return new URL(String(url)).hostname.replace(/^www\./,'').toLowerCase();}catch(e){return null;}
+}
+// Finnhub devuelve la industria en inglés: se muestra en español
+const _IND_ES={'Technology':'Tecnología','Semiconductors':'Semiconductores','Software':'Software',
+ 'Communications':'Comunicaciones','Media':'Medios','Retail':'Distribución / Retail','Consumer products':'Consumo',
+ 'Health Care':'Salud','Biotechnology':'Biotecnología','Pharmaceuticals':'Farmacéuticas','Financial Services':'Servicios financieros',
+ 'Banking':'Banca','Insurance':'Seguros','Real Estate':'Inmobiliario','Energy':'Energía','Utilities':'Utilities',
+ 'Industrial Conglomerates':'Conglomerado industrial','Machinery':'Maquinaria','Transportation':'Transporte',
+ 'Aerospace & Defense':'Aeroespacial y defensa','Automobiles':'Automoción','Telecommunication':'Telecomunicaciones',
+ 'Food, Beverages & Tobacco':'Alimentación y bebidas','Hotels, Restaurants & Leisure':'Hostelería y ocio',
+ 'Textiles, Apparel & Luxury Goods':'Textil y lujo','Chemicals':'Química','Metals & Mining':'Metales y minería',
+ 'Building':'Construcción','Logistics & Transportation':'Logística y transporte','Electrical Equipment':'Equipos eléctricos'};
+function industriaES(v){return v?(_IND_ES[v]||v):'';}
+// Sector de una empresa: el suyo, el de su ficha pública o el del catálogo
+function sectorOf(key){
+  const d=DB[key]||{}, pr=companyProfile(key), cat=(typeof catalogFor==='function')?catalogFor(key):null;
+  return d.sector||industriaES(pr&&pr.industry)||(cat&&cat.sector)||'';
+}
+function saveCompanyProfile(key,p){try{localStorage.setItem('vi_profile_'+key,JSON.stringify(p));}catch(e){}}
+const _profileInFlight={};
+async function fetchCompanyProfile(key,force){
+  if(!force){ const c=companyProfile(key); if(c&&Date.now()-(c.ts||0)<30*864e5) return c; }
+  if(_profileInFlight[key]) return _profileInFlight[key];
+  const k=(typeof getFinnhubKey==='function')?getFinnhubKey():null;
+  if(!k) return companyProfile(key);
+  const sym=(typeof fhInfoSymbolFor==='function')?fhInfoSymbolFor(key):key;
+  _profileInFlight[key]=(async()=>{
+    try{
+      const r=await fetch('https://finnhub.io/api/v1/stock/profile2?symbol='+encodeURIComponent(sym)+'&token='+k,{signal:AbortSignal.timeout(9000)});
+      if(!r.ok) return companyProfile(key);
+      const j=await r.json();
+      if(!j||!j.name) return companyProfile(key);
+      const prof={name:j.name,logo:j.logo||null,web:j.weburl||null,domain:_hostOf(j.weburl),
+        industry:j.finnhubIndustry||null,country:j.country||null,exchange:j.exchange||null,
+        ipo:j.ipo||null,cur:j.currency||null,mcap:j.marketCapitalization||null,
+        shares:j.shareOutstanding||null,ts:Date.now()};
+      saveCompanyProfile(key,prof);
+      return prof;
+    }catch(e){ return companyProfile(key); }
+    finally{ delete _profileInFlight[key]; }
+  })();
+  return _profileInFlight[key];
+}
+// Trae las fichas que falten de toda la cartera (una vez; quedan en caché)
+async function ensureProfiles(){
+  const cos=(typeof getAllPortfolioCompanies==='function')?getAllPortfolioCompanies():[];
+  const faltan=cos.filter(c=>!companyProfile(c.key));
+  if(!faltan.length) return false;
+  for(const c of faltan){ await fetchCompanyProfile(c.key); await new Promise(r=>setTimeout(r,220)); }
+  return true;
+}
+// Dominio del logo: lo que hayas puesto a mano > ficha de Finnhub > catálogo interno
+function domainOverride(key){try{return localStorage.getItem('vi_domain_'+key)||null;}catch(e){return null;}}
+function setDomainFor(key,dom){
+  try{ if(dom) localStorage.setItem('vi_domain_'+key,dom); else localStorage.removeItem('vi_domain_'+key); }catch(e){}
+}
+
+// ══════════════════════════════════════════════════════════════════
+// MODO PRIVADO — para enseñar la web sin enseñar tu dinero
+// ══════════════════════════════════════════════════════════════════
+// Oculta SOLO lo que es tuyo: precio de compra, nº de acciones, valor de la
+// posición, total de la cartera y ganancia en euros. Se siguen viendo las
+// rentabilidades en %, los pesos, los precios de mercado y todo el análisis.
+const OCULTO='•••';
+function privado(){try{return localStorage.getItem('vi_privado')==='1';}catch(e){return false;}}
+function mny(txt){return privado()?OCULTO:txt;}      // envuelve un importe en dinero
+function togglePrivado(){
+  const on=!privado();
+  try{localStorage.setItem('vi_privado',on?'1':'0');}catch(e){}
+  _paintPrivadoBtn();
+  document.documentElement.classList.toggle('privado',on);
+  if(typeof renderCartera==='function') renderCartera();
+  if(_curView==='analysis'&&typeof showTab==='function'&&typeof curTab!=='undefined'&&curTab) showTab(curTab);
+}
+function _paintPrivadoBtn(){
+  const b=document.getElementById('priv-toggle'); if(!b) return;
+  const on=privado();
+  b.innerHTML=(typeof svgIcon==='function'?svgIcon(on?'eyeoff':'eye'):'')+'Privado';
+  b.classList.toggle('on',on);
+  b.title=on
+    ? 'Modo privado ACTIVADO: tus importes están ocultos. Pulsa para volver a verlos.'
+    : 'Modo privado: oculta tu dinero (coste, acciones, valor y ganancia en €) y deja solo las rentabilidades. Útil para enseñar la web a alguien.';
+}
 
 // ══════════════════════════════════════════════════════════════════
 // DIVISAS — cada empresa cotiza en la suya; los totales necesitan una divisa base
@@ -1743,6 +1852,7 @@ async function fetchFX(){
 // Formato de importes en la divisa base (totales de cartera)
 function fmtBase(v,dec){
   if(v==null||!isFinite(v)) return '—';
+  if(privado()) return OCULTO;                 // modo privado: nada de importes
   const sym=CUR_SYM[baseCur()]||(baseCur()+' ');
   const a=Math.abs(v);
   const d=dec!=null?dec:(a>=10000?0:a>=100?0:2);
@@ -2043,9 +2153,13 @@ function switchCo(k){
   document.getElementById('price-change').textContent='';
   const b=_getLiveBadge();if(b)b.classList.remove('visible');
   document.getElementById('co-name-txt').textContent=co.name;
-  document.getElementById('co-info').textContent=co.ticker+' · '+co.sector;
+  if(!co.sector){const _s=sectorOf(k); if(_s) co.sector=_s;}
+  document.getElementById('co-info').textContent=co.ticker+(co.sector?' · '+co.sector:'');
   setLogo(co);
-  document.querySelectorAll('.co-btn').forEach(btn=>{
+  // Solo los botones de EMPRESA (dentro de #co-btns). Antes recorría todos los .co-btn y
+  // pisaba con estilos en línea los de navegación y los de la derecha (Privado, Noche),
+  // que se quedaban con el texto blanco sobre fondo transparente = invisibles.
+  document.querySelectorAll('#co-btns .co-btn').forEach(btn=>{
     const act=btn.dataset.k===k;
     btn.classList.toggle('active',act);
     btn.style.background=act?co.color:'transparent';
@@ -2053,6 +2167,16 @@ function switchCo(k){
     btn.style.color=act?'#fff':'';
   });
   resetIS();applyCompanyMults(co);updateEarningsBadge();fetchEarningsDate();fetchLivePrice();showTab(curTab);recalc();
+  // Ficha pública (logo, sector, bolsa, web): si falta, se trae y se repinta el resumen
+  if(!companyProfile(k)){
+    fetchCompanyProfile(k).then(pr=>{
+      if(!pr||coKeyOf(co)!==k) return;
+      setLogo(co);
+      if(!co.sector&&pr.industry) co.sector=industriaES(pr.industry);
+      document.getElementById('co-info').textContent=co.ticker+(co.sector?' · '+co.sector:'');
+      if(curTab==='resumen') showTab('resumen');
+    });
+  }
   if(isEstimatedCo(co)) _preferFMPIfAvailable(k);   // empresa sin Excel: preferir consenso FMP si existe
   const _dd=document.getElementById('co-dropdown'); if(_dd) _dd.style.display='none'; // cerrar desplegable al elegir empresa
 }
@@ -2964,7 +3088,7 @@ function getPositionFor(key){try{const r=localStorage.getItem('pos_'+key);return
 // ══ COPIA DE SEGURIDAD / PASAR A OTRO DISPOSITIVO ══
 // Los datos (empresas importadas, precios de compra, ajustes) viven en localStorage → son locales
 // de este navegador. Esto permite exportar un código y restaurarlo en el móvil.
-const _BACKUP_PREFIXES=['vi_import_','pos_','vi_drive_','vi_mults_','vi_yf_'];
+const _BACKUP_PREFIXES=['vi_import_','pos_','vi_drive_','vi_mults_','vi_yf_','vi_domain_'];
 const _BACKUP_KEYS=['vi_watchlist','vi_hidden','finnhub_api_key','fmp_api_key','vi_base_cur'];
 function _collectBackup(){
   const out={};
@@ -3052,6 +3176,7 @@ function openBackupModal(){
 }
 // Añade/edita/borra el precio de compra MEDIO desde la cartera (mantiene acciones/fecha si ya existían)
 function setCarteraPos(key){
+  if(privado()){ alert('Modo privado activado.\n\nDesactívalo (botón «Privado» arriba) para ver o editar tus importes.'); return; }
   const nm=(DB[key]&&DB[key].name)||key, prev=getPositionFor(key)||{};
   const sym=(typeof curSymOf==='function')?curSymOf(key):'';
   const bp=prompt('Precio de compra MEDIO de '+nm+' (en '+sym.trim()+'):\n(deja vacío y pulsa Aceptar para borrar tu posición)', prev.buyPrice||'');
@@ -3085,6 +3210,7 @@ function clearMiPosicion(){
   showTab('resumen');
 }
 function openMiPosicionForm(){
+  if(privado()){ alert('Modo privado activado.\n\nDesactívalo (botón «Privado» arriba) para ver o editar tus importes.'); return; }
   const pos=getMiPosicion()||{buyPrice:'',shares:'',buyDate:'',spReturn:''};
   document.getElementById('mp-form-buyPrice').value=pos.buyPrice||'';
   document.getElementById('mp-form-shares').value=pos.shares||'';
@@ -3101,6 +3227,84 @@ function submitMiPosicionForm(){
   if(!bp||!sh){alert('Falta precio de compra o número de acciones.');return;}
   saveMiPosicion(bp,sh,bd,sp);
   closeMiPosicionForm();
+}
+
+// ── Ficha automática para empresas sin análisis cualitativo escrito a mano ──
+// (las 9 de fábrica lo tienen en FICHA; cualquiera que añadas tú, no). En vez de
+// dejar el hueco en blanco se construye con la ficha pública de la empresa y con
+// lo que dicen SUS PROPIOS NÚMEROS. Queda claro que es automática.
+function rPerfilAuto(key,prof){
+  const c=DB[key]; if(!c) return '';
+  const P=v=>(v==null||!isFinite(v))?'—':((v>=0?'+':'')+v.toFixed(1)+'%');
+  const últ=a=>{const v=(a||[]).filter(x=>x!=null&&isFinite(x));return v.length?v[v.length-1]:null;};
+  const cagr=(a,n)=>{const v=(a||[]).filter(x=>x!=null&&x>0);
+    if(v.length<n+1) return null;
+    const fin=v[v.length-1],ini=v[v.length-1-n];
+    return ini>0?(Math.pow(fin/ini,1/n)-1)*100:null;};
+  const ventas=últ(c.sales), gVentas=cagr(c.sales,5), mgFcf=últ(c.fcfM), roic=últ(c.roic);
+  const ebitda=últ(c.ebitda), nd=últ(c.netDebt);
+  const deuda=(ebitda>0&&nd!=null)?nd/ebitda:null;
+  const cs=curSymG();
+  const dato=(lbl,val,tip)=>`<div class="perfil-dato" title="${tip||''}"><div class="perfil-lbl">${lbl}</div><div class="perfil-val">${val}</div></div>`;
+  const meta=[];
+  if(prof&&prof.industry) meta.push(industriaES(prof.industry));
+  if(prof&&prof.country) meta.push('País: '+prof.country);
+  if(prof&&prof.exchange) meta.push(prof.exchange);
+  if(prof&&prof.ipo) meta.push('En bolsa desde '+String(prof.ipo).slice(0,4));
+
+  // Frase de contexto construida con sus propias cifras (nada inventado)
+  const frases=[];
+  if(ventas!=null) frases.push(`Facturó <b>${cs}${N(Math.round(ventas))}M</b> en el último ejercicio`+
+    (gVentas!=null?` y sus ventas crecen al <b>${P(gVentas)}</b> anual en los últimos 5 años`:''));
+  if(mgFcf!=null) frases.push(`convierte en caja libre el <b>${mgFcf.toFixed(0)}%</b> de lo que vende`+
+    (mgFcf>=20?' (margen muy alto)':mgFcf>=10?' (margen sólido)':' (margen ajustado)'));
+  if(roic!=null) frases.push(`obtiene un <b>ROIC del ${roic.toFixed(0)}%</b> sobre el capital que reinvierte`+
+    (roic>=20?', señal de un negocio excelente':roic>=12?', por encima de su coste de capital':', por debajo de lo que exige un compounder'));
+  if(deuda!=null) frases.push(deuda<0?'y opera con <b>caja neta</b> (más dinero que deuda)'
+    :`y arrastra una deuda de <b>${deuda.toFixed(1)}x EBITDA</b>`+(deuda<1?', muy contenida':deuda<3?', manejable':', elevada'));
+
+  return `
+  <div class="card" style="margin-bottom:10px;">
+    <div class="ctitle" style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+      <span>Perfil de la empresa</span>
+      <span style="display:flex;gap:6px;align-items:center;">
+        <span class="perfil-auto">ficha automática</span>
+        <button onclick="refrescarPerfil('${key}')" style="font-size:9px;padding:3px 9px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--sub);cursor:pointer;font-weight:700;">↻ Actualizar</button>
+        <button onclick="editarDominioLogo('${key}')" style="font-size:9px;padding:3px 9px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--sub);cursor:pointer;font-weight:700;" title="Cambiar la web de la que se saca el logo">Logo</button>
+      </span>
+    </div>
+    ${meta.length?`<div style="font-size:10.5px;color:var(--muted);font-weight:600;margin-bottom:8px;">${meta.join(' · ')}${prof&&prof.web?` · <a href="${prof.web}" target="_blank" rel="noopener" style="color:var(--blue);font-weight:700;text-decoration:none;">${_hostOf(prof.web)||'web'} ↗</a>`:''}</div>`:''}
+    ${frases.length?`<div class="ficha-desc-card" style="margin-bottom:10px;">${frases.join(', ')}.</div>`:''}
+    <div class="perfil-grid">
+      ${dato('Ventas último año',ventas!=null?cs+N(Math.round(ventas))+'M':'—','Ventas del último ejercicio disponible')}
+      ${dato('Crec. ventas 5Y',P(gVentas),'Crecimiento anualizado de las ventas en 5 años')}
+      ${dato('Margen FCF',mgFcf!=null?mgFcf.toFixed(0)+'%':'—','Qué parte de las ventas se convierte en caja libre')}
+      ${dato('ROIC',roic!=null?roic.toFixed(0)+'%':'—','Retorno sobre el capital invertido')}
+      ${dato('Deuda neta / EBITDA',deuda!=null?deuda.toFixed(1)+'x':'—','Negativo = caja neta')}
+      ${dato('Divisa',curOf(key),'Divisa en la que cotiza y en la que están sus cuentas')}
+    </div>
+    <div style="margin-top:9px;font-size:10px;color:var(--muted);line-height:1.55;">
+      Esta ficha se genera con los datos públicos de la empresa y con sus propias cuentas —
+      <b>no es un análisis cualitativo</b>. El foso competitivo, los segmentos de negocio y la tesis
+      los escribes tú: por ahora solo las nueve empresas de fábrica los tienen redactados.
+    </div>
+  </div>`;
+}
+// Vuelve a pedir la ficha pública (por si el logo o el sector salieron mal)
+async function refrescarPerfil(key){
+  await fetchCompanyProfile(key,true);
+  if(typeof showTab==='function'&&curTab) showTab(curTab);
+  if(typeof renderCartera==='function') renderCartera();
+}
+// Corregir a mano la web de la que se saca el logo
+function editarDominioLogo(key){
+  const actual=domainOverride(key)||_domainFor(key)||'';
+  const v=prompt('Web de '+((DB[key]&&DB[key].name)||key)+' para sacar el logo\\n'
+    +'(solo el dominio, por ejemplo: dell.com)\\n\\nDéjalo vacío para volver al automático.',actual);
+  if(v===null) return;
+  setDomainFor(key,(v||'').trim().toLowerCase().replace(/^https?:\/\//,'').replace(/^www\./,'').replace(/\/.*$/,'')||null);
+  if(typeof showTab==='function'&&curTab) showTab(curTab);
+  if(typeof renderCartera==='function') renderCartera();
 }
 
 function rMiPosicion(vd,fv5){
@@ -3163,17 +3367,17 @@ function rMiPosicion(vd,fv5){
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px;">
       <div style="background:${_dm()?'#1c2333':'#f7f6f3'};border-radius:10px;padding:10px 12px;">
         <div style="font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:3px;">Precio compra · Acciones</div>
-        <div style="font-size:14px;font-weight:700;color:${_dm()?'#e2e8f0':'#1a1814'};">${curSymG()}${N(pos.buyPrice,2)} × ${N(pos.shares)}</div>
-        <div style="font-size:10px;color:var(--muted);margin-top:2px;">Coste total: ${curSymG()}${N(Math.round(cost))}</div>
+        <div style="font-size:14px;font-weight:700;color:${_dm()?'#e2e8f0':'#1a1814'};">${mny(curSymG()+N(pos.buyPrice,2)+' × '+N(pos.shares))}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px;">Coste total: ${mny(curSymG()+N(Math.round(cost)))}</div>
       </div>
       <div style="background:${_dm()?'#1c2333':'#f7f6f3'};border-radius:10px;padding:10px 12px;">
         <div style="font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:3px;">Valor hoy · Precio ${curSymG()}${N(price,2)}</div>
-        <div style="font-size:14px;font-weight:700;color:${_dm()?'#e2e8f0':'#1a1814'};">${curSymG()}${N(Math.round(valNow))}</div>
+        <div style="font-size:14px;font-weight:700;color:${_dm()?'#e2e8f0':'#1a1814'};">${mny(curSymG()+N(Math.round(valNow)))}</div>
         <div style="font-size:10px;color:var(--muted);margin-top:2px;">${pos.buyDate?'Comprado: '+pos.buyDate:'Sin fecha'}</div>
       </div>
       <div style="background:${pnl>=0?'#f0fdf4':'#fef2f2'};border:1.5px solid ${pnl>=0?'#bbf7d0':'#fecaca'};border-radius:10px;padding:10px 12px;text-align:center;">
         <div style="font-size:8px;color:${pnl>=0?'#16a34a':'#dc2626'};text-transform:uppercase;letter-spacing:.07em;font-weight:700;margin-bottom:2px;">P&amp;L total</div>
-        <div style="font-size:22px;font-weight:600;color:${pnl>=0?'#16a34a':'#dc2626'};line-height:1;">${pnl>=0?'+':''}${curSymG()}${N(Math.round(Math.abs(pnl)))}</div>
+        <div style="font-size:22px;font-weight:600;color:${pnl>=0?'#16a34a':'#dc2626'};line-height:1;">${privado()?(pnlPct>=0?'+':'')+pnlPct.toFixed(1)+'%':(pnl>=0?'+':'')+curSymG()+N(Math.round(Math.abs(pnl)))}</div>
         <div style="font-size:11px;font-weight:700;color:${pnl>=0?'#16a34a':'#dc2626'};margin-top:3px;">${pnlPct>=0?'+':''}${pnlPct.toFixed(1)}%${pnlAnnual!==null?' · '+(pnlAnnual>=0?'+':'')+pnlAnnual.toFixed(1)+'% anual':''}</div>
       </div>
     </div>
@@ -3499,7 +3703,9 @@ function rResumen(){
   // ── Ficha empresa (de FICHA) ──
   const coKey=Object.keys(DB).find(k=>DB[k]===co)||'MSFT';
   const fichaData = FICHA[coKey] || {};
-  const logosSrc=LOGOS[coKey]||{};
+  const _prof=companyProfile(coKey);
+  const logosSrc={src:logoUrlFor(coKey)||(LOGOS[coKey]&&LOGOS[coKey].src)||'',
+                  fb:logoFallback(coKey)||(LOGOS[coKey]&&LOGOS[coKey].fb)||''};
 
     return`
   <div><!-- resumen layout -->
@@ -3508,11 +3714,11 @@ function rResumen(){
     <!-- ══ BANNER EMPRESA (sobrio, acento en color corporativo) ══ -->
     <div class="card" style="margin-bottom:10px;border-left:3px solid ${co.color};display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:12px 16px;">
       <div style="width:44px;height:44px;border-radius:var(--radius-sm);background:var(--surface2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-        <img src="${logosSrc.src||''}" onerror="this.src='${logosSrc.fb||''}'" style="width:30px;height:30px;object-fit:contain;" alt="${co.ticker}"/>
+        <img src="${logosSrc.src||logosSrc.fb||''}" onerror="this.onerror=null;if('${logosSrc.fb}'&&this.src!=='${logosSrc.fb}'){this.src='${logosSrc.fb}';}else{this.style.display='none';this.parentElement.textContent='${co.ticker.substring(0,2)}';this.parentElement.style.color=this.parentElement.style.color||'${co.color}';this.parentElement.style.fontWeight='700';}" style="width:30px;height:30px;object-fit:contain;" alt="${co.ticker}"/>
       </div>
       <div style="flex:1;min-width:160px;">
         <div style="font-size:17px;font-weight:700;color:var(--text);line-height:1.15;">${co.name}</div>
-        <div style="font-size:10.5px;color:var(--muted);margin-top:3px;font-weight:600;">${co.ticker} · ${co.sector}${fichaData.exchange?` · <span style="text-transform:uppercase;letter-spacing:.05em;color:var(--sub);">${fichaData.exchange}</span>`:''}</div>
+        <div style="font-size:10.5px;color:var(--muted);margin-top:3px;font-weight:600;">${co.ticker} · ${co.sector||sectorOf(coKey)||'—'}${(fichaData.exchange||(_prof&&_prof.exchange))?` · <span style="text-transform:uppercase;letter-spacing:.05em;color:var(--sub);">${fichaData.exchange||_prof.exchange}</span>`:''}</div>
         ${(()=>{const e=_earningsInfo();return`<div id="resumen-earnings" style="display:${e.show?'inline-flex':'none'};align-items:center;margin-top:5px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:2px 9px;font-size:9px;font-weight:700;color:var(--amber);">${e.text}</div>`;})()}
       </div>
       ${fichaData.lastQ?`<div style="display:flex;gap:8px;flex-wrap:wrap;flex-shrink:0;">
@@ -3532,6 +3738,7 @@ function rResumen(){
     ${co.spinoffNote?`<div class="card" style="margin-bottom:10px;border-left:3px solid var(--amber);padding:10px 14px;"><div style="font-size:9px;font-weight:700;color:var(--amber);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px;">Cambio estructural reciente</div><div style="font-size:11px;color:var(--sub);line-height:1.5;">${co.spinoffNote}</div></div>`:''}
 
     <!-- ══ BLOQUE 1: CONTEXTO DE EMPRESA ══ -->
+    ${(!fichaData.descRich&&!fichaData.businessLines)?rPerfilAuto(coKey,_prof):''}
     ${fichaData.descRich||fichaData.businessLines?`
     <div class="card" style="margin-bottom:10px;">
       <div class="ctitle">Descripción · Posición competitiva · Tesis</div>
@@ -4654,6 +4861,8 @@ function setView(v){
     localStorage.setItem('vi_view','dash');
     renderDashboard();
     renderCartera();                              // tabla rica de la cartera (fusionada)
+    // Fichas públicas que falten (logo, sector, bolsa) — se guardan y no se vuelven a pedir
+    ensureProfiles().then(ok=>{ if(ok&&_curView==='dash') renderCartera(); });
     // Tipos de cambio y S&P 500: hacen falta para los totales y la comparación con el índice
     Promise.allSettled([fetchFX(),_loadSPHistory()]).then(()=>{ if(_curView==='dash') renderCartera(); });
     setTimeout(()=>fetchCarteraPrices(),250);     // precios en vivo de la tabla rica
@@ -4854,6 +5063,12 @@ async function _autoFetchWatch(){
     const f=await fetchFundamentals(e.fhTicker||e.ticker||e.id);
     if(f){
       e.metrics=f.metric; e.profile=f.profile;
+      if(f.profile&&f.profile.name){
+        saveCompanyProfile(e.id,{name:f.profile.name,logo:f.profile.logo||null,web:f.profile.weburl||null,
+          domain:_hostOf(f.profile.weburl),industry:f.profile.finnhubIndustry||null,country:f.profile.country||null,
+          exchange:f.profile.exchange||null,ipo:f.profile.ipo||null,cur:f.profile.currency||null,
+          mcap:f.profile.marketCapitalization||null,shares:f.profile.shareOutstanding||null,ts:Date.now()});
+      }
       if(f.profile){
         if(f.profile.name&&(!e.name||e.name===e.id)) e.name=f.profile.name;
         if((!e.sector||e.sector==='')&&f.profile.finnhubIndustry) e.sector=f.profile.finnhubIndustry;
@@ -4953,8 +5168,9 @@ function buildImportFromFinancials(rows,e){
   const r0=a=>(a.find(v=>v!=null&&!isNaN(v))||0);
   const _cat=catalogFor(e.id);
   return {
-    ticker:e.id, name:e.name||(e.profile&&e.profile.name)||e.id, sector:e.sector||(_cat&&_cat.sector)||'', color:(_cat&&_cat.color)||'#1e3a5f',
-    ...((_cat&&_cat.domain)?{domain:_cat.domain}:{}),...(tvSymbolFor(e.id,e.id)?{tvSymbol:tvSymbolFor(e.id,e.id)}:{}),
+    ticker:e.id, name:e.name||(e.profile&&e.profile.name)||e.id,
+    sector:e.sector||(_cat&&_cat.sector)||(e.profile&&e.profile.finnhubIndustry)||'', color:(_cat&&_cat.color)||'#1e3a5f',
+    ...(((_cat&&_cat.domain)||_hostOf(e.profile&&e.profile.weburl))?{domain:(_cat&&_cat.domain)||_hostOf(e.profile.weburl)}:{}),...(tvSymbolFor(e.id,e.id)?{tvSymbol:tvSymbolFor(e.id,e.id)}:{}),
     shares:last(sharesArr)||1, price:(_priceCache[e.id]&&_priceCache[e.id].live)||0,
     driveUrl:'', desc:(e.name||e.id)+' — datos automáticos (Finnhub/SEC). Refina importando tu hoja TIKR.',
     importDate:Date.now(), autoSource:'finnhub', estimated:true, yearsAvailable:n,
@@ -5223,9 +5439,24 @@ function catalogFor(key){
   if(TICKER_ALIASES[base]&&CATALOG[TICKER_ALIASES[base]]) return CATALOG[TICKER_ALIASES[base]];
   return null;
 }
-function _domainFor(key){return LOGO_DOMAINS[key]||(CATALOG[key]&&CATALOG[key].domain)||(getImportedData(key)?.domain)||(catalogFor(key)&&catalogFor(key).domain);}
-function logoUrlFor(key){const dom=_domainFor(key);return dom?('https://icons.duckduckgo.com/ip3/'+dom+'.ico'):null;}
-function logoFallback(key){const dom=_domainFor(key);return dom?('https://www.google.com/s2/favicons?sz=64&domain='+dom):'';}
+function _domainFor(key){
+  return domainOverride(key)||LOGO_DOMAINS[key]||(CATALOG[key]&&CATALOG[key].domain)
+    ||(companyProfile(key)&&companyProfile(key).domain)
+    ||(getImportedData(key)?.domain)||(catalogFor(key)&&catalogFor(key).domain);
+}
+// Logo: primero el que publica la propia empresa (vía Finnhub), luego el favicon de su web
+function logoUrlFor(key){
+  const prof=companyProfile(key);
+  if(!domainOverride(key)&&prof&&prof.logo) return prof.logo;
+  const dom=_domainFor(key);
+  return dom?('https://icons.duckduckgo.com/ip3/'+dom+'.ico'):null;
+}
+function logoFallback(key){
+  const dom=_domainFor(key);
+  if(dom) return 'https://www.google.com/s2/favicons?sz=64&domain='+dom;
+  const prof=companyProfile(key);
+  return (prof&&prof.logo)||'';
+}
 const LOGOS_DASH=new Proxy({},{get:(_,k)=>typeof k==='string'?logoUrlFor(k):undefined}); // compat: LOGOS_DASH[key] sigue funcionando
 
 const MACRO_CAL=[
@@ -5809,6 +6040,7 @@ function updateDashCoRow(key,price,pct,change){
   const _setIc=(id,name)=>{const e=document.getElementById(id);if(e)e.innerHTML=svgIcon(name,'ic-lg');};
   _setIc('brand-ic','activity'); _setIc('nic-dash','briefcase'); _setIc('nic-watch','eye'); _setIc('nic-anly','activity');
   _setIc('aic-add','plus'); _setIc('aic-imp','folder'); _setIc('aic-sync','refresh'); _setIc('aic-restore','refresh'); _setIc('aic-backup','share');
+  _paintPrivadoBtn(); document.documentElement.classList.toggle('privado',privado());
   BUILTIN_KEYS=new Set(Object.keys(DB));        // empresas de fábrica
   _BUILTIN_DB={...DB};                            // snapshot para restaurar ocultas
   hydrateImportedIntoDB();                        // recupera empresas añadidas por el usuario (localStorage) tras recargar
@@ -6287,10 +6519,11 @@ function renderCartera(){
       if(m.buyPrice){
         const rc=m.retPct==null?'#9a958e':m.retPct>=0?'#16a34a':'#dc2626';
         const peso=(m.mktValue!=null&&totalMkt>0)?(m.mktValue/totalMkt*100):null;
-        return `<div style="font-size:12px;font-weight:700;color:var(--text);">${fmt(m.buyPrice,k)}</div>`
+        // En modo privado se ocultan coste, acciones y valor; la rentabilidad y el peso se quedan
+        return `<div style="font-size:12px;font-weight:700;color:var(--text);">${mny(fmt(m.buyPrice,k))}</div>`
           +`<div style="font-size:10px;font-weight:700;color:${rc};">${sp(m.retPct)}</div>`
           +(m.mktValue!=null
-             ? `<div style="font-size:9px;color:var(--muted);font-weight:600;" title="${m.shares} acciones · valor ${fmtBase(m.mktValue)} · ${peso.toFixed(1)}% de tu cartera">${m.shares} acc · ${fmtBase(m.mktValue,0)} · <b>${peso.toFixed(0)}%</b></div>`
+             ? `<div style="font-size:9px;color:var(--muted);font-weight:600;" title="${privado()?'Peso':(m.shares+' acciones · valor '+fmtBase(m.mktValue)+' · '+peso.toFixed(1)+'%')} de tu cartera">${privado()?'':m.shares+' acc · '+fmtBase(m.mktValue,0)+' · '}<b>${peso.toFixed(0)}%</b></div>`
              : `<div style="font-size:9px;color:var(--amber);font-weight:700;" title="Sin nº de acciones no se puede calcular el peso de la posición">+ nº acciones</div>`);
       }
       return `<span style="font-size:10px;color:#2563eb;font-weight:700;border:1px dashed #2563eb66;border-radius:8px;padding:2px 7px;white-space:nowrap;">+ coste</span>`;
@@ -6452,7 +6685,7 @@ const _SECTOR_RULES=[
   [/utilit|agua|eléctric|electric/i,'Utilities'],
 ];
 function sectorBucket(key){
-  const t=String((DB[key]&&DB[key].sector)||(getImportedData(key)||{}).sector||'');
+  const t=String(sectorOf(key)||(getImportedData(key)||{}).sector||'');
   for(const [re,name] of _SECTOR_RULES) if(re.test(t)) return name;
   return t?'Otros':'Sin clasificar';
 }
@@ -6552,10 +6785,13 @@ function renderPortfolioSummary(){
          Aún no has guardado ninguna posición. Pulsa <b>«+ coste»</b> en cualquier empresa para indicar tu
          precio medio de compra y el número de acciones — a partir de ahí verás aquí el valor de tu cartera,
          la ganancia, el peso de cada posición y si bates al S&amp;P 500.</div>`
-    : tile('Valor de la cartera', st.totalMkt>0?fmtBase(st.totalMkt,0):'—',
-           st.totalMkt>0?('coste '+fmtBase(st.totalCost,0))
-                        :(st.sinCambio.length?'falta el tipo de cambio':'falta el nº de acciones'))
-     +tile('Ganancia / pérdida', st.totalMkt>0?fmtBase(st.pnl,0):'—', pct(st.pnlPct), col(st.pnl))
+    : (privado()
+        ? tile('Posiciones abiertas', String(st.inv.length), 'modo privado: importes ocultos')
+        : tile('Valor de la cartera', st.totalMkt>0?fmtBase(st.totalMkt,0):'—',
+               st.totalMkt>0?('coste '+fmtBase(st.totalCost,0))
+                            :(st.sinCambio.length?'falta el tipo de cambio':'falta el nº de acciones')))
+     +tile('Ganancia / pérdida', privado()?pct(st.pnlPct):(st.totalMkt>0?fmtBase(st.pnl,0):'—'),
+           privado()?'sobre el coste':pct(st.pnlPct), col(st.pnl))
      +tile('vs S&P 500', st.spW==null?'—':pct(st.pnlPct!=null&&st.spW!=null?st.pnlPct-st.spW:null),
            st.spW!=null?'S&P '+pct(st.spW)+' en el mismo periodo'
              :(st.conFecha===0?'añade la fecha de compra':(st.spHistOk?'—':'no se pudo cargar el S&P 500')),
@@ -6836,10 +7072,10 @@ function updateCarteraRow(key){
   if(p('cpos-'+key)&&m.buyPrice){
     const rc=m.retPct==null?'#9a958e':m.retPct>=0?'#16a34a':'#dc2626';
     const peso=(m.mktValue!=null&&_cartTotal>0)?(m.mktValue/_cartTotal*100):null;
-    p('cpos-'+key).innerHTML=`<div style="font-size:12px;font-weight:700;color:var(--text);">${fmt(m.buyPrice)}</div>`
+    p('cpos-'+key).innerHTML=`<div style="font-size:12px;font-weight:700;color:var(--text);">${mny(fmt(m.buyPrice))}</div>`
       +`<div style="font-size:10px;font-weight:700;color:${rc};">${sp(m.retPct)}</div>`
       +(m.mktValue!=null
-        ? `<div style="font-size:9px;color:var(--muted);font-weight:600;">${m.shares} acc · ${fmtBase(m.mktValue,0)}${peso!=null?' · <b>'+peso.toFixed(0)+'%</b>':''}</div>`
+        ? `<div style="font-size:9px;color:var(--muted);font-weight:600;">${privado()?'':m.shares+' acc · '+fmtBase(m.mktValue,0)+' · '}${peso!=null?'<b>'+peso.toFixed(0)+'%</b>':''}</div>`
         : `<div style="font-size:9px;color:var(--amber);font-weight:700;">+ nº acciones</div>`);
   }
 }
@@ -6937,7 +7173,11 @@ async function doImport(){
     sector=document.getElementById('import-nueva-sector').value.trim();
     color=document.getElementById('import-nueva-color').value.trim();
     if(!ticker||!name) return showImportError('Introduce el ticker y nombre de la empresa.');
-    domain=(CATALOG[ticker]&&CATALOG[ticker].domain)||'';
+    const dm=(document.getElementById('import-nueva-domain')?.value||'').trim().toLowerCase()
+      .replace(/^https?:\/\//,'').replace(/^www\./,'').replace(/\/.*$/,'');
+    if(dm) setDomainFor(ticker,dm);
+    domain=dm||(CATALOG[ticker]&&CATALOG[ticker].domain)||(companyProfile(ticker)&&companyProfile(ticker).domain)||'';
+    if(!domain) fetchCompanyProfile(ticker,true);   // sin web: se busca la ficha pública
   } else {
     const d=DB[ticker], cat=CATALOG[ticker];
     name=d?.name||cat?.name||ticker; sector=d?.sector||cat?.sector||''; color=d?.color||cat?.color||'#1e3a5f';
@@ -7242,8 +7482,10 @@ function deleteCompanyFull(key){
   localStorage.removeItem('vi_import_'+key);
   localStorage.removeItem('vi_drive_'+key);
   localStorage.removeItem('vi_mults_'+key);
-  localStorage.removeItem('vi_yf_'+key);     // bolsa de referencia elegida
-  localStorage.removeItem('vi_cur_'+key);    // divisa detectada
+  localStorage.removeItem('vi_yf_'+key);      // bolsa de referencia elegida
+  localStorage.removeItem('vi_cur_'+key);     // divisa detectada
+  localStorage.removeItem('vi_profile_'+key); // ficha pública (logo, sector, web)
+  localStorage.removeItem('vi_domain_'+key);  // web del logo puesta a mano
   delete DB[key];
   if(builtin){HIDDEN.add(key);saveHidden();}
   rebuildCoButtons();renderCartera();_refreshRestoreBtn();
