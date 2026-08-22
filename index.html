@@ -461,6 +461,9 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
 .col-cal{display:none;}
 #cartera-table.show-cal .col-cal{display:table-cell;}
 /* Procedencia del dato de cada empresa */
+.cart-cur{font-size:8px;font-weight:700;padding:1px 5px;border-radius:5px;background:var(--surface2);color:var(--sub);border:1px solid var(--border);cursor:pointer;white-space:nowrap;}
+.cart-cur:hover{border-color:var(--blue);color:var(--blue);}
+.cart-cur.guess{border-style:dashed;}
 .cart-src{font-size:7.5px;font-weight:700;padding:1px 5px;border-radius:5px;margin-left:4px;white-space:nowrap;}
 .cart-src.ok{background:color-mix(in srgb,var(--green) 12%,transparent);color:var(--green);}
 .cart-src.est{background:color-mix(in srgb,var(--amber) 16%,transparent);color:var(--amber);}
@@ -1588,7 +1591,9 @@ const cu=v=>v>0?'#16a34a':v>-15?'#d97706':'#dc2626';
 const cbg=v=>v>0?'#f0fdf4':v>-15?'#fffbeb':'#fef2f2';
 const pct=(v,ref)=>ref===0?0:((v-ref)/Math.abs(ref)*100);
 // mc/ev are in MILLIONS (shares×price) → thresholds: 1e6=T, 1e3=B, else M
-const fmtMC=v=>v>=1e6?'$'+(v/1e6).toFixed(2)+'T':v>=1e3?'$'+(v/1e3).toFixed(1)+'B':'$'+N(Math.round(v))+'M';
+// Capitalización/EV en la divisa en la que cotiza la empresa (las cuentas están en esa misma moneda)
+const fmtMC=(v,sym)=>{const c=sym!=null?sym:((typeof curSymOf==='function'&&typeof coKeyOf==='function')?curSymOf(coKeyOf(co)):'$');
+  return v>=1e6?c+(v/1e6).toFixed(2)+'T':v>=1e3?c+(v/1e3).toFixed(1)+'B':c+N(Math.round(v))+'M';};
 
 function resetIS(){
   _isEdited=false; // volver a las proyecciones de la hoja
@@ -1617,9 +1622,139 @@ function _lastKnownPrice(key){
   try{const o=JSON.parse(localStorage.getItem('vi_lastpx_'+key)||'null'); if(o&&o.px>0) return o.px;}catch(e){}
   return (DB[key]&&DB[key].price)||0;
 }
-const YF_TICKER={CSU:'CSU.TO',ASML:'ASML',AMZN:'AMZN',MSFT:'MSFT',AAPL:'AAPL',GOOGL:'GOOGL',META:'META',NVDA:'NVDA',WDC:'WDC'};
-// Finnhub symbol mapping (ASML cotiza en NASDAQ en Finnhub, CSU.TO en TSX)
-const YF_TICKER_FH={CSU:'CSU',ASML:'ASML','CSU.TO':'CSU','ASML.AS':'ASML'};
+// Cotización de REFERENCIA de cada empresa (símbolo de Yahoo). Determina el precio Y la divisa.
+// REGLA: debe cotizar en la MISMA moneda en la que están sus cuentas, porque el valor intrínseco
+// se calcula con las cuentas y se compara con el precio; mezclarlas falsea el margen de seguridad.
+//   · ASML lleva sus cuentas en euros (guidance €30-35B) → ASML.AS, Ámsterdam, EUR.
+//   · Constellation Software publica en DÓLARES (ventas ~$11,6B) aunque cotice en Toronto en CAD
+//     → CNSWF, su línea estadounidense en USD. Con CSU.TO el precio saldría un ~35% desviado
+//     respecto a unos objetivos calculados en dólares.
+// Se puede cambiar por empresa desde la cartera (pulsando su divisa) → 'vi_yf_<KEY>'.
+const YF_TICKER={CSU:'CNSWF',ASML:'ASML.AS',AMZN:'AMZN',MSFT:'MSFT',AAPL:'AAPL',GOOGL:'GOOGL',META:'META',NVDA:'NVDA',WDC:'WDC'};
+
+// ══════════════════════════════════════════════════════════════════
+// DIVISAS — cada empresa cotiza en la suya; los totales necesitan una divisa base
+// ══════════════════════════════════════════════════════════════════
+const _CUR_BY_SUFFIX={TO:'CAD',V:'CAD',NE:'CAD',AS:'EUR',PA:'EUR',DE:'EUR',F:'EUR',MC:'EUR',MI:'EUR',BR:'EUR',LS:'EUR',VI:'EUR',HE:'EUR',IR:'EUR',
+  L:'GBP',SW:'CHF',ST:'SEK',OL:'NOK',CO:'DKK',T:'JPY',HK:'HKD',TW:'TWD',TWO:'TWD',AX:'AUD',SI:'SGD',NS:'INR',BO:'INR',SA:'BRL',MX:'MXN'};
+const CUR_SYM={USD:'$',EUR:'€',CAD:'C$',GBP:'£',CHF:'CHF ',JPY:'¥',TWD:'NT$',AUD:'A$',SEK:'kr ',NOK:'kr ',DKK:'kr ',HKD:'HK$',SGD:'S$',INR:'₹',BRL:'R$',MXN:'MX$'};
+// ── Cotización de referencia: UN símbolo por empresa decide precio Y divisa ──
+// Mezclar listados (p. ej. el ADR en dólares con unos objetivos calculados en euros)
+// falsea el margen de seguridad, así que precio y divisa salen siempre del mismo sitio.
+function yfSymbolForKey(key){
+  let ov=null; try{ov=localStorage.getItem('vi_yf_'+key);}catch(e){}
+  if(ov&&ov.trim()) return ov.trim().toUpperCase();
+  if(YF_TICKER[key]) return YF_TICKER[key];
+  const d=DB[key]||{}, imp=getImportedData(key);
+  return yfSymbolFor(key,(imp&&imp.ticker)||d.ticker||key);
+}
+// Finnhub (gratis) solo cubre bolsas de EE. UU.: si la cotización de referencia lleva
+// sufijo de bolsa, NO se pide a Finnhub — devolvería otro valor (u otra empresa) en dólares.
+function fhSymbolForKey(key){
+  const y=yfSymbolForKey(key);
+  return /\.[A-Z]+$/.test(y)?null:y;
+}
+// Divisa detectada en la última descarga (la que declara Yahoo para ese símbolo)
+function detectedCur(key){try{const v=JSON.parse(localStorage.getItem('vi_cur_'+key)||'null');return (v&&v.cur)?v:null;}catch(e){return null;}}
+// Devuelve true si la divisa confirmada es NUEVA o distinta de la que se estaba mostrando,
+// para poder repintar las etiquetas una sola vez al terminar la descarga.
+function setDetectedCur(key,cur,sym){
+  if(!cur) return false;
+  const antes=detectedCur(key);
+  const cambia=!antes||antes.cur!==cur;
+  try{localStorage.setItem('vi_cur_'+key,JSON.stringify({cur,sym:sym||null,ts:Date.now()}));}catch(e){}
+  return cambia;
+}
+// Divisa de una empresa: la detectada manda; si aún no hay descarga, se deduce del sufijo.
+function curOf(key){
+  const det=detectedCur(key);
+  if(det&&det.cur&&/^[A-Z]{3}$/.test(det.cur)) return det.cur;   // lo que diga la fuente manda
+  const t=String(yfSymbolForKey(key)).toUpperCase();
+  const m=t.match(/\.([A-Z]+)$/);
+  if(m&&_CUR_BY_SUFFIX[m[1]]) return _CUR_BY_SUFFIX[m[1]];
+  if(/^\d{4}$/.test(t)) return 'TWD';                 // código numérico taiwanés
+  return 'USD';
+}
+// Si no tenemos símbolo para esa divisa se muestra el código ISO (mejor que un '$' falso)
+function curSymOf(key){const c=curOf(key);return CUR_SYM[c]||(c+' ');}
+
+// Cambiar la bolsa de referencia de una empresa (y con ella su divisa)
+function promptListing(key){
+  const d=DB[key]||{}, nm=d.name||key;
+  const actual=yfSymbolForKey(key), det=detectedCur(key);
+  const txt='Bolsa de referencia de '+nm+'\n\n'
+    +'Símbolo de Yahoo Finance del que se toma el precio (y con él, la divisa).\n'
+    +'IMPORTANTE: elige la que cotice en la MISMA moneda de las cuentas de tu Excel. El valor\n'
+    +'intrínseco sale de las cuentas y se compara con el precio; si no coinciden, el margen de\n'
+    +'seguridad queda desviado por el tipo de cambio.\n'
+    +'Ejemplos: ASML.AS (Ámsterdam, EUR) · ASML (Nasdaq, USD) · CNSWF (CSU en USD) · CSU.TO (Toronto, CAD) · 2330.TW (Taiwán, TWD)\n\n'
+    +'Ahora mismo: '+actual+(det&&det.cur?(' → '+det.cur+(det.sym&&det.sym!==actual?(' ['+det.sym+']'):'')):' (divisa aún sin confirmar)')+'\n'
+    +'Escribe «auto» para volver al valor por defecto.';
+  const v=prompt(txt,actual);
+  if(v===null) return;
+  try{
+    const t=v.trim().toUpperCase();
+    if(!t||t==='AUTO') localStorage.removeItem('vi_yf_'+key);
+    else localStorage.setItem('vi_yf_'+key,t);
+    localStorage.removeItem('vi_cur_'+key);      // la divisa se vuelve a detectar
+  }catch(e){}
+  delete _carteraPrices[key];
+  renderCartera();
+  fetchCarteraPrices();
+}
+
+// ── Divisa base de la cartera (en la que se suman los totales) ──
+function baseCur(){try{return localStorage.getItem('vi_base_cur')||'EUR';}catch(e){return 'EUR';}}
+function setBaseCur(c){
+  try{localStorage.setItem('vi_base_cur',c);}catch(e){}
+  fetchFX().then(()=>{renderCartera();renderPortfolioSummary();});
+}
+// Tipos de cambio hacia la divisa base. _FX[X] = cuántas unidades de la BASE vale 1 X.
+let _FX={}, _fxTs=0;
+// Arranque: recupera el último cambio conocido. Si hoy falla la descarga, los totales
+// siguen saliendo (con el aviso de que el cambio no es de hoy) en vez de quedarse en blanco.
+(function(){try{const c=JSON.parse(localStorage.getItem('vi_fx_'+baseCur())||'null');if(c&&c.r){_FX=c.r;_fxTs=c.ts||0;}}catch(e){}})();
+function fxStale(){return _fxTs>0&&(Date.now()-_fxTs)>36*3600*1000;}
+function fxRate(cur){
+  if(cur===baseCur()) return 1;
+  const r=_FX[cur];
+  return (r&&isFinite(r)&&r>0)?r:null;
+}
+function toBase(v,cur){const r=fxRate(cur);return (v==null||r==null)?null:v*r;}
+async function fetchFX(){
+  const base=baseCur();
+  const need=[...new Set(getAllPortfolioCompanies().map(c=>curOf(c.key)))].filter(c=>c!==base);
+  const cacheKey='vi_fx_'+base, ttl=6*3600*1000;
+  let cached=null;
+  try{cached=JSON.parse(localStorage.getItem(cacheKey)||'null');}catch(e){}
+  if(cached&&cached.r){ _FX={...cached.r,..._FX}; _fxTs=cached.ts||_fxTs; }   // parte del último cambio conocido
+  if(cached&&Date.now()-cached.ts<ttl&&need.every(x=>cached.r&&cached.r[x])) return _FX;
+  const out={...(_FX||{})};
+  let algo=false;
+  await Promise.allSettled(need.map(async cur=>{
+    // Yahoo cotiza BASECUR=X como "1 BASE = N CUR" → el factor CUR→BASE es 1/N
+    const q=await fetchQuoteYF(base+cur+'=X');
+    if(q&&q.c>0){ out[cur]=1/q.c; algo=true; }
+  }));
+  _FX=out;
+  if(algo){ _fxTs=Date.now(); try{localStorage.setItem(cacheKey,JSON.stringify({r:_FX,ts:_fxTs}));}catch(e){} }
+  return _FX;
+}
+// Formato de importes en la divisa base (totales de cartera)
+function fmtBase(v,dec){
+  if(v==null||!isFinite(v)) return '—';
+  const sym=CUR_SYM[baseCur()]||(baseCur()+' ');
+  const a=Math.abs(v);
+  const d=dec!=null?dec:(a>=10000?0:a>=100?0:2);
+  return sym+new Intl.NumberFormat('es-ES',{minimumFractionDigits:d,maximumFractionDigits:d}).format(v);
+}
+
+// Para NOTICIAS y RESULTADOS la divisa es irrelevante: vale cualquier símbolo que Finnhub
+// reconozca, así que se usa el ADR estadounidense cuando la bolsa local no está cubierta.
+const FH_INFO_SYMBOL={ASML:'ASML',CSU:'CSU.TO'};
+function fhInfoSymbolFor(key){
+  return FH_INFO_SYMBOL[key]||(typeof yfSymbolForKey==='function'?yfSymbolForKey(key):key);
+}
 const TABS_NEED_RERENDER=['resumen','valoracion','alertas'];
 
 function _getLiveBadge(){return document.getElementById('live-badge');}
@@ -1686,8 +1821,7 @@ function getFinnhubKey(){return localStorage.getItem('finnhub_api_key')||'';}
 async function _fetchFinnhub(ticker){
   const key=getFinnhubKey();
   if(!key) throw new Error('no key');
-  const fTicker=YF_TICKER_FH[ticker]||ticker;
-  const url=`https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(fTicker)}&token=${key}`;
+  const url=`https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(ticker)}&token=${key}`;
   const r=await fetch(url,{signal:AbortSignal.timeout(7000)});
   if(!r.ok) throw new Error('finnhub '+r.status);
   const d=await r.json();
@@ -1698,16 +1832,31 @@ async function _fetchFinnhub(ticker){
 
 async function fetchLivePrice(){
   const coKey=Object.keys(DB).find(k=>DB[k]===co)||'MSFT';
-  const ticker=YF_TICKER[coKey]||co.ticker;
   if(_priceCache[coKey]&&(Date.now()-_priceCache[coKey].ts)<60000){
     const c=_priceCache[coKey];_applyPrice(c.live,c.prev,c.isLive);return;
   }
+  // Mismo listado de referencia que la cartera → el precio de la cabecera está en la MISMA
+  // divisa que los objetivos de esta empresa (mezclarlos falsea el margen de seguridad).
+  const fhT=fhSymbolForKey(coKey);
   try{
-    const p=await _fetchFinnhub(ticker);
+    if(!fhT) throw new Error('bolsa fuera de EE. UU.: Finnhub gratuito no la cubre');
+    const p=await _fetchFinnhub(fhT);
     _priceCache[coKey]={...p,ts:Date.now()};
     _saveLastPx(coKey,p.live);
     _applyPrice(p.live,p.prev,p.isLive);return;
   }catch(e){
+    // Respaldo: Yahoo (último cierre). Imprescindible para Ámsterdam, Toronto, Taiwán…
+    try{
+      const q=await fetchQuoteYF(yfSymbolForKey(coKey));
+      if(q&&q.c>0){
+        if(q.cur) setDetectedCur(coKey,q.cur,q.sym);
+        const prev=(q.dp!=null&&q.dp!==0)?q.c/(1+q.dp/100):q.c;
+        _priceCache[coKey]={live:q.c,prev,isLive:false,ts:Date.now()};
+        _saveLastPx(coKey,q.c);
+        _applyPrice(q.c,prev,false);
+        return;
+      }
+    }catch(e2){}
     const b=_getLiveBadge();
     if(b){
       const txt=document.getElementById('live-text');
@@ -1745,7 +1894,7 @@ function updateEarningsBadge(){
 // Fecha real de próximos resultados por empresa (Finnhub) — para que cada una muestre su cuenta atrás
 async function fetchEarningsDate(){
   const key=getFinnhubKey(); if(!key) return;
-  const target=co, sym=YF_TICKER_FH[coKeyOf(co)]||co.fhTicker||co.ticker||coKeyOf(co);
+  const target=co, sym=fhInfoSymbolFor(coKeyOf(co));
   const from=new Date().toISOString().slice(0,10);
   const to=new Date(Date.now()+150*864e5).toISOString().slice(0,10);
   try{
@@ -2064,7 +2213,7 @@ function _fillAutoVal(key,isd){
   const cg=(v)=>v!=null&&price>0?(Math.pow(v/price,1/5)-1)*100:null;
   const pc=v=>v==null?'#9a958e':v>=0?'#16a34a':'#dc2626';
   const sp=v=>v==null?'—':((v>=0?'+':'')+v.toFixed(0)+'%');
-  const cell=(v,extra)=>`$${v!=null?N(v):'—'}${extra!=null?` <span style="font-size:9px;font-weight:600;color:${pc(extra)};">${sp(extra)}</span>`:''}`;
+  const cell=(v,extra)=>`${curSymG()}${v!=null?N(v):'—'}${extra!=null?` <span style="font-size:9px;font-weight:600;color:${pc(extra)};">${sp(extra)}</span>`:''}`;
   box.innerHTML=`
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
       <span style="font-weight:600;font-size:13px;color:#0891b2;">🤖 Valoración automática</span>
@@ -2384,7 +2533,7 @@ function calcVerdict(){
     verdict='EVITAR';verdictColor=dark?'#f78166':'#dc2626';verdictBg=dark?'#200a0a':'#fef2f2';
   }
 
-  const reasoning=`Score ${totalScore}/100 — Retorno 5Y(${retScore}/35) + MOAT(${moatScore}/30) + ROIC(${roicScore}/20) + MdS(${mdsScore}/15)${euforiaPenalty>0?` − Euforia(-${euforiaPenalty})`:''}. Retorno esperado ~${cagr5e>=0?'+':''}${cagr5e.toFixed(0)}%/año · Precio justo 1Y $${N(Math.round(fairBase))} (MdS ${msBase>=0?'+':''}${msBase.toFixed(0)}%)`;
+  const reasoning=`Score ${totalScore}/100 — Retorno 5Y(${retScore}/35) + MOAT(${moatScore}/30) + ROIC(${roicScore}/20) + MdS(${mdsScore}/15)${euforiaPenalty>0?` − Euforia(-${euforiaPenalty})`:''}. Retorno esperado ~${cagr5e>=0?'+':''}${cagr5e.toFixed(0)}%/año · Precio justo 1Y ${curSymG()}${N(Math.round(fairBase))} (MdS ${msBase>=0?'+':''}${msBase.toFixed(0)}%)`;
 
   return{verdict,verdictColor,verdictBg,totalScore,retScore,cagr5e:+cagr5e.toFixed(1),mdsScore,moatScore,roicScore,
     ms:+ms.toFixed(1),msBase:+msBase.toFixed(1),fairBase:Math.round(fairBase),
@@ -2423,7 +2572,7 @@ function recalc(){
   if(mcs){mcs.textContent='EV: '+fmtMC(ev)+' · EV/FCF '+Math.round(ev/co.fcf[9])+'x';}
   // Junto al nombre: precio de la compañía (referencia) + market cap
   const qi=document.getElementById('co-quickinfo');
-  if(qi){const cur=(coKeyOf(co)==='ASML'||coKeyOf(co)==='CSU')?'€':'$';qi.textContent=' · '+cur+N(_livePrice||_lastKnownPrice(coKeyOf(co))||co.price,0)+' · Cap '+fmtMC(mc);}
+  if(qi){const cur=curSymOf(coKeyOf(co));qi.textContent=' · '+cur+N(_livePrice||_lastKnownPrice(coKeyOf(co))||co.price,0)+' · Cap '+fmtMC(mc);}
   _refreshValDOM(vd);
 }
 
@@ -2439,7 +2588,7 @@ function _refreshValDOM(vd){
   }
   const dcf=calcDCF(),ud=(dcf-price)/price*100;
   const dcfEl=document.getElementById('val-dcf-val');
-  if(dcfEl){dcfEl.textContent='DCF: $'+N(dcf)+' ('+(ud>=0?'+':'')+ud.toFixed(1)+'%)';dcfEl.style.color=ud>=0?'#16a34a':'#dc2626';}
+  if(dcfEl){dcfEl.textContent='DCF: '+curSymG()+N(dcf)+' ('+(ud>=0?'+':'')+ud.toFixed(1)+'%)';dcfEl.style.color=ud>=0?'#16a34a':'#dc2626';}
   _refreshMultTiles();_refreshFwd2026();_refreshPriceTable();_refreshCagrRow();_refreshRetorno();
 }
 // Múltiplo 2026e (forward): respeta la fórmula de la hoja (proyección 2026e) y reacciona al precio en vivo
@@ -2500,7 +2649,7 @@ function _refreshPriceTable(){
       const up=(v-price)/price*100;
       const ptv=cell.querySelector('.ptv');
       const ptp=cell.nextElementSibling?cell.nextElementSibling.querySelector('.ptp'):null; // el potencial está en la celda HERMANA
-      if(ptv){ptv.textContent='$'+N(v);ptv.style.color=potColor(up);}
+      if(ptv){ptv.textContent=''+curSymG()+N(v);ptv.style.color=potColor(up);}
       if(ptp){ptp.textContent=(up>=0?'+':'')+up.toFixed(0)+'%';ptp.style.color=potColor(up);}
     });
     if(rowId==='ptr-evf'){
@@ -2526,7 +2675,7 @@ function _refreshRetorno(){
   const priceForRet=Math.round(rowEVF[idx]/Math.pow(1+ret/100,idx+1));
   const diff=((priceForRet-price)/price*100);
   const el=document.getElementById('ret-price'),el2=document.getElementById('ret-diff');
-  if(el) el.textContent='$'+N(priceForRet);
+  if(el) el.textContent=''+curSymG()+N(priceForRet);
   if(el2){el2.textContent=(diff>=0?'+':'')+diff.toFixed(0)+'%';el2.style.color=cu(diff);}
 }
 // ═══════════════════════════════════════════════════════════════════
@@ -2572,15 +2721,15 @@ function sld(id,lbl,val,min,max,step,unit,color,hint){
 const KPI_ACCORDION={
   ventas:{icon:'📦',label:'Ventas 2025',color:'#2563eb',
     def:'Total de ingresos cobrados a clientes. Primera línea del P&L.',
-    analysis:(c)=>{const g=pct(c.sales[9],c.sales[8]);return`En 2025, ${c.name} generó $${N(c.sales[9])}M en ventas (${g>0?'+':''}${g.toFixed(1)}% vs 2024). CAGR 10Y: ${P(cagr(c.sales[9],c.sales[0],9))}.`;},
+    analysis:(c)=>{const g=pct(c.sales[9],c.sales[8]);return`En 2025, ${c.name} generó ${curSymG()}${N(c.sales[9])}M en ventas (${g>0?'+':''}${g.toFixed(1)}% vs 2024). CAGR 10Y: ${P(cagr(c.sales[9],c.sales[0],9))}.`;},
     benchFn:(c)=>{const v=cagr(c.sales[9],c.sales[8],1);return{value:v,sector:15,label:'CAGR YoY',unit:'%'};},tipId:'ventas'},
   ebitda:{icon:'💼',label:'EBITDA 2025',color:'#b45309',
     def:'Beneficio antes de intereses, impuestos, amortización y depreciación.',
-    analysis:(c)=>{const g=pct(c.ebitda[9],c.ebitda[8]);return`EBITDA $${N(c.ebitda[9])}M, margen ${P(c.ebitdaM[9])} (${g>0?'+':''}${g.toFixed(1)}% vs 2024). Sector: ${P(c.sectorAvgEbitdaM)}.`;},
+    analysis:(c)=>{const g=pct(c.ebitda[9],c.ebitda[8]);return`EBITDA ${curSymG()}${N(c.ebitda[9])}M, margen ${P(c.ebitdaM[9])} (${g>0?'+':''}${g.toFixed(1)}% vs 2024). Sector: ${P(c.sectorAvgEbitdaM)}.`;},
     benchFn:(c)=>{return{value:c.ebitdaM[9],sector:c.sectorAvgEbitdaM,label:'Margen EBITDA',unit:'%'};},tipId:'ebitda'},
   fcf:{icon:'💵',label:'FCF 2025',color:'#16a34a',
     def:'"Los beneficios son opinión, el cash es realidad." — Buffett.',
-    analysis:(c)=>{const g=pct(c.fcf[9],c.fcf[8]);return`FCF $${N(c.fcf[9])}M (margen ${P(c.fcfM[9])}), ${g>0?'+':''}${g.toFixed(1)}% vs 2024. CAGR 10Y: ${P(cagr(c.fcf[9],c.fcf[0],9))}.`;},
+    analysis:(c)=>{const g=pct(c.fcf[9],c.fcf[8]);return`FCF ${curSymG()}${N(c.fcf[9])}M (margen ${P(c.fcfM[9])}), ${g>0?'+':''}${g.toFixed(1)}% vs 2024. CAGR 10Y: ${P(cagr(c.fcf[9],c.fcf[0],9))}.`;},
     benchFn:(c)=>{return{value:c.fcfM[9],sector:c.sectorAvgFcfM,label:'Margen FCF',unit:'%'};},tipId:'fcf'},
   roic:{icon:'🎯',label:'ROIC 2025',color:'#b45309',
     def:'Retorno sobre capital invertido. ROIC > WACC = crea valor.',
@@ -2588,11 +2737,11 @@ const KPI_ACCORDION={
     benchFn:(c)=>{return{value:c.roic[9],sector:c.sectorAvgROIC,label:'ROIC vs sector',unit:'%'};},tipId:'roic'},
   eps:{icon:'📈',label:'EPS 2025',color:'#d97706',
     def:'Beneficio por acción. Validar siempre con FCF/acción.',
-    analysis:(c)=>{const g=pct(c.eps[9],c.eps[8]);return`EPS $${N(c.eps[9],2)} (${g>0?'+':''}${g.toFixed(1)}% vs 2024). FCF/acción $${N(c.fcfps[9],2)}.`;},
+    analysis:(c)=>{const g=pct(c.eps[9],c.eps[8]);return`EPS ${curSymG()}${N(c.eps[9],2)} (${g>0?'+':''}${g.toFixed(1)}% vs 2024). FCF/acción ${curSymG()}${N(c.fcfps[9],2)}.`;},
     benchFn:(c)=>{const g=cagr(c.eps[9],c.eps[0],9);return{value:g,sector:12,label:'CAGR EPS 10Y',unit:'%'};},tipId:'eps'},
   netDebt:{icon:'🏦',label:'Deuda/EBITDA',color:'#dc2626',
     def:'Negativo = posición de caja neta — "fortín financiero".',
-    analysis:(c)=>{const dd=(c.netDebt[9]/c.ebitda[9]);return`Deuda/EBITDA ${dd.toFixed(1)}x. ${c.netDebt[9]<0?'CAJA NETA de $'+N(Math.abs(c.netDebt[9]))+'M.':'Deuda $'+N(c.netDebt[9])+'M.'}`;},
+    analysis:(c)=>{const dd=(c.netDebt[9]/c.ebitda[9]);return`Deuda/EBITDA ${dd.toFixed(1)}x. ${c.netDebt[9]<0?'CAJA NETA de '+curSymG()+N(Math.abs(c.netDebt[9]))+'M.':'Deuda '+curSymG()+N(c.netDebt[9])+'M.'}`;},
     benchFn:(c)=>{const dd=(c.netDebt[9]/c.ebitda[9]);return{value:dd,sector:1.5,label:'vs sector 1.5x',unit:'x',inverted:true};},tipId:'netDebt'},
   evfcf:{icon:'🏆',label:'EV/FCF actual',color:'#7c3aed',
     def:'El múltiplo rey para empresas de calidad. Difícil de manipular.',
@@ -2600,7 +2749,7 @@ const KPI_ACCORDION={
     benchFn:(c)=>{const evfcf=Math.round((price*c.shares+c.netDebt[9])/c.fcf[9]);return{value:evfcf,sector:c.medEvFcf,label:'vs med. histórica',unit:'x',inverted:true};},tipId:'evfcf'},
   mktcap:{icon:'🏢',label:'Market Cap',color:co.color,
     def:'Precio × acciones. Lo que el mercado cree que vale la empresa hoy.',
-    analysis:(c)=>{return`Capitalización ${fmtMC(price*c.shares)} al precio $${N(price,2)}.`;},
+    analysis:(c)=>{const cs=curSymOf(coKeyOf(co));return`Capitalización ${fmtMC(price*c.shares)} al precio ${cs}${N(price,2)}.`;},
     benchFn:null,tipId:null},
 };
 
@@ -2815,8 +2964,8 @@ function getPositionFor(key){try{const r=localStorage.getItem('pos_'+key);return
 // ══ COPIA DE SEGURIDAD / PASAR A OTRO DISPOSITIVO ══
 // Los datos (empresas importadas, precios de compra, ajustes) viven en localStorage → son locales
 // de este navegador. Esto permite exportar un código y restaurarlo en el móvil.
-const _BACKUP_PREFIXES=['vi_import_','pos_','vi_drive_','vi_mults_'];
-const _BACKUP_KEYS=['vi_watchlist','vi_hidden','finnhub_api_key','fmp_api_key'];
+const _BACKUP_PREFIXES=['vi_import_','pos_','vi_drive_','vi_mults_','vi_yf_'];
+const _BACKUP_KEYS=['vi_watchlist','vi_hidden','finnhub_api_key','fmp_api_key','vi_base_cur'];
 function _collectBackup(){
   const out={};
   for(let i=0;i<localStorage.length;i++){
@@ -3014,17 +3163,17 @@ function rMiPosicion(vd,fv5){
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px;">
       <div style="background:${_dm()?'#1c2333':'#f7f6f3'};border-radius:10px;padding:10px 12px;">
         <div style="font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:3px;">Precio compra · Acciones</div>
-        <div style="font-size:14px;font-weight:700;color:${_dm()?'#e2e8f0':'#1a1814'};">$${N(pos.buyPrice,2)} × ${N(pos.shares)}</div>
-        <div style="font-size:10px;color:var(--muted);margin-top:2px;">Coste total: $${N(Math.round(cost))}</div>
+        <div style="font-size:14px;font-weight:700;color:${_dm()?'#e2e8f0':'#1a1814'};">${curSymG()}${N(pos.buyPrice,2)} × ${N(pos.shares)}</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px;">Coste total: ${curSymG()}${N(Math.round(cost))}</div>
       </div>
       <div style="background:${_dm()?'#1c2333':'#f7f6f3'};border-radius:10px;padding:10px 12px;">
-        <div style="font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:3px;">Valor hoy · Precio $${N(price,2)}</div>
-        <div style="font-size:14px;font-weight:700;color:${_dm()?'#e2e8f0':'#1a1814'};">$${N(Math.round(valNow))}</div>
+        <div style="font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:3px;">Valor hoy · Precio ${curSymG()}${N(price,2)}</div>
+        <div style="font-size:14px;font-weight:700;color:${_dm()?'#e2e8f0':'#1a1814'};">${curSymG()}${N(Math.round(valNow))}</div>
         <div style="font-size:10px;color:var(--muted);margin-top:2px;">${pos.buyDate?'Comprado: '+pos.buyDate:'Sin fecha'}</div>
       </div>
       <div style="background:${pnl>=0?'#f0fdf4':'#fef2f2'};border:1.5px solid ${pnl>=0?'#bbf7d0':'#fecaca'};border-radius:10px;padding:10px 12px;text-align:center;">
         <div style="font-size:8px;color:${pnl>=0?'#16a34a':'#dc2626'};text-transform:uppercase;letter-spacing:.07em;font-weight:700;margin-bottom:2px;">P&amp;L total</div>
-        <div style="font-size:22px;font-weight:600;color:${pnl>=0?'#16a34a':'#dc2626'};line-height:1;">${pnl>=0?'+':''}$${N(Math.round(Math.abs(pnl)))}</div>
+        <div style="font-size:22px;font-weight:600;color:${pnl>=0?'#16a34a':'#dc2626'};line-height:1;">${pnl>=0?'+':''}${curSymG()}${N(Math.round(Math.abs(pnl)))}</div>
         <div style="font-size:11px;font-weight:700;color:${pnl>=0?'#16a34a':'#dc2626'};margin-top:3px;">${pnlPct>=0?'+':''}${pnlPct.toFixed(1)}%${pnlAnnual!==null?' · '+(pnlAnnual>=0?'+':'')+pnlAnnual.toFixed(1)+'% anual':''}</div>
       </div>
     </div>
@@ -3201,52 +3350,52 @@ function rResumen(){
     {pos:moat.overall>=70,title:`MOAT ${moat.label}`,why:`${moat.overall}/100 · ${moat.dimensions?Object.entries(moat.dimensions).filter(([,v])=>v>=15).map(([k])=>k).join(', '):''}`},
     {pos:co.netDebt[9]/co.ebitda[9]<2,title:co.netDebt[9]<0?'Caja neta':'Deuda controlada',why:`ND/EBITDA ${(co.netDebt[9]/co.ebitda[9]).toFixed(1)}x`},
     {pos:quality.ratio>=0.80,title:`Calidad beneficio: ${quality.label}`,why:`FCF/NI 5Y ${(quality.ratio*100).toFixed(0)}%`},
-    {pos:vd.msBase>0,title:vd.msBase>15?'Precio atractivo':'Precio ajustado',why:`MdS ${vd.msBase>=0?'+':''}${vd.msBase}% vs fair $${N(vd.fairBase)}`},
+    {pos:vd.msBase>0,title:vd.msBase>15?'Precio atractivo':'Precio ajustado',why:`MdS ${vd.msBase>=0?'+':''}${vd.msBase}% vs fair ${curSymG()}${N(vd.fairBase)}`},
     {pos:vd.roicTrend5>=-5,title:vd.roicTrend5>=0?'ROIC mejorando (5Y)':'ROIC erosionando (5Y)',why:`${co.roic[4]}%→${co.roic[9]}% (${vd.roicTrend5>=0?'+':''}${vd.roicTrend5}pp) · ${vd.roicMomentum}`},
   ];
 
   // KPIs — datos actualizados y visuales
   const kpiRows=[
     {key:'sales',icon:'📦',lbl:'Ventas',
-     main:()=>'$'+N(co.sales[9])+'M',
+     main:()=>''+curSymG()+N(co.sales[9])+'M',
      pct_val:()=>pct(co.sales[9],co.sales[8]),
      pct_lbl:'YoY',
      sub:()=>P(cagr(co.sales[9],co.sales[0],9))+' CAGR 10Y',
      c:'#2563eb',
      hist:()=>co.sales.slice(5),
-     hist_fmt:v=>'$'+N(Math.round(v/1000))+'B',
+     hist_fmt:v=>''+curSymG()+N(Math.round(v/1000))+'B',
      est:()=>co.pS.slice(0,3),
-     detail:()=>`Ventas FY25: $${N(co.sales[9])}M. CAGR 10Y ${P(cagr(co.sales[9],co.sales[0],9))}. Último año: ${P(pct(co.sales[9],co.sales[8]))}. Estimaciones: ${co.pS.slice(0,3).map((v,i)=>`${co.pY[i]}E $${N(Math.round(v/1000))}B`).join(' · ')}.`},
+     detail:()=>`Ventas FY25: ${curSymG()}${N(co.sales[9])}M. CAGR 10Y ${P(cagr(co.sales[9],co.sales[0],9))}. Último año: ${P(pct(co.sales[9],co.sales[8]))}. Estimaciones: ${co.pS.slice(0,3).map((v,i)=>`${co.pY[i]}E ${curSymG()}${N(Math.round(v/1000))}B`).join(' · ')}.`},
     {key:'fcf',icon:'💵',lbl:'Free Cash Flow',
-     main:()=>'$'+N(co.fcf[9])+'M',
+     main:()=>''+curSymG()+N(co.fcf[9])+'M',
      pct_val:()=>co.fcfM[9],
      pct_lbl:'Margen',
      sub:()=>P(cagr(co.fcf[9],co.fcf[0],9))+' CAGR 10Y',
      c:'#16a34a',
      hist:()=>co.fcf.slice(5),
-     hist_fmt:v=>v<0?'−$'+N(Math.round(Math.abs(v)/1000))+'B':'$'+N(Math.round(v/1000))+'B',
+     hist_fmt:v=>v<0?'−'+curSymG()+N(Math.round(Math.abs(v)/1000))+'B':''+curSymG()+N(Math.round(v/1000))+'B',
      est:()=>co.pF.slice(0,3),
-     detail:()=>`FCF FY25: $${N(co.fcf[9])}M. Margen FCF ${P(co.fcfM[9])} (sector ~${P(co.sectorAvgFcfM)}). FCF/acción $${N(co.fcfps[9],2)}. Est: ${co.pF.slice(0,3).map((v,i)=>`${co.pY[i]}E $${N(Math.round(v/1000))}B`).join(' · ')}.`},
+     detail:()=>`FCF FY25: ${curSymG()}${N(co.fcf[9])}M. Margen FCF ${P(co.fcfM[9])} (sector ~${P(co.sectorAvgFcfM)}). FCF/acción ${curSymG()}${N(co.fcfps[9],2)}. Est: ${co.pF.slice(0,3).map((v,i)=>`${co.pY[i]}E ${curSymG()}${N(Math.round(v/1000))}B`).join(' · ')}.`},
     {key:'ebitda',icon:'🏭',lbl:'EBITDA',
-     main:()=>'$'+N(co.ebitda[9])+'M',
+     main:()=>''+curSymG()+N(co.ebitda[9])+'M',
      pct_val:()=>co.ebitdaM[9],
      pct_lbl:'Margen',
      sub:()=>'Sector ~'+P(co.sectorAvgEbitdaM),
      c:'#b45309',
      hist:()=>co.ebitda.slice(5),
-     hist_fmt:v=>'$'+N(Math.round(v/1000))+'B',
+     hist_fmt:v=>''+curSymG()+N(Math.round(v/1000))+'B',
      est:()=>co.pEB.slice(0,3),
-     detail:()=>`EBITDA FY25: $${N(co.ebitda[9])}M. Margen EBITDA ${P(co.ebitdaM[9])} vs sector ~${P(co.sectorAvgEbitdaM)}. Est: ${co.pEB.slice(0,3).map((v,i)=>`${co.pY[i]}E $${N(Math.round(v/1000))}B`).join(' · ')}.`},
+     detail:()=>`EBITDA FY25: ${curSymG()}${N(co.ebitda[9])}M. Margen EBITDA ${P(co.ebitdaM[9])} vs sector ~${P(co.sectorAvgEbitdaM)}. Est: ${co.pEB.slice(0,3).map((v,i)=>`${co.pY[i]}E ${curSymG()}${N(Math.round(v/1000))}B`).join(' · ')}.`},
     {key:'eps',icon:'📈',lbl:'EPS',
-     main:()=>'$'+N(co.eps[9],2),
+     main:()=>''+curSymG()+N(co.eps[9],2),
      pct_val:()=>pct(co.eps[9],co.eps[8]),
      pct_lbl:'YoY',
      sub:()=>'CAGR 10Y '+P(cagr(co.eps[9],co.eps[0],9)),
      c:'#7c3aed',
      hist:()=>co.eps.slice(5),
-     hist_fmt:v=>'$'+N(v,2),
+     hist_fmt:v=>''+curSymG()+N(v,2),
      est:()=>co.pEPS.slice(0,3),
-     detail:()=>`EPS FY25: $${N(co.eps[9],2)}. Crecimiento YoY ${P(pct(co.eps[9],co.eps[8]))}. CAGR 10Y ${P(cagr(co.eps[9],co.eps[0],9))}. Est: ${co.pEPS.slice(0,3).map((v,i)=>`${co.pY[i]}E $${N(v,2)}`).join(' · ')}.`},
+     detail:()=>`EPS FY25: ${curSymG()}${N(co.eps[9],2)}. Crecimiento YoY ${P(pct(co.eps[9],co.eps[8]))}. CAGR 10Y ${P(cagr(co.eps[9],co.eps[0],9))}. Est: ${co.pEPS.slice(0,3).map((v,i)=>`${co.pY[i]}E ${curSymG()}${N(v,2)}`).join(' · ')}.`},
     {key:'roic',icon:'🎯',lbl:'ROIC',
      main:()=>P(co.roic[9]),
      pct_val:()=>co.roic[9]-co.wacc,
@@ -3521,9 +3670,9 @@ function rResumen(){
         </div>
         <div>
           <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
-            <div class="verdict-price" style="font-size:26px;font-weight:700;color:${_dm()?'#e2e8f0':'#1a1814'};">$${N(price,2)}</div>
+            <div class="verdict-price" style="font-size:26px;font-weight:700;color:${_dm()?'#e2e8f0':'#1a1814'};">${curSymG()}${N(price,2)}</div>
             <div style="font-size:11px;font-weight:700;color:${vd.msBase>=0?'#16a34a':'#dc2626'}">${vd.msBase>=0?'+':''}${vd.msBase}% MdS</div>
-            <div style="font-size:10px;color:var(--muted);">vs objetivo EV/FCF próx. año $${N(vd.fairBase)}</div>
+            <div style="font-size:10px;color:var(--muted);">vs objetivo EV/FCF próx. año ${curSymG()}${N(vd.fairBase)}</div>
           </div>
           <!-- NOTA: valoración solo por EV/FCF con tu múltiplo + diferencia % -->
           <div style="font-size:10px;color:var(--sub);background:rgba(255,255,255,.7);border:1px solid ${vd.verdictColor}25;border-radius:7px;padding:6px 9px;margin-bottom:8px;line-height:1.6;">
@@ -3549,7 +3698,7 @@ function rResumen(){
             ${[['🟢','ATRACTIVO',attractPrice,'+20% MdS'],['🔵','JUSTO',fairPrice,'tu múltiplo'],['🔴','CARO',expPrice,'−15% MdS']].map(([e,l,p,m])=>`
             <div style="text-align:center;padding:5px 4px;background:rgba(255,255,255,.7);border-radius:7px;">
               <div style="font-size:9px;font-weight:700;color:var(--muted);">${l}</div>
-              <div style="font-size:13px;font-weight:600;color:${_dm()?'#e2e8f0':'#1a1814'};">$${N(p)}</div>
+              <div style="font-size:13px;font-weight:600;color:${_dm()?'#e2e8f0':'#1a1814'};">${curSymG()}${N(p)}</div>
               <div style="font-size:8px;color:var(--muted);">${impMult(p)}x · ${m}</div>
             </div>`).join('')}
           </div>
@@ -3594,12 +3743,12 @@ function rResumen(){
       <div style="display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:center;">
         <div style="text-align:center;background:#1e3a5f;border-radius:10px;padding:10px 14px;min-width:100px;">
           <div style="font-size:8px;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.07em;margin-bottom:3px;">Target 2030</div>
-          <div style="font-size:26px;font-weight:700;color:#fff;line-height:1;">$${N(fv5)}</div>
+          <div style="font-size:26px;font-weight:700;color:#fff;line-height:1;">${curSymG()}${N(fv5)}</div>
           <div style="font-size:11px;font-weight:700;color:${cagr5>15?'#4ade80':cagr5>10?'#fbbf24':'#f87171'};margin-top:3px;">${cagr5>=0?'+':''}${cagr5.toFixed(1)}%/año</div>
         </div>
         <div>
           <div class="target5y-grid" style="display:grid;grid-template-columns:repeat(5,1fr);gap:3px;">
-            ${co.pY.map((y,i)=>{const v=rowAvg[i];const up=(v-price)/price*100;const c=up>25?'#16a34a':up>10?'#2563eb':up>0?'#60a5fa':up>-15?'#d97706':'#dc2626';return`<div style="background:${_dm()?'#1c2333':'#f7f6f3'};border-radius:8px;padding:7px 3px;text-align:center;border-top:3px solid ${c};"><div style="font-size:8px;color:var(--muted);">${y}</div><div style="font-size:12px;font-weight:600;color:${_dm()?'#e2e8f0':'#1a1814'};margin:2px 0;">$${N(v)}</div><div style="font-size:9px;font-weight:600;color:${c};">${up>=0?'+':''}${up.toFixed(0)}%</div></div>`;}).join('')}
+            ${co.pY.map((y,i)=>{const v=rowAvg[i];const up=(v-price)/price*100;const c=up>25?'#16a34a':up>10?'#2563eb':up>0?'#60a5fa':up>-15?'#d97706':'#dc2626';return`<div style="background:${_dm()?'#1c2333':'#f7f6f3'};border-radius:8px;padding:7px 3px;text-align:center;border-top:3px solid ${c};"><div style="font-size:8px;color:var(--muted);">${y}</div><div style="font-size:12px;font-weight:600;color:${_dm()?'#e2e8f0':'#1a1814'};margin:2px 0;">${curSymG()}${N(v)}</div><div style="font-size:9px;font-weight:600;color:${c};">${up>=0?'+':''}${up.toFixed(0)}%</div></div>`;}).join('')}
           </div>
           <div style="font-size:9px;color:var(--muted);margin-top:5px;">EV/FCF ${Math.round(medEvFcf*0.82)}x · PER ${Math.round((co.med5PER||co.medPER)*0.82)}x · <a href="#" onclick="showTab('valoracion');return false;" style="color:${co.color};font-weight:700;text-decoration:none;">Ver escenarios →</a></div>
         </div>
@@ -3638,8 +3787,8 @@ function rResumen(){
 function rGraficos(){
   const H='position:relative;height:220px;'; // mismo tamaño para todos
   return`
-  <div class="card"><div class="ctitle">Histórico — Ventas, FCF y EPS (${co.years[0]}–${co.years[9]})</div><div style="${H}"><canvas id="c-hist"></canvas></div><div class="chart-note">Ventas y FCF en $M (eje izq) · EPS en $ (eje der)</div></div>
-  <div class="card"><div class="ctitle">Proyecciones de tu hoja — Ventas, FCF y EPS (${co.pY[0]}–${co.pY[4]})</div><div style="${H}"><canvas id="c-proj"></canvas></div><div class="chart-note">Estimaciones de tu Excel · mismo formato que el histórico (Ventas/FCF $M eje izq · EPS $ eje der)</div></div>
+  <div class="card"><div class="ctitle">Histórico — Ventas, FCF y EPS (${co.years[0]}–${co.years[9]})</div><div style="${H}"><canvas id="c-hist"></canvas></div><div class="chart-note">Ventas y FCF en ${curSymG()}M (eje izq) · EPS en ${curSymG()} (eje der)</div></div>
+  <div class="card"><div class="ctitle">Proyecciones de tu hoja — Ventas, FCF y EPS (${co.pY[0]}–${co.pY[4]})</div><div style="${H}"><canvas id="c-proj"></canvas></div><div class="chart-note">Estimaciones de tu Excel · mismo formato que el histórico (Ventas/FCF ${curSymG()}M eje izq · EPS ${curSymG()} eje der)</div></div>
   <div class="card"><div class="ctitle">Márgenes históricos — EBITDA %, EBIT % y FCF %</div><div style="${H}"><canvas id="c-mg"></canvas></div></div>
   <div class="card"><div class="ctitle">ROIC vs WACC (${co.wacc}%) — Creación de valor</div><div style="${H}"><canvas id="c-roic"></canvas></div><div class="chart-note">Verde = ROIC > WACC (crea valor) · Rojo = destruye valor</div></div>
   <div class="card"><div class="ctitle">💹 Múltiplos históricos — EV/FCF y PER</div><div style="${H}"><canvas id="c-mult"></canvas></div><div class="chart-note">Línea punteada = mediana histórica</div></div>`;
@@ -3764,7 +3913,7 @@ function rValoracion(){
 
   <!-- SIM BANNER -->
   <div class="sim-banner${isSimulating?' visible':''}" id="sim-banner">
-    🧪 Simulando precio hipotético: <strong>$${N(price,2)}</strong> (precio real: $${N(realPrice,2)})
+    🧪 Simulando precio hipotético: <strong>${curSymG()}${N(price,2)}</strong> (precio real: ${curSymG()}${N(realPrice,2)})
     <button onclick="price=${realPrice};simMode=false;recalc();showTab('valoracion');" style="margin-left:10px;padding:2px 8px;border-radius:8px;border:1px solid #92400e;background:transparent;color:#92400e;cursor:pointer;font-size:10px;font-weight:700;">✕ Salir simulación</button>
   </div>
 
@@ -3774,13 +3923,13 @@ function rValoracion(){
       <div>
         <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px;">Precio de análisis</div>
         <div style="display:flex;align-items:center;gap:8px;">
-          <span style="font-size:13px;color:var(--muted);font-weight:700;">$</span>
+          <span style="font-size:13px;color:var(--muted);font-weight:700;">${curSymG()}</span>
           <input id="val-price-inp" type="number" value="${(+price).toFixed(2)}"
             style="width:110px;font-size:28px;font-weight:600;color:${isSimulating?'#d97706':vc};border:none;border-bottom:3px solid ${isSimulating?'#f59e0b':vc};background:transparent;outline:none;text-align:center;transition:color .2s;"
             oninput="price=+this.value||(_livePrice||_lastKnownPrice(coKeyOf(co))||co.price);simMode=Math.abs(price-(_livePrice||_lastKnownPrice(coKeyOf(co))||co.price))>0.5;recalc()"/>
           ${isSimulating?`<span style="font-size:9px;font-weight:700;background:#fffbeb;color:#d97706;border:1px solid #f59e0b;padding:2px 7px;border-radius:8px;">SIM</span>`:''}
         </div>
-        <div style="font-size:10px;color:var(--muted);margin-top:3px;">Precio real: $${N(realPrice,2)} · Introduce otro precio para simular</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:3px;">Precio real: ${curSymG()}${N(realPrice,2)} · Introduce otro precio para simular</div>
       </div>
       <div class="val-tiles" style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;">
         ${(()=>{const _ev=price*isM[0].sh+isM[0].nd;return[{id:'mt-per',lbl:'PER',raw:price/Math.max(isM[0].eps,.01),m:co.medPER,c:'#7c3aed',tip:'per'},{id:'mt-evfcf',lbl:'EV/FCF',raw:_ev/Math.max(isM[0].fcf,1),m:co.medEvFcf,c:'#b45309',tip:'evfcf'},{id:'mt-eveb',lbl:'EV/EBITDA',raw:_ev/Math.max(isM[0].eb,1),m:co.medEvEbitda,c:'#2563eb'},{id:'mt-evei',lbl:'EV/EBIT',raw:_ev/Math.max(isM[0].ebit,1),m:me,c:'#16a34a'}];})().map(t=>{const v=Math.round(t.raw),med=Math.round(t.m),ok=t.raw<=t.m,pct=((t.raw-t.m)/t.m*100);return`<div id="${t.id}" ${t.tip?`data-tip="${t.tip}" `:''}style="background:${ok?'#f0fdf4':'#fef2f2'};border:1px solid ${ok?'#bbf7d0':'#fecaca'};border-radius:9px;padding:8px;text-align:center;${t.tip?'cursor:pointer;':''}"><div style="font-size:8px;color:${t.c};font-weight:700;text-transform:uppercase;margin-bottom:3px;">${t.lbl} <span style="opacity:.55;">${_fwdYr}e</span>${t.tip?' <span style="opacity:.6;">ⓘ</span>':''}</div><div class="mt-val" style="font-size:16px;font-weight:600;color:${t.c};">${v}x</div><div class="mt-pct" style="font-size:9px;font-weight:700;color:${ok?'#16a34a':'#dc2626'};">${pct>=0?'+':''}${pct.toFixed(0)}% vs med</div></div>`;}).join('')}
@@ -3871,7 +4020,7 @@ function rValoracion(){
           const evfBgR=row.evfRow?evfBg:'';
           return`<tr style="border-bottom:1px solid ${_dm()?'#2a3a52':'#f0ede8'};${row.bold?boldBg:row.evfRow?'background:#fffbf0;':''}">
             <td style="padding:6px 10px;font-weight:${row.bold||row.evfRow?'800':'600'};color:${row.c};border-left:3px solid ${row.c};white-space:nowrap;">${row.label}</td>
-            ${row.data.map((v,i)=>{const up=(v-price)/price*100;return`<td id="${row.id}-${i}" style="text-align:right;padding:5px 4px;${evfBgR}border-right:none;"><div class="ptv" style="font-size:11px;font-weight:${row.bold||row.evfRow?'800':'600'};color:${potColor(up)};">$${N(v)}</div></td><td style="text-align:left;padding:5px 2px 5px 1px;${evfBgR}border-right:1px solid ${_dm()?'#2a3a52':'#f0ede8'};"><div class="ptp" style="font-size:10px;font-weight:700;color:${potColor(up)};">${up>=0?'+':''}${up.toFixed(0)}%</div></td>`;}).join('')}
+            ${row.data.map((v,i)=>{const up=(v-price)/price*100;return`<td id="${row.id}-${i}" style="text-align:right;padding:5px 4px;${evfBgR}border-right:none;"><div class="ptv" style="font-size:11px;font-weight:${row.bold||row.evfRow?'800':'600'};color:${potColor(up)};">${curSymG()}${N(v)}</div></td><td style="text-align:left;padding:5px 2px 5px 1px;${evfBgR}border-right:1px solid ${_dm()?'#2a3a52':'#f0ede8'};"><div class="ptp" style="font-size:10px;font-weight:700;color:${potColor(up)};">${up>=0?'+':''}${up.toFixed(0)}%</div></td>`;}).join('')}
             <td style="text-align:center;padding:6px 8px;background:${_dm()?'#0c1832':'#eff6ff'};"><span id="${row.cagrId}-5y" style="font-size:14px;font-weight:600;color:${cagrColor(row.cagrV)};">${row.cagrV>=0?'+':''}${row.cagrV.toFixed(0)}%</span></td>
           </tr>`;
         }).join('')}
@@ -3899,7 +4048,7 @@ function rValoracion(){
         </div>
       </div>
       <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:${_dm()?'#1c2333':'#f7f6f3'};border-radius:9px;flex-wrap:wrap;gap:6px;">
-        <div><div style="font-size:9px;color:var(--muted);text-transform:uppercase;margin-bottom:2px;">Comprar a no más de (EV/FCF, ${hor}a)</div><div id="ret-price" style="font-size:22px;font-weight:600;color:#1e3a5f;">$${N(priceForRet)}</div></div>
+        <div><div style="font-size:9px;color:var(--muted);text-transform:uppercase;margin-bottom:2px;">Comprar a no más de (EV/FCF, ${hor}a)</div><div id="ret-price" style="font-size:22px;font-weight:600;color:#1e3a5f;">${curSymG()}${N(priceForRet)}</div></div>
         <div style="text-align:right;"><div style="font-size:9px;color:var(--muted);margin-bottom:2px;">vs precio actual</div><div id="ret-diff" style="font-size:18px;font-weight:600;color:${cu(diffRet)};">${diffRet>=0?'+':''}${diffRet.toFixed(0)}%</div></div>
       </div>
     </div>
@@ -3941,7 +4090,7 @@ function rValoracion(){
             <div style="display:flex;align-items:center;justify-content:center;gap:2px;${_projSource==='sheet'?'':'opacity:.65;'}">${sLine}<span style="font-size:8px;color:#94a3b8;">%</span></div>
             <div style="display:flex;align-items:center;justify-content:center;gap:2px;margin-top:2px;${_projSource==='auto'?'':'opacity:.65;'}">${wLine}<span style="font-size:8px;color:#94a3b8;">%</span></div>
           </td>`;}).join('')}</tr>`;}).join('')}
-        ${[{l:"Ventas",k:"s",c:"#2563eb",f:v=>"$"+N(Math.round(v))},{l:"EBIT",k:"ebit",c:"#b45309",f:v=>"$"+N(Math.round(v))},{l:"FCF",k:"fcf",c:"#16a34a",f:v=>"$"+N(Math.round(v))},{l:"EPS",k:"eps",c:"#d97706",f:v=>"$"+N(v,2)}].map(r=>`<tr style="background:${_dm()?'#161b27':'#f9f8f6'};"><td style="color:${r.c};font-weight:700;">${r.l}</td>${isM.map(m=>`<td class="isres" style="color:${r.c}">${r.f(m[r.k])}</td>`).join('')}</tr>`).join('')}
+        ${[{l:"Ventas",k:"s",c:"#2563eb",f:v=>curSymG()+N(Math.round(v))},{l:"EBIT",k:"ebit",c:"#b45309",f:v=>curSymG()+N(Math.round(v))},{l:"FCF",k:"fcf",c:"#16a34a",f:v=>curSymG()+N(Math.round(v))},{l:"EPS",k:"eps",c:"#d97706",f:v=>curSymG()+N(v,2)}].map(r=>`<tr style="background:${_dm()?'#161b27':'#f9f8f6'};"><td style="color:${r.c};font-weight:700;">${r.l}</td>${isM.map(m=>`<td class="isres" style="color:${r.c}">${r.f(m[r.k])}</td>`).join('')}</tr>`).join('')}
       </tbody></table></div>
     </div>
   </div>
@@ -3980,14 +4129,14 @@ function rProyecciones(){
         // Use IS model FCF instead for more accurate projection
         const tgts=isM.map(m=>Math.round((m.fcf*sc.evf-m.nd)/m.sh));
         const c5=((Math.pow(Math.max(tgts[4],1)/Math.max(price,1),0.2)-1)*100);
-        return`<tr style="background:${sc.bg};"><td style="padding:6px 10px;font-weight:700;color:${sc.c};border-left:4px solid ${sc.c};">${sc.l}</td><td style="text-align:center;padding:5px 6px;font-weight:700;color:${sc.c};">${sc.evf}x</td>${tgts.map((v,i)=>{const up=(v-price)/price*100;return`<td style="text-align:center;padding:5px 4px;"><div style="font-size:12px;font-weight:700;color:${up>15?'#16a34a':up>0?'#2563eb':up>-15?'#d97706':'#dc2626'};">$${N(v)}</div><div style="font-size:9px;color:${up>=0?'#16a34a':'#dc2626'};">${up>=0?'+':''}${up.toFixed(0)}%</div></td>`;}).join('')}<td style="text-align:center;padding:5px 8px;font-weight:600;color:${c5>15?'#16a34a':c5>10?'#d97706':'#dc2626'};background:rgba(255,255,255,.5);">${c5>0?'+':''}${c5.toFixed(1)}%</td></tr>`;
+        return`<tr style="background:${sc.bg};"><td style="padding:6px 10px;font-weight:700;color:${sc.c};border-left:4px solid ${sc.c};">${sc.l}</td><td style="text-align:center;padding:5px 6px;font-weight:700;color:${sc.c};">${sc.evf}x</td>${tgts.map((v,i)=>{const up=(v-price)/price*100;return`<td style="text-align:center;padding:5px 4px;"><div style="font-size:12px;font-weight:700;color:${up>15?'#16a34a':up>0?'#2563eb':up>-15?'#d97706':'#dc2626'};">${curSymG()}${N(v)}</div><div style="font-size:9px;color:${up>=0?'#16a34a':'#dc2626'};">${up>=0?'+':''}${up.toFixed(0)}%</div></td>`;}).join('')}<td style="text-align:center;padding:5px 8px;font-weight:600;color:${c5>15?'#16a34a':c5>10?'#d97706':'#dc2626'};background:rgba(255,255,255,.5);">${c5>0?'+':''}${c5.toFixed(1)}%</td></tr>`;
       }).join('')}</tbody>
     </table></div>
   </div>
 
   <div class="card">
     <div class="ctitle">CAGR esperado por precio de compra — Escenario base</div>
-    <div style="overflow-x:auto;"><table class="ptbl"><thead><tr><th style="text-align:left;">Precio entrada</th>${co.pY.map(y=>`<th style="text-align:center;">→ ${y}</th>`).join('')}</tr></thead><tbody>${bps.map(bp=>`<tr style="background:${bp===Math.round(price)?co.color+'0d':''}"><td style="font-weight:${bp===Math.round(price)?'700':'400'};color:${bp===Math.round(price)?co.color:'var(--sub)'};">$${N(bp)}${bp===Math.round(price)?` <span style="font-size:9px;font-weight:700;background:${co.color}18;padding:1px 5px;border-radius:8px;color:${co.color};">ACTUAL</span>`:''}</td>${pts.map((t,i)=>{const c=((Math.pow(Math.max(t.avg,1)/Math.max(bp,1),1/(i+1))-1)*100);return`<td style="text-align:center;font-weight:700;color:${c>20?'#16a34a':c>15?'#16a34a':c>10?'#d97706':c>5?'#d97706':'#dc2626'}">${c.toFixed(1)}%</td>`;}).join('')}</tr>`).join('')}</tbody></table></div>
+    <div style="overflow-x:auto;"><table class="ptbl"><thead><tr><th style="text-align:left;">Precio entrada</th>${co.pY.map(y=>`<th style="text-align:center;">→ ${y}</th>`).join('')}</tr></thead><tbody>${bps.map(bp=>`<tr style="background:${bp===Math.round(price)?co.color+'0d':''}"><td style="font-weight:${bp===Math.round(price)?'700':'400'};color:${bp===Math.round(price)?co.color:'var(--sub)'};">${curSymG()}${N(bp)}${bp===Math.round(price)?` <span style="font-size:9px;font-weight:700;background:${co.color}18;padding:1px 5px;border-radius:8px;color:${co.color};">ACTUAL</span>`:''}</td>${pts.map((t,i)=>{const c=((Math.pow(Math.max(t.avg,1)/Math.max(bp,1),1/(i+1))-1)*100);return`<td style="text-align:center;font-weight:700;color:${c>20?'#16a34a':c>15?'#16a34a':c>10?'#d97706':c>5?'#d97706':'#dc2626'}">${c.toFixed(1)}%</td>`;}).join('')}</tr>`).join('')}</tbody></table></div>
   </div>`;
 }
 function rMoat(){
@@ -4020,7 +4169,7 @@ function rDCF(){
       </div>
       <div style="display:flex;justify-content:space-between;padding:9px 12px;background:${(calcDCF()-price)/price*100>=0?'#f0fdf4':'#fef2f2'};border-radius:8px;margin-top:8px;border:1px solid ${(calcDCF()-price)/price*100>=0?'#bbf7d0':'#fecaca'};">
         <span style="font-size:12px;color:var(--muted);">Valor DCF intrínseco</span>
-        <span id="dcf-main-val" style="font-size:18px;font-weight:600;color:${cu((calcDCF()-price)/price*100)};">$${N(dcf)} <span style="font-size:11px;">(${ud>=0?'+':''}${ud.toFixed(1)}%)</span></span>
+        <span id="dcf-main-val" style="font-size:18px;font-weight:600;color:${cu((calcDCF()-price)/price*100)};">${curSymG()}${N(dcf)} <span style="font-size:11px;">(${ud>=0?'+':''}${ud.toFixed(1)}%)</span></span>
       </div>
     </div>
 
@@ -4056,7 +4205,7 @@ function rDCF(){
       <div style="font-size:10px;font-weight:700;color:#991b1b;text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px;">🔴 Stress Test Recesión — Escenario adverso 10Y</div>
       <div style="font-size:11px;color:#991b1b;margin-bottom:10px;">Supuestos: Año 1: ventas −20%, margen FCF −5pp | Año 2: ventas −5%, margen −3pp | Año 3: recovery +12% | Años 4-10: vuelta al crecimiento base (${gr}%)</div>
       <div class="stress-grid">
-        ${[{l:'DCF Base',v:'$'+N(stress.baseDCF),c:'#16a34a'},{l:'DCF Estresado',v:'$'+N(stress.stressedDCF),c:stressColor},{l:'Impacto en DCF',v:stress.impact+'%',c:stressColor},{l:'Upside Estresado',v:(stress.upsideStress>=0?'+':'')+stress.upsideStress+'%',c:stress.upsideStress>=0?'#16a34a':'#dc2626'},{l:'FCF Mínimo (Año1)',v:'$'+N(stress.fcf1)+'M',c:'#dc2626'},{l:'Caída FCF vs 2025',v:stress.fcfDrop.toFixed(1)+'%',c:'#dc2626'}].map(m=>`<div style="background:rgba(255,255,255,.8);border-radius:8px;padding:10px;text-align:center;border:1px solid rgba(239,68,68,.25);"><div style="font-size:9px;color:#991b1b;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px;font-weight:600;">${m.l}</div><div style="font-size:18px;font-weight:600;color:${m.c};">${m.v}</div></div>`).join('')}
+        ${[{l:'DCF Base',v:''+curSymG()+N(stress.baseDCF),c:'#16a34a'},{l:'DCF Estresado',v:''+curSymG()+N(stress.stressedDCF),c:stressColor},{l:'Impacto en DCF',v:stress.impact+'%',c:stressColor},{l:'Upside Estresado',v:(stress.upsideStress>=0?'+':'')+stress.upsideStress+'%',c:stress.upsideStress>=0?'#16a34a':'#dc2626'},{l:'FCF Mínimo (Año1)',v:''+curSymG()+N(stress.fcf1)+'M',c:'#dc2626'},{l:'Caída FCF vs 2025',v:stress.fcfDrop.toFixed(1)+'%',c:'#dc2626'}].map(m=>`<div style="background:rgba(255,255,255,.8);border-radius:8px;padding:10px;text-align:center;border:1px solid rgba(239,68,68,.25);"><div style="font-size:9px;color:#991b1b;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px;font-weight:600;">${m.l}</div><div style="font-size:18px;font-weight:600;color:${m.c};">${m.v}</div></div>`).join('')}
       </div>
       <div style="margin-top:10px;padding:9px 12px;background:rgba(255,255,255,.6);border-radius:8px;font-size:11px;color:#991b1b;">
         ${stress.upsideStress>20?'🟢 Incluso en recesión severa el precio actual ofrece margen de seguridad sólido. El negocio muestra alta resiliencia.':stress.upsideStress>0?'🟡 En recesión el margen de seguridad se estrecha. Posición de tamaño moderado recomendable.':'🔴 En recesión el precio actual ya no ofrece margen de seguridad. Alta volatilidad potencial si se materializan los riesgos.'}
@@ -4071,15 +4220,15 @@ function rDCF(){
       ${sld('gr','Crecimiento FCF (10 años)',gr,0,30,0.5,'%','#2563eb','CAGR histórico: ~'+((((Math.pow(Math.max(co.fcf[9],.01)/Math.max(co.fcf[0],.01),1/9))-1)*100).toFixed(0))+'%')}
       ${sld('dr','Tasa de descuento',dr,6,20,0.5,'%','#1e3a5f','WACC ~10%')}
       ${sld('tg','Crecimiento terminal',tg,0,5,0.5,'%','#7c3aed','PIB nominal ~4-5%')}
-      <div style="display:flex;justify-content:space-between;padding:9px 12px;background:${ud>=0?'#f0fdf4':'#fef2f2'};border-radius:8px;margin-top:8px;border:1px solid ${ud>=0?'#bbf7d0':'#fecaca'};"><span style="font-size:12px;color:var(--muted);">Valor DCF intrínseco</span><span style="font-size:18px;font-weight:600;color:${cu(ud)};">$${N(dcf)} <span style="font-size:11px;">(${ud>=0?'+':''}${ud.toFixed(1)}%)</span></span></div>
+      <div style="display:flex;justify-content:space-between;padding:9px 12px;background:${ud>=0?'#f0fdf4':'#fef2f2'};border-radius:8px;margin-top:8px;border:1px solid ${ud>=0?'#bbf7d0':'#fecaca'};"><span style="font-size:12px;color:var(--muted);">Valor DCF intrínseco</span><span style="font-size:18px;font-weight:600;color:${cu(ud)};">${curSymG()}${N(dcf)} <span style="font-size:11px;">(${ud>=0?'+':''}${ud.toFixed(1)}%)</span></span></div>
     </div>
     <div class="card">
       <div class="ctitle">Sensibilidad DCF — Crec. FCF × Tasa descuento</div>
-      <div style="overflow-x:auto;"><table class="sens-tbl"><thead><tr><th style="text-align:left;">FCF↓ Desc→</th>${[7,8,9,10,11,12,13].map(d=>`<th style="text-align:center;background:${d===dr?'#2563eb18':'#f7f6f3'};color:${d===dr?'#2563eb':'var(--muted)'};font-weight:${d===dr?'700':'400'}">${d}%</th>`).join('')}</tr></thead><tbody>${[8,10,12,15,18,20,25].map(g=>`<tr><td style="background:${g===gr?'#b4530918':'#f7f6f3'};color:${g===gr?'#b45309':'var(--muted)'};font-weight:${g===gr?'700':'400'};padding:5px 8px;">${g}%</td>${[7,8,9,10,11,12,13].map(d=>{if(d<=tg+1)return`<td class="sens-td" style="background:${_dm()?'#1c2333':'#f7f6f3'};color:var(--muted)">—</td>`;let pv=0;for(let i=1;i<=10;i++)pv+=(co.fcf[9]*Math.pow(1+g/100,i))/Math.pow(1+d/100,i);const tv=(co.fcf[9]*Math.pow(1+g/100,10)*(1+tg/100))/(d/100-tg/100);const val=(pv+tv/Math.pow(1+d/100,10)-co.netDebt[9])/co.shares,up=(val-price)/price*100,isA=g===gr&&d===dr;return`<td class="sens-td" style="background:${isA?'#d9770618':cbg(up)};color:${isA?'#d97706':cu(up)};border:${isA?'2px solid #d9770650':'none'};font-weight:${isA?'700':'400'}"><div>$${N(val)}</div><div style="font-size:9px">${up>0?'+':''}${up.toFixed(0)}%</div></td>`;}).join('')}</tr>`).join('')}</tbody></table></div>
+      <div style="overflow-x:auto;"><table class="sens-tbl"><thead><tr><th style="text-align:left;">FCF↓ Desc→</th>${[7,8,9,10,11,12,13].map(d=>`<th style="text-align:center;background:${d===dr?'#2563eb18':'#f7f6f3'};color:${d===dr?'#2563eb':'var(--muted)'};font-weight:${d===dr?'700':'400'}">${d}%</th>`).join('')}</tr></thead><tbody>${[8,10,12,15,18,20,25].map(g=>`<tr><td style="background:${g===gr?'#b4530918':'#f7f6f3'};color:${g===gr?'#b45309':'var(--muted)'};font-weight:${g===gr?'700':'400'};padding:5px 8px;">${g}%</td>${[7,8,9,10,11,12,13].map(d=>{if(d<=tg+1)return`<td class="sens-td" style="background:${_dm()?'#1c2333':'#f7f6f3'};color:var(--muted)">—</td>`;let pv=0;for(let i=1;i<=10;i++)pv+=(co.fcf[9]*Math.pow(1+g/100,i))/Math.pow(1+d/100,i);const tv=(co.fcf[9]*Math.pow(1+g/100,10)*(1+tg/100))/(d/100-tg/100);const val=(pv+tv/Math.pow(1+d/100,10)-co.netDebt[9])/co.shares,up=(val-price)/price*100,isA=g===gr&&d===dr;return`<td class="sens-td" style="background:${isA?'#d9770618':cbg(up)};color:${isA?'#d97706':cu(up)};border:${isA?'2px solid #d9770650':'none'};font-weight:${isA?'700':'400'}"><div>${curSymG()}${N(val)}</div><div style="font-size:9px">${up>0?'+':''}${up.toFixed(0)}%</div></td>`;}).join('')}</tr>`).join('')}</tbody></table></div>
     </div>
     <div class="card">
       <div class="ctitle">Sensibilidad g terminal — Crec. FCF × g perpetuo</div>
-      <div style="overflow-x:auto;"><table class="sens-tbl"><thead><tr><th style="text-align:left;">FCF↓ g→</th>${[1,1.5,2,2.5,3,3.5,4].map(g=>`<th style="text-align:center;background:${g===tg?'#7c3aed18':'#f7f6f3'};color:${g===tg?'#7c3aed':'var(--muted)'};font-weight:${g===tg?'700':'400'}">${g}%</th>`).join('')}</tr></thead><tbody>${[8,10,12,15,18,20].map(g=>`<tr><td style="background:${g===gr?'#2563eb18':'#f7f6f3'};color:${g===gr?'#2563eb':'var(--muted)'};font-weight:${g===gr?'700':'400'};padding:5px 8px;">${g}%</td>${[1,1.5,2,2.5,3,3.5,4].map(tg2=>{if(dr<=tg2+0.5)return`<td class="sens-td" style="background:${_dm()?'#1c2333':'#f7f6f3'};color:var(--muted)">—</td>`;let pv=0;for(let i=1;i<=10;i++)pv+=(co.fcf[9]*Math.pow(1+g/100,i))/Math.pow(1+dr/100,i);const tv2=(co.fcf[9]*Math.pow(1+g/100,10)*(1+tg2/100))/(dr/100-tg2/100);const val=(pv+tv2/Math.pow(1+dr/100,10)-co.netDebt[9])/co.shares,up=(val-price)/price*100,isA=g===gr&&tg2===tg;return`<td class="sens-td" style="background:${isA?'#7c3aed18':cbg(up)};color:${isA?'#7c3aed':cu(up)};border:${isA?'2px solid #7c3aed50':'none'};font-weight:${isA?'700':'400'}"><div>$${N(val)}</div><div style="font-size:9px">${up>0?'+':''}${up.toFixed(0)}%</div></td>`;}).join('')}</tr>`).join('')}</tbody></table></div>
+      <div style="overflow-x:auto;"><table class="sens-tbl"><thead><tr><th style="text-align:left;">FCF↓ g→</th>${[1,1.5,2,2.5,3,3.5,4].map(g=>`<th style="text-align:center;background:${g===tg?'#7c3aed18':'#f7f6f3'};color:${g===tg?'#7c3aed':'var(--muted)'};font-weight:${g===tg?'700':'400'}">${g}%</th>`).join('')}</tr></thead><tbody>${[8,10,12,15,18,20].map(g=>`<tr><td style="background:${g===gr?'#2563eb18':'#f7f6f3'};color:${g===gr?'#2563eb':'var(--muted)'};font-weight:${g===gr?'700':'400'};padding:5px 8px;">${g}%</td>${[1,1.5,2,2.5,3,3.5,4].map(tg2=>{if(dr<=tg2+0.5)return`<td class="sens-td" style="background:${_dm()?'#1c2333':'#f7f6f3'};color:var(--muted)">—</td>`;let pv=0;for(let i=1;i<=10;i++)pv+=(co.fcf[9]*Math.pow(1+g/100,i))/Math.pow(1+dr/100,i);const tv2=(co.fcf[9]*Math.pow(1+g/100,10)*(1+tg2/100))/(dr/100-tg2/100);const val=(pv+tv2/Math.pow(1+dr/100,10)-co.netDebt[9])/co.shares,up=(val-price)/price*100,isA=g===gr&&tg2===tg;return`<td class="sens-td" style="background:${isA?'#7c3aed18':cbg(up)};color:${isA?'#7c3aed':cu(up)};border:${isA?'2px solid #7c3aed50':'none'};font-weight:${isA?'700':'400'}"><div>${curSymG()}${N(val)}</div><div style="font-size:9px">${up>0?'+':''}${up.toFixed(0)}%</div></td>`;}).join('')}</tr>`).join('')}</tbody></table></div>
     </div>
   </div>
   </div>`;
@@ -4095,7 +4244,7 @@ function openMetricChart(el){
   const series=(el.dataset.cs||'').split(',').map(v=>v===''?null:+v);
   if(!series.length) return;
   const label=el.dataset.cl||'', color=el.dataset.color||'#2563eb', unit=el.dataset.cu||'';
-  const fmt=unit==='%'?(v=>(Math.round(v*10)/10)+'%'):unit==='$'?(v=>'$'+N(v,2)):(v=>'$'+N(Math.round(v))+'M');
+  const fmt=unit==='%'?(v=>(Math.round(v*10)/10)+'%'):unit==='$'?(v=>''+curSymG()+N(v,2)):(v=>''+curSymG()+N(Math.round(v))+'M');
   const labels=co.years.slice(-series.length).map(String);
   let modal=document.getElementById('metric-modal');
   if(!modal){
@@ -4106,7 +4255,7 @@ function openMetricChart(el){
     document.body.appendChild(modal);
   }
   document.getElementById('metric-modal-title').textContent=label+' · '+co.name;
-  document.getElementById('metric-modal-note').textContent='Tendencia '+labels[0]+'–'+labels[labels.length-1]+(unit==='%'?' (%)':unit==='$'?' (por acción)':' (millones $)')+'. Toca fuera o ✕ para cerrar.';
+  document.getElementById('metric-modal-note').textContent='Tendencia '+labels[0]+'–'+labels[labels.length-1]+(unit==='%'?' (%)':unit==='$'?' (por acción)':' (millones '+curSymG()+')')+'. Toca fuera o ✕ para cerrar.';
   modal.style.display='flex';
   if(_metricChartInst){try{_metricChartInst.destroy();}catch(e){}}
   _metricChartInst=new Chart(document.getElementById('metric-modal-canvas'),{type:'line',data:{labels,datasets:[{label,data:series,borderColor:color,backgroundColor:color+'18',fill:true,tension:.3,pointRadius:4,borderWidth:2.5,pointBackgroundColor:series.map(v=>v!=null&&v<0?'#dc2626':color)}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+(c.raw!=null?fmt(c.raw):'—')}}},scales:{x:{grid:{color:'rgba(0,0,0,0.05)'},ticks:{font:{size:10}}},y:{grid:{color:'rgba(0,0,0,0.05)'},ticks:{font:{size:10},callback:v=>fmt(v)}}}}});
@@ -4134,14 +4283,14 @@ function rAnalisis(){
   const spinCaveat=co.spinoffNote?' ⚠ OJO: esos años son PRE spin-off (incluían el negocio escindido) — NO comparables al negocio actual.':'';
   const blocks=[
    {title:'📊 Cuenta de resultados (P&L)',sheet:'1.IS',items:[
-     {icon:'📦',label:'Ventas',value:'$'+N0(co.sales[9])+'M · '+(salesG5>=0?'+':'')+salesG5.toFixed(0)+'%/año',series:co.sales,color:'#2563eb',status:salesG5>=12?'pos':salesG5>=5?'warn':'neg',why:'La facturación es el motor: sin crecimiento de ventas, lo demás cuesta sostenerlo.',watch:'Último año '+(salesYoY>=0?'+':'')+salesYoY.toFixed(0)+'% vs media 5Y '+salesG5.toFixed(0)+'%: si el último es muy inferior, hay desaceleración.',bench:'>10%/año'},
+     {icon:'📦',label:'Ventas',value:''+curSymG()+N0(co.sales[9])+'M · '+(salesG5>=0?'+':'')+salesG5.toFixed(0)+'%/año',series:co.sales,color:'#2563eb',status:salesG5>=12?'pos':salesG5>=5?'warn':'neg',why:'La facturación es el motor: sin crecimiento de ventas, lo demás cuesta sostenerlo.',watch:'Último año '+(salesYoY>=0?'+':'')+salesYoY.toFixed(0)+'% vs media 5Y '+salesG5.toFixed(0)+'%: si el último es muy inferior, hay desaceleración.',bench:'>10%/año'},
      {icon:'💼',label:'Margen EBITDA',value:P(co.ebitdaM[9])+' ('+(ebMT>=0?'+':'')+ebMT.toFixed(0)+'pp 5Y)',series:co.ebitdaM,color:'#b45309',status:(co.ebitdaM[9]>=25&&ebMT>=-1)?'pos':(ebMT<-3?'neg':'warn'),why:'Rentabilidad operativa bruta. Alto y estable = poder de fijar precios.',watch:'Márgenes en contracción = presión de costes/competencia. Mira la tendencia, no solo el nivel.',bench:'>25%'},
      {icon:'⚙️',label:'Margen EBIT',value:P(co.ebitM[9])+' ('+(ebitMT>=0?'+':'')+ebitMT.toFixed(0)+'pp 5Y)',series:co.ebitM,color:'#d97706',status:(co.ebitM[9]>=18&&ebitMT>=-1)?'pos':(ebitMT<-3?'neg':'warn'),why:'Margen operativo tras amortizaciones; más exigente que el EBITDA.',watch:'Si el EBIT cae más que el EBITDA, las amortizaciones/capex pesan mucho.',bench:'>15%'},
-     {icon:'📈',label:'Beneficio / EPS',value:'EPS $'+N(co.eps[9],2)+(epsG5!=null?' · '+(epsG5>=0?'+':'')+epsG5.toFixed(0)+'%/año':''),series:co.eps,color:'#7c3aed',status:lossEbit>0?'neg':(epsG5!=null&&epsG5>=10?'pos':'warn'),why:'Beneficio por acción. Valídalo siempre con el FCF (abajo).',watch:(lossEbit>0?('⚠ '+lossEbit+' año(s) con EBIT en pérdidas → negocio CÍCLICO.'):'Crecimiento sostenido sin años en pérdidas = estable.')+spinCaveat,bench:'sin años en pérdidas'},
+     {icon:'📈',label:'Beneficio / EPS',value:'EPS '+curSymG()+N(co.eps[9],2)+(epsG5!=null?' · '+(epsG5>=0?'+':'')+epsG5.toFixed(0)+'%/año':''),series:co.eps,color:'#7c3aed',status:lossEbit>0?'neg':(epsG5!=null&&epsG5>=10?'pos':'warn'),why:'Beneficio por acción. Valídalo siempre con el FCF (abajo).',watch:(lossEbit>0?('⚠ '+lossEbit+' año(s) con EBIT en pérdidas → negocio CÍCLICO.'):'Crecimiento sostenido sin años en pérdidas = estable.')+spinCaveat,bench:'sin años en pérdidas'},
      ...(di!=null?[{icon:'🧾',label:'Dilución de acciones',value:(di>0?'+':'')+di+'%/año',color:di<=0?'#16a34a':'#dc2626',status:di<=0?'pos':di<=1.5?'warn':'neg',why:'Emitir acciones reparte el pastel entre más socios; recomprar lo concentra.',watch:di<=0?'Recompra neta: suma valor por acción ✓':'Emite acciones: parte de tu rentabilidad se diluye.',bench:'≤0% (recompra)'}]:[])
    ]},
    {title:'💵 Flujo de caja (FCF)',sheet:'2.FCF',items:[
-     {icon:'💧',label:'Free Cash Flow',value:'$'+N0(co.fcf[9])+'M',series:co.fcf,color:'#16a34a',status:negFcf>=2?'neg':(co.fcf[9]>0?'pos':'warn'),why:'La caja real tras operar e invertir. Es lo único que paga dividendos, recompras y deuda.',watch:(negFcf>0?('⚠ '+negFcf+' año(s) de FCF NEGATIVO → quema de caja en partes del ciclo (típico en cíclicas).'):'FCF positivo y creciente = generación sana.')+spinCaveat,bench:'positivo y creciente'},
+     {icon:'💧',label:'Free Cash Flow',value:''+curSymG()+N0(co.fcf[9])+'M',series:co.fcf,color:'#16a34a',status:negFcf>=2?'neg':(co.fcf[9]>0?'pos':'warn'),why:'La caja real tras operar e invertir. Es lo único que paga dividendos, recompras y deuda.',watch:(negFcf>0?('⚠ '+negFcf+' año(s) de FCF NEGATIVO → quema de caja en partes del ciclo (típico en cíclicas).'):'FCF positivo y creciente = generación sana.')+spinCaveat,bench:'positivo y creciente'},
      {icon:'💦',label:'Margen FCF',value:P(co.fcfM[9])+' ('+(fcfMT>=0?'+':'')+fcfMT.toFixed(0)+'pp 5Y)',series:co.fcfM,color:'#16a34a',status:co.fcfM[9]>=15?'pos':co.fcfM[9]>=8?'warn':'neg',why:'Qué % de cada euro de ventas acaba en caja libre. Más alto = más eficiente.',watch:'Compáralo con el margen EBITDA: mucha diferencia = el capex o el circulante se comen la caja.',bench:'>15%'},
      {icon:'💎',label:'Calidad del beneficio (FCF/Bº)',value:(q.ratio*100).toFixed(0)+'% · '+q.label,color:q.color,status:q.ratio>=0.85?'pos':q.ratio>=0.7?'warn':'neg',why:'Cuánto del beneficio contable se convierte en caja real. Si es bajo, el beneficio es "de papel".',watch:'<70% = beneficio inflado vs caja. Revisa amortizaciones, circulante y partidas no monetarias.',bench:'>85%'},
      ...(cx!=null?[{icon:'🔨',label:'CapEx / Ventas',value:cx+'%',color:'#b45309',status:cx<5?'pos':cx<12?'warn':'neg',why:'Cuánto reinvierte en activos para operar. Bajo = negocio "ligero" que retiene más caja.',watch:cx>=12?'Capital intensivo: el capex se come buena parte del flujo.':'Negocio ligero en activos ✓',bench:'<5%'}]:[])
@@ -4201,7 +4350,7 @@ function rAnalisis(){
      </div>`;}).join('')}
    </div>`).join('')}
    <div class="card"><div class="ctitle">Histórico completo ${co.years[0]}–${co.years[9]}</div>
-   <div style="overflow-x:auto;"><table class="htbl"><thead><tr><th style="text-align:left;min-width:90px;">Métrica</th>${co.years.map(y=>`<th style="text-align:right;">${y}</th>`).join('')}</tr></thead><tbody>${[{l:"Ventas ($M)",d:co.sales,c:"#2563eb",f:v=>"$"+N(v)},{l:"EBITDA ($M)",d:co.ebitda,c:"#b45309",f:v=>"$"+N(v)},{l:"EBIT ($M)",d:co.ebit,c:"#d97706",f:v=>"$"+N(v)},{l:"FCF ($M)",d:co.fcf,c:"#16a34a",f:v=>"$"+N(v)},{l:"EPS ($)",d:co.eps,c:"#d97706",f:v=>"$"+N(v,2)},{l:"FCF/Acc ($)",d:co.fcfps,c:"#16a34a",f:v=>"$"+N(v,2)},{l:"Mg. EBITDA",d:co.ebitdaM,c:"#b45309",f:v=>P(v)},{l:"Mg. FCF",d:co.fcfM,c:"#16a34a",f:v=>P(v)},{l:"ROIC (%)",d:co.roic,c:"#b45309",f:v=>P(v)},{l:"Deuda Neta",d:co.netDebt,c:"#dc2626",f:v=>"$"+N(v)}].map(row=>`<tr style="border-bottom:1px solid ${_dm()?'#2a3a52':'#f0ede8'};"><td style="color:${row.c};font-weight:700;padding:5px 8px;">${row.l}</td>${row.d.map((v,i)=>`<td style="text-align:right;padding:5px 8px;color:${i===row.d.length-1?row.c:'var(--sub)'};font-weight:${i===row.d.length-1?'700':'400'}">${row.f(v)}</td>`).join('')}</tr>`).join('')}</tbody></table></div></div>`;
+   <div style="overflow-x:auto;"><table class="htbl"><thead><tr><th style="text-align:left;min-width:90px;">Métrica</th>${co.years.map(y=>`<th style="text-align:right;">${y}</th>`).join('')}</tr></thead><tbody>${[{l:"Ventas ("+curSymG()+"M)",d:co.sales,c:"#2563eb",f:v=>curSymG()+N(v)},{l:"EBITDA ("+curSymG()+"M)",d:co.ebitda,c:"#b45309",f:v=>curSymG()+N(v)},{l:"EBIT ("+curSymG()+"M)",d:co.ebit,c:"#d97706",f:v=>curSymG()+N(v)},{l:"FCF ("+curSymG()+"M)",d:co.fcf,c:"#16a34a",f:v=>curSymG()+N(v)},{l:"EPS ("+curSymG()+")",d:co.eps,c:"#d97706",f:v=>curSymG()+N(v,2)},{l:"FCF/Acc ("+curSymG()+")",d:co.fcfps,c:"#16a34a",f:v=>curSymG()+N(v,2)},{l:"Mg. EBITDA",d:co.ebitdaM,c:"#b45309",f:v=>P(v)},{l:"Mg. FCF",d:co.fcfM,c:"#16a34a",f:v=>P(v)},{l:"ROIC (%)",d:co.roic,c:"#b45309",f:v=>P(v)},{l:"Deuda Neta",d:co.netDebt,c:"#dc2626",f:v=>curSymG()+N(v)}].map(row=>`<tr style="border-bottom:1px solid ${_dm()?'#2a3a52':'#f0ede8'};"><td style="color:${row.c};font-weight:700;padding:5px 8px;">${row.l}</td>${row.d.map((v,i)=>`<td style="text-align:right;padding:5px 8px;color:${i===row.d.length-1?row.c:'var(--sub)'};font-weight:${i===row.d.length-1?'700':'400'}">${row.f(v)}</td>`).join('')}</tr>`).join('')}</tbody></table></div></div>`;
 }
 
 function rAlertas(){
@@ -4228,7 +4377,7 @@ function rAlertas(){
   ${als.map(a=>{const c=a.t==="pos"?"#16a34a":a.t==="neg"?"#dc2626":"#d97706",bg2=a.t==="pos"?"#f0fdf4":a.t==="neg"?"#fef2f2":"#fffbeb",bd2=a.t==="pos"?"#bbf7d0":a.t==="neg"?"#fecaca":"#fde68a";return`<div class="alrow" style="background:${bg2};border:1px solid ${bd2};"><span style="font-size:16px;flex-shrink:0;">${a.icon}</span><span style="flex:1;color:var(--sub)">${a.txt}</span><span class="albadge" style="background:${c}18;color:${c};">${a.t==="pos"?"✓ OK":a.t==="neg"?"⚠ Alerta":"→ Vigilar"}</span></div>`;}).join('')}
   </div>
   <div class="card"><div class="ctitle">Histórico completo ${co.years[0]}–${co.years[9]}</div>
-  <div style="overflow-x:auto;"><table class="htbl"><thead><tr><th style="text-align:left;min-width:90px;">Métrica</th>${co.years.map(y=>`<th style="text-align:right;">${y}</th>`).join('')}</tr></thead><tbody>${[{l:"Ventas ($M)",d:co.sales,c:"#2563eb",f:v=>"$"+N(v)},{l:"EBITDA ($M)",d:co.ebitda,c:"#b45309",f:v=>"$"+N(v)},{l:"EBIT ($M)",d:co.ebit,c:"#d97706",f:v=>"$"+N(v)},{l:"FCF ($M)",d:co.fcf,c:"#16a34a",f:v=>"$"+N(v)},{l:"EPS ($)",d:co.eps,c:"#d97706",f:v=>"$"+N(v,2)},{l:"FCF/Acc ($)",d:co.fcfps,c:"#16a34a",f:v=>"$"+N(v,2)},{l:"Mg. EBITDA",d:co.ebitdaM,c:"#b45309",f:v=>P(v)},{l:"Mg. FCF",d:co.fcfM,c:"#16a34a",f:v=>P(v)},{l:"ROIC (%)",d:co.roic,c:"#b45309",f:v=>P(v)},{l:"Deuda Neta",d:co.netDebt,c:"#dc2626",f:v=>"$"+N(v)}].map(row=>`<tr style="border-bottom:1px solid ${_dm()?'#2a3a52':'#f0ede8'};"><td style="color:${row.c};font-weight:700;padding:5px 8px;">${row.l}</td>${row.d.map((v,i)=>`<td style="text-align:right;padding:5px 8px;color:${i===row.d.length-1?row.c:'var(--sub)'};font-weight:${i===row.d.length-1?'700':'400'}">${row.f(v)}</td>`).join('')}</tr>`).join('')}</tbody></table></div></div>`;
+  <div style="overflow-x:auto;"><table class="htbl"><thead><tr><th style="text-align:left;min-width:90px;">Métrica</th>${co.years.map(y=>`<th style="text-align:right;">${y}</th>`).join('')}</tr></thead><tbody>${[{l:"Ventas ("+curSymG()+"M)",d:co.sales,c:"#2563eb",f:v=>curSymG()+N(v)},{l:"EBITDA ("+curSymG()+"M)",d:co.ebitda,c:"#b45309",f:v=>curSymG()+N(v)},{l:"EBIT ("+curSymG()+"M)",d:co.ebit,c:"#d97706",f:v=>curSymG()+N(v)},{l:"FCF ("+curSymG()+"M)",d:co.fcf,c:"#16a34a",f:v=>curSymG()+N(v)},{l:"EPS ("+curSymG()+")",d:co.eps,c:"#d97706",f:v=>curSymG()+N(v,2)},{l:"FCF/Acc ("+curSymG()+")",d:co.fcfps,c:"#16a34a",f:v=>curSymG()+N(v,2)},{l:"Mg. EBITDA",d:co.ebitdaM,c:"#b45309",f:v=>P(v)},{l:"Mg. FCF",d:co.fcfM,c:"#16a34a",f:v=>P(v)},{l:"ROIC (%)",d:co.roic,c:"#b45309",f:v=>P(v)},{l:"Deuda Neta",d:co.netDebt,c:"#dc2626",f:v=>curSymG()+N(v)}].map(row=>`<tr style="border-bottom:1px solid ${_dm()?'#2a3a52':'#f0ede8'};"><td style="color:${row.c};font-weight:700;padding:5px 8px;">${row.l}</td>${row.d.map((v,i)=>`<td style="text-align:right;padding:5px 8px;color:${i===row.d.length-1?row.c:'var(--sub)'};font-weight:${i===row.d.length-1?'700':'400'}">${row.f(v)}</td>`).join('')}</tr>`).join('')}</tbody></table></div></div>`;
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -4238,7 +4387,7 @@ function rTesis(){
   const vd=calcVerdict(),rev=calcReverseDCF(),quality=calcFCFQuality(),stress=calcStressDCF();
   return`<div class="card"><div class="ctitle">Tesis de Inversión — Generada por IA (Claude)</div>
   <p style="font-size:12px;color:var(--sub);margin-bottom:11px;line-height:1.65;">Claude analiza todos los datos financieros incluyendo Reverse DCF, Calidad FCF y Stress Test para generar una tesis estructurada.</p>
-  <div class="params-row">${[{l:"Empresa",v:co.name},{l:"Precio",v:"$"+N(price)},{l:"Veredicto",v:vd.verdict+" ("+vd.totalScore+"/100)"},{l:"MOAT",v:vd.moat.overall+"/100"},{l:"Implícito",v:rev.impliedG+"% vs hist "+rev.historicalFCFCagr+"%"},{l:"FCF Quality",v:quality.label},{l:"Stress DCF",v:"$"+N(stress.stressedDCF)+" ("+stress.impact+"%impact)"}].map(p=>`<span class="ptag">${p.l}: <strong style="color:${_dm()?'#e2e8f0':'#1a1814'}">${p.v}</strong></span>`).join('')}</div>
+  <div class="params-row">${[{l:"Empresa",v:co.name},{l:"Precio",v:curSymG()+N(price)},{l:"Veredicto",v:vd.verdict+" ("+vd.totalScore+"/100)"},{l:"MOAT",v:vd.moat.overall+"/100"},{l:"Implícito",v:rev.impliedG+"% vs hist "+rev.historicalFCFCagr+"%"},{l:"FCF Quality",v:quality.label},{l:"Stress DCF",v:curSymG()+N(stress.stressedDCF)+" ("+stress.impact+"%impact)"}].map(p=>`<span class="ptag">${p.l}: <strong style="color:${_dm()?'#e2e8f0':'#1a1814'}">${p.v}</strong></span>`).join('')}</div>
   <button class="aibtn" id="t-btn" onclick="genTesis()">✍️ Generar Tesis de Inversión</button>
   <div id="t-out" class="aiout" style="display:none;"></div>
   <div style="margin-top:9px;padding:9px 13px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;font-size:11px;color:#92400e;">Esta tesis es generada por IA con carácter exclusivamente informativo. No constituye asesoramiento financiero.</div></div>`;
@@ -4247,15 +4396,15 @@ function rTesis(){
 // CHARTS
 // ═══════════════════════════════════════════════════════════════════
 function buildCharts(tab){
-  const gc='rgba(0,0,0,0.06)',tc='#9a958e';
+  const gc='rgba(0,0,0,0.06)',tc='#9a958e',cs=curSymG();   // cs = símbolo de la divisa de esta empresa
   const baseOpts={responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:gc},ticks:{color:tc,font:{size:10}}},y:{grid:{color:gc},ticks:{color:tc,font:{size:10}}}}};
 
   if(tab==='graficos'){
-    const _vfeOpts={...baseOpts,plugins:{legend:{display:true,labels:{color:tc,font:{size:11},boxWidth:10,padding:12}}},scales:{x:{grid:{color:gc},ticks:{color:tc,font:{size:10}}},y:{position:'left',grid:{color:gc},ticks:{color:tc,font:{size:10},callback:v=>v>=1000?'$'+(v/1000).toFixed(0)+'K':'$'+v}},y1:{position:'right',grid:{display:false},ticks:{color:'#d97706',font:{size:10},callback:v=>'$'+v}}}};
+    const _vfeOpts={...baseOpts,plugins:{legend:{display:true,labels:{color:tc,font:{size:11},boxWidth:10,padding:12}}},scales:{x:{grid:{color:gc},ticks:{color:tc,font:{size:10}}},y:{position:'left',grid:{color:gc},ticks:{color:tc,font:{size:10},callback:v=>v>=1000?cs+(v/1000).toFixed(0)+'K':cs+v}},y1:{position:'right',grid:{display:false},ticks:{color:'#d97706',font:{size:10},callback:v=>cs+v}}}};
     const cH=document.getElementById('c-hist');
     if(cH) charts.hist=new Chart(cH,{data:{labels:co.years.map(String),datasets:[
-      {type:'bar',label:'Ventas ($M)',data:co.sales,backgroundColor:'#2563eb',borderRadius:4,yAxisID:'y',order:3},
-      {type:'bar',label:'FCF ($M)',data:co.fcf,backgroundColor:'#16a34a',borderRadius:4,yAxisID:'y',order:2},
+      {type:'bar',label:'Ventas ('+curSymG()+'M)',data:co.sales,backgroundColor:'#2563eb',borderRadius:4,yAxisID:'y',order:3},
+      {type:'bar',label:'FCF ('+curSymG()+'M)',data:co.fcf,backgroundColor:'#16a34a',borderRadius:4,yAxisID:'y',order:2},
       {type:'line',label:'EPS ($)',data:co.eps,borderColor:'#d97706',backgroundColor:'#d97706',tension:.35,pointRadius:3,borderWidth:2.5,yAxisID:'y1',order:1}
     ]},options:_vfeOpts});
     const c2=document.getElementById('c-mg');
@@ -4270,8 +4419,8 @@ function buildCharts(tab){
     if(c4) charts.mult=new Chart(c4,{type:'line',data:{labels:co.years,datasets:[{label:'EV/FCF',data:co.hEvF,borderColor:'#b45309',tension:.35,pointRadius:3,borderWidth:2.5,spanGaps:false},{label:'PER',data:co.hPER,borderColor:'#7c3aed',tension:.35,pointRadius:3,borderWidth:2,borderDash:[5,3],spanGaps:false},{label:`Med. EV/FCF ${Math.round(co.medEvFcf)}x`,data:Array(co.years.length).fill(co.medEvFcf),borderColor:'#b45309',borderWidth:1,borderDash:[3,3],pointRadius:0},{label:`Med. PER ${Math.round(co.medPER)}x`,data:Array(co.years.length).fill(co.medPER),borderColor:'#7c3aed',borderWidth:1,borderDash:[3,3],pointRadius:0}]},options:{...baseOpts,plugins:{legend:{display:true,labels:{color:tc,font:{size:11},boxWidth:10}}},scales:{x:{grid:{color:gc},ticks:{color:tc,font:{size:10}}},y:{grid:{color:gc},ticks:{color:tc,font:{size:10},callback:v=>Math.round(v)+'x'}}}}});
     const c5=document.getElementById('c-proj');
     if(c5&&co.pS&&co.pF&&co.pEPS) charts.proj=new Chart(c5,{data:{labels:co.pY.map(y=>y+'e'),datasets:[
-      {type:'bar',label:'Ventas ($M)',data:co.pS,backgroundColor:'#2563eb',borderRadius:4,yAxisID:'y',order:3},
-      {type:'bar',label:'FCF ($M)',data:co.pF,backgroundColor:'#16a34a',borderRadius:4,yAxisID:'y',order:2},
+      {type:'bar',label:'Ventas ('+curSymG()+'M)',data:co.pS,backgroundColor:'#2563eb',borderRadius:4,yAxisID:'y',order:3},
+      {type:'bar',label:'FCF ('+curSymG()+'M)',data:co.pF,backgroundColor:'#16a34a',borderRadius:4,yAxisID:'y',order:2},
       {type:'line',label:'EPS ($)',data:co.pEPS,borderColor:'#d97706',backgroundColor:'#d97706',tension:.35,pointRadius:4,borderWidth:2.5,yAxisID:'y1',order:1}
     ]},options:_vfeOpts});
   }
@@ -4290,7 +4439,7 @@ function buildCharts(tab){
   if(tab==='proyecciones'){
     const pts=co.pY.map((yr,i)=>{const f=(co.pF[i]*tEVF-co.pND[i])/co.shares,p=co.pEPS[i]*tPER,e=(co.pEB[i]*tEVE-co.pND[i])/co.shares;return{yr,avg:(f+p+e)/3,f,p};});
     const cp=document.getElementById('c-pt');
-    if(cp) charts.pt=new Chart(cp,{type:'line',data:{labels:['Actual',...co.pY.map(String)],datasets:[{label:'Promedio',data:[price,...pts.map(p=>Math.round(p.avg))],borderColor:co.color,backgroundColor:co.color+'14',fill:true,tension:.35,pointRadius:5,borderWidth:3},{label:'EV/FCF',data:[price,...pts.map(p=>Math.round(p.f))],borderColor:'#b45309',tension:.35,borderDash:[5,3],pointRadius:3,borderWidth:1.5},{label:'PER',data:[price,...pts.map(p=>Math.round(p.p))],borderColor:'#7c3aed',tension:.35,borderDash:[5,3],pointRadius:3,borderWidth:1.5}]},options:{...baseOpts,plugins:{legend:{display:true,labels:{color:tc,font:{size:11},boxWidth:10}}},scales:{x:{grid:{color:gc},ticks:{color:tc,font:{size:10}}},y:{grid:{color:gc},ticks:{color:tc,font:{size:10},callback:v=>'$'+N(v)}}}}});
+    if(cp) charts.pt=new Chart(cp,{type:'line',data:{labels:['Actual',...co.pY.map(String)],datasets:[{label:'Promedio',data:[price,...pts.map(p=>Math.round(p.avg))],borderColor:co.color,backgroundColor:co.color+'14',fill:true,tension:.35,pointRadius:5,borderWidth:3},{label:'EV/FCF',data:[price,...pts.map(p=>Math.round(p.f))],borderColor:'#b45309',tension:.35,borderDash:[5,3],pointRadius:3,borderWidth:1.5},{label:'PER',data:[price,...pts.map(p=>Math.round(p.p))],borderColor:'#7c3aed',tension:.35,borderDash:[5,3],pointRadius:3,borderWidth:1.5}]},options:{...baseOpts,plugins:{legend:{display:true,labels:{color:tc,font:{size:11},boxWidth:10}}},scales:{x:{grid:{color:gc},ticks:{color:tc,font:{size:10}}},y:{grid:{color:gc},ticks:{color:tc,font:{size:10},callback:v=>''+curSymG()+N(v)}}}}});
   }
 }
 
@@ -4344,13 +4493,13 @@ Identifica 3-5 riesgos específicos NO obvios. No pongas genéricos ("la compete
 3-4 catalizadores específicos con impacto cuantificable.
 
 ## 6. Precio Objetivo y Veredicto
-- DCF: $${N(dcf,0)} | Stress DCF: $${N(stress.stressedDCF)} (−${Math.abs(stress.impact)}%)
-- Precio actual $${N(price)} implica premium/descuento de ${((price-dcf)/dcf*100).toFixed(0)}% vs DCF
+- DCF: ${curSymG()}${N(dcf,0)} | Stress DCF: ${curSymG()}${N(stress.stressedDCF)} (−${Math.abs(stress.impact)}%)
+- Precio actual ${curSymG()}${N(price)} implica premium/descuento de ${((price-dcf)/dcf*100).toFixed(0)}% vs DCF
 - Veredicto claro: COMPRAR / MANTENER / EVITAR con precio de entrada objetivo
 
 DATOS COMPLETOS:
-${co.name} | $${N(price)} | Score ${vd.totalScore}/100 | ${vd.verdict}
-Ventas: $${N(co.sales[9])}M CAGR10Y ${P(cagr(co.sales[9],co.sales[0],9))} | FCF: $${N(co.fcf[9])}M Mg ${P(co.fcfM[9])}
+${co.name} | ${curSymG()}${N(price)} | Score ${vd.totalScore}/100 | ${vd.verdict}
+Ventas: ${curSymG()}${N(co.sales[9])}M CAGR10Y ${P(cagr(co.sales[9],co.sales[0],9))} | FCF: ${curSymG()}${N(co.fcf[9])}M Mg ${P(co.fcfM[9])}
 EBITDA Mg: ${P(co.ebitdaM[9])} | ROIC: ${co.roic[9]}% (2016: ${co.roic[0]}%) | ND/EBITDA: ${(co.netDebt[9]/co.ebitda[9]).toFixed(1)}x
 EV/FCF: ${evfcfAct}x vs med ${co.medEvFcf}x | Calidad FCF: ${quality.label} | MOAT: ${vd.moat.overall}/100 ${vd.moat.label}
 Rev DCF implícito: ${rev.impliedG}% vs histórico ${rev.historicalFCFCagr}% (${rev.diff>=0?'+':''}${rev.diff}pp)
@@ -4369,25 +4518,25 @@ MÁX 800 PALABRAS. Sé directo y específico. No uses frases vacías. Usa 🚨 p
 // TOOLTIPS
 // ═══════════════════════════════════════════════════════════════════
 const TIPS={
-  ventas:{emoji:'📦',title:'Ventas / Revenue',color:'#2563eb',tag:'P&L',def:'Total de ingresos cobrados a clientes en el período. Primera línea del P&L.',formula:'Ventas = Precio × Unidades vendidas',example:(c)=>`${c.name} 2025: $${N(c.sales[9])}M (+${cagr(c.sales[9],c.sales[8],1).toFixed(1)}% YoY)`,bench:[{v:'>20%',c:'#16a34a',bg:'#f0fdf4',label:'Excepcional'},{v:'10-20%',c:'#d97706',bg:'#fffbeb',label:'Bueno'}],ref:'Graham, Lynch — base para todos los análisis.'},
-  ebitda:{emoji:'💼',title:'EBITDA',color:'#b45309',tag:'P&L',def:'Beneficio antes de intereses, impuestos, amortización y depreciación. Proxy del flujo operativo bruto.',formula:'EBITDA = NI + Intereses + Impuestos + D&A',example:(c)=>`${c.name} 2025: $${N(c.ebitda[9])}M, Mg. ${P(c.ebitdaM[9])}`,bench:[{v:'>35%',c:'#16a34a',bg:'#f0fdf4',label:'Excelente'},{v:'20-35%',c:'#d97706',bg:'#fffbeb',label:'Sólido'}],ref:'Usado en EV/EBITDA — múltiplo más comparable entre empresas.'},
-  fcf:{emoji:'💵',title:'FCF — Free Cash Flow',color:'#16a34a',tag:'CASH',def:'"Los beneficios son opinión, el cash es realidad." FCF = dinero real tras pagar toda la operación y CapEx.',formula:'FCF = Flujo Operativo − CapEx de mantenimiento',example:(c)=>`${c.name} 2025: $${N(c.fcf[9])}M, Mg. ${P(c.fcfM[9])}. CAGR 10Y: ${P(cagr(c.fcf[9],c.fcf[0],9))}.`,bench:[{v:'>20%',c:'#16a34a',bg:'#f0fdf4',label:'Excelente'},{v:'10-20%',c:'#d97706',bg:'#fffbeb',label:'Bueno'}],ref:'Buffett — "Owner earnings". Múltiplo EV/FCF más fiable que PER.'},
+  ventas:{emoji:'📦',title:'Ventas / Revenue',color:'#2563eb',tag:'P&L',def:'Total de ingresos cobrados a clientes en el período. Primera línea del P&L.',formula:'Ventas = Precio × Unidades vendidas',example:(c)=>`${c.name} 2025: ${curSymG()}${N(c.sales[9])}M (+${cagr(c.sales[9],c.sales[8],1).toFixed(1)}% YoY)`,bench:[{v:'>20%',c:'#16a34a',bg:'#f0fdf4',label:'Excepcional'},{v:'10-20%',c:'#d97706',bg:'#fffbeb',label:'Bueno'}],ref:'Graham, Lynch — base para todos los análisis.'},
+  ebitda:{emoji:'💼',title:'EBITDA',color:'#b45309',tag:'P&L',def:'Beneficio antes de intereses, impuestos, amortización y depreciación. Proxy del flujo operativo bruto.',formula:'EBITDA = NI + Intereses + Impuestos + D&A',example:(c)=>`${c.name} 2025: ${curSymG()}${N(c.ebitda[9])}M, Mg. ${P(c.ebitdaM[9])}`,bench:[{v:'>35%',c:'#16a34a',bg:'#f0fdf4',label:'Excelente'},{v:'20-35%',c:'#d97706',bg:'#fffbeb',label:'Sólido'}],ref:'Usado en EV/EBITDA — múltiplo más comparable entre empresas.'},
+  fcf:{emoji:'💵',title:'FCF — Free Cash Flow',color:'#16a34a',tag:'CASH',def:'"Los beneficios son opinión, el cash es realidad." FCF = dinero real tras pagar toda la operación y CapEx.',formula:'FCF = Flujo Operativo − CapEx de mantenimiento',example:(c)=>`${c.name} 2025: ${curSymG()}${N(c.fcf[9])}M, Mg. ${P(c.fcfM[9])}. CAGR 10Y: ${P(cagr(c.fcf[9],c.fcf[0],9))}.`,bench:[{v:'>20%',c:'#16a34a',bg:'#f0fdf4',label:'Excelente'},{v:'10-20%',c:'#d97706',bg:'#fffbeb',label:'Bueno'}],ref:'Buffett — "Owner earnings". Múltiplo EV/FCF más fiable que PER.'},
   roic:{emoji:'🎯',title:'ROIC',color:'#b45309',tag:'RENTAB',def:'Retorno sobre Capital Invertido. Mide cuánto genera la empresa por cada euro invertido. ROIC > WACC = crea valor para el accionista.',formula:'ROIC = NOPAT / (Fondos Propios + Deuda Neta)',example:(c)=>`${c.name} 2025: ${P(c.roic[9])} vs WACC ${c.wacc}%. Spread: +${(c.roic[9]-c.wacc).toFixed(0)}pp.`,bench:[{v:'>30%',c:'#16a34a',bg:'#f0fdf4',label:'Excepcional'},{v:'15-30%',c:'#d97706',bg:'#fffbeb',label:'Bueno'}],ref:'Buffett & Munger — "The single most important metric."'},
-  eps:{emoji:'📈',title:'EPS — Earnings Per Share',color:'#d97706',tag:'PER ACC',def:'Beneficio neto por acción. Base del PER. Siempre validar con FCF/acción para detectar manipulaciones contables.',formula:'EPS = Beneficio Neto / Número de acciones',example:(c)=>`${c.name} 2025: EPS $${N(c.eps[9],2)} vs FCF/acc $${N(c.fcfps[9],2)}`,bench:[{v:'CAGR >15%',c:'#16a34a',bg:'#f0fdf4',label:'Excepcional'}],ref:'Lynch — crecer EPS + FCF/acc juntos es la señal más fiable.'},
-  netDebt:{emoji:'🏦',title:'Deuda Neta',color:'#dc2626',tag:'BALANCE',def:'Deuda Total − Caja. Negativo = posición de caja neta. "Fortín financiero" para crisis.',formula:'ND = Deuda Financiera − Efectivo y Equivalentes',example:(c)=>`${c.name} 2025: ND/EBITDA ${(c.netDebt[9]/c.ebitda[9]).toFixed(1)}x. ${c.netDebt[9]<0?'Caja neta: $'+N(Math.abs(c.netDebt[9]))+'M.':''}`,bench:[{v:'<1x',c:'#16a34a',bg:'#f0fdf4',label:'Excelente'},{v:'1-2x',c:'#d97706',bg:'#fffbeb',label:'Razonable'}],ref:'Buffett — "No debt is the best hedge."'},
+  eps:{emoji:'📈',title:'EPS — Earnings Per Share',color:'#d97706',tag:'PER ACC',def:'Beneficio neto por acción. Base del PER. Siempre validar con FCF/acción para detectar manipulaciones contables.',formula:'EPS = Beneficio Neto / Número de acciones',example:(c)=>`${c.name} 2025: EPS ${curSymG()}${N(c.eps[9],2)} vs FCF/acc ${curSymG()}${N(c.fcfps[9],2)}`,bench:[{v:'CAGR >15%',c:'#16a34a',bg:'#f0fdf4',label:'Excepcional'}],ref:'Lynch — crecer EPS + FCF/acc juntos es la señal más fiable.'},
+  netDebt:{emoji:'🏦',title:'Deuda Neta',color:'#dc2626',tag:'BALANCE',def:'Deuda Total − Caja. Negativo = posición de caja neta. "Fortín financiero" para crisis.',formula:'ND = Deuda Financiera − Efectivo y Equivalentes',example:(c)=>`${c.name} 2025: ND/EBITDA ${(c.netDebt[9]/c.ebitda[9]).toFixed(1)}x. ${c.netDebt[9]<0?'Caja neta: '+curSymG()+N(Math.abs(c.netDebt[9]))+'M.':''}`,bench:[{v:'<1x',c:'#16a34a',bg:'#f0fdf4',label:'Excelente'},{v:'1-2x',c:'#d97706',bg:'#fffbeb',label:'Razonable'}],ref:'Buffett — "No debt is the best hedge."'},
   evfcf:{emoji:'🏆',title:'EV/FCF',color:'#b45309',tag:'VALORACIÓN',def:'EV (Enterprise Value) dividido por FCF anual. El múltiplo más honesto. Difícil de manipular vs PER.',formula:'EV/FCF = (Market Cap + Deuda Neta) / FCF anual',example:(c)=>`${c.name}: EV/FCF ${Math.round((price*c.shares+c.netDebt[9])/c.fcf[9])}x vs mediana hist ${Math.round(c.medEvFcf)}x.`,bench:[{v:'<20x',c:'#16a34a',bg:'#f0fdf4',label:'Atractivo'},{v:'20-35x',c:'#d97706',bg:'#fffbeb',label:'Razonable'}],ref:'Cunningham — favorito de Buffett en su metodología de intrínseco.'},
   per:{emoji:'📐',title:'PER — Price/Earnings',color:'#7c3aed',tag:'VALORACIÓN',def:'Precio entre beneficio por acción. Cuántos años de beneficios actuales pagas por la acción. Útil pero manipulable (beneficio contable) — validar con EV/FCF.',formula:'PER = Precio / EPS',example:(c)=>`${c.name}: PER ${Math.round(price/c.eps[9])}x vs mediana 5Y ${Math.round(c.med5PER||c.medPER)}x.`,bench:[{v:'<15x',c:'#16a34a',bg:'#f0fdf4',label:'Barato'},{v:'15-25x',c:'#d97706',bg:'#fffbeb',label:'Normal'},{v:'>30x',c:'#dc2626',bg:'#fef2f2',label:'Exige crecimiento'}],ref:'Graham (bajo, value) y Lynch (PEG = PER/crecimiento < 1 ideal).'},
   retorno:{emoji:'📈',title:'Retorno esperado 5 años (CAGR)',color:'#16a34a',tag:'DECISIÓN',def:'Rentabilidad anualizada estimada si la acción alcanza tu precio objetivo PROMEDIO (4 múltiplos) en 5 años. Es el componente principal del veredicto: combina crecimiento + valoración + punto de entrada. Un negocio "caro" hoy pero que compone rápido puede dar gran retorno; uno "barato" que no crece, poco.',formula:'CAGR = (Precio objetivo 5Y / Precio)^(1/5) − 1',example:(c)=>{const v=calcVerdict();return `${c.name}: ~${v.cagr5e>=0?'+':''}${v.cagr5e}%/año esperado (${v.retScore}/35 en el veredicto).`;},bench:[{v:'>15%',c:'#16a34a',bg:'#f0fdf4',label:'Excelente'},{v:'10-15%',c:'#d97706',bg:'#fffbeb',label:'Bueno'},{v:'<8%',c:'#dc2626',bg:'#fef2f2',label:'Flojo'}],ref:'Lynch/Fisher — el retorno viene del crecimiento del valor intrínseco, no solo del descuento de entrada.'},
-  mds:{emoji:'🛡️',title:'Margen de Seguridad (MdS)',color:'#16a34a',tag:'DECISIÓN',def:'Distancia entre el precio actual y tu precio justo. Aquí se mide como potencial al alza: (valor−precio)/precio. Cuanto mayor, más colchón ante errores de estimación.',formula:'MdS = (Precio justo − Precio) / Precio',example:(c)=>`${c.name}: MdS ${calcVerdict().msBase>=0?'+':''}${calcVerdict().msBase}% vs precio justo $${N(calcVerdict().fairBase)}.`,bench:[{v:'>20%',c:'#16a34a',bg:'#f0fdf4',label:'Compra'},{v:'0-20%',c:'#d97706',bg:'#fffbeb',label:'Justo'},{v:'<0%',c:'#dc2626',bg:'#fef2f2',label:'Caro'}],ref:'Graham — "El margen de seguridad es el corazón de invertir." Mayor exigencia cuanto menos predecible es el negocio.'},
+  mds:{emoji:'🛡️',title:'Margen de Seguridad (MdS)',color:'#16a34a',tag:'DECISIÓN',def:'Distancia entre el precio actual y tu precio justo. Aquí se mide como potencial al alza: (valor−precio)/precio. Cuanto mayor, más colchón ante errores de estimación.',formula:'MdS = (Precio justo − Precio) / Precio',example:(c)=>`${c.name}: MdS ${calcVerdict().msBase>=0?'+':''}${calcVerdict().msBase}% vs precio justo ${curSymG()}${N(calcVerdict().fairBase)}.`,bench:[{v:'>20%',c:'#16a34a',bg:'#f0fdf4',label:'Compra'},{v:'0-20%',c:'#d97706',bg:'#fffbeb',label:'Justo'},{v:'<0%',c:'#dc2626',bg:'#fef2f2',label:'Caro'}],ref:'Graham — "El margen de seguridad es el corazón de invertir." Mayor exigencia cuanto menos predecible es el negocio.'},
   estilo:{emoji:'🎚️',title:'Estilo: Growth / Value / GARP / Calidad',color:'#2563eb',tag:'ENCUADRE',def:'Encuadre del negocio según tres ejes: CRECIMIENTO (ventas/EPS), CALIDAD (ROIC y margen FCF) y VALORACIÓN (barato o caro frente a su propia historia). Growth = crece rápido y caro · Value = barato y lento (reversión) · GARP = crecimiento a precio razonable (Lynch) · Quality/Compounder = ROIC alto que compone valor reinvirtiendo (Buffett/Munger).',formula:'Crecimiento + Calidad + Valoración → estilo',example:(c)=>{const s=classifyStyle();return `${c.name}: ${s.icon} ${s.style}. Crec. ~${s.growth}%/año · ROIC ${s.roic.toFixed(0)}% · EV/FCF ${s.evfcfCur}x (${s.cheapPct>=0?'−':'+'}${Math.abs(s.cheapPct).toFixed(0)}% vs su media).`;},bench:[{v:'Growth',c:'#16a34a',bg:'#f0fdf4',label:'crece y paga prima'},{v:'GARP',c:'#2563eb',bg:'#eff6ff',label:'crece a precio justo'},{v:'Quality',c:'#7c3aed',bg:'#f5f3ff',label:'ROIC alto compone'},{v:'Value',c:'#b45309',bg:'#fffbeb',label:'barato, reversión'}],ref:'Lynch (GARP), Graham (value), Buffett & Munger (quality/compounders), Fisher (growth).'},
   peg:{emoji:'🧮',title:'PEG — PER ajustado al crecimiento',color:'#7c3aed',tag:'VALORACIÓN',def:'Relaciona lo caro que está el PER con el ritmo de crecimiento. Un PER de 30x es caro si la empresa crece al 10%, pero barato si crece al 40%. PEG normaliza esa relación.',formula:'PEG = PER / Crecimiento EPS (%)',example:(c)=>{const s=classifyStyle();return `${c.name}: PEG ${s.peg!=null?s.peg.toFixed(2):'—'} (PER ${s.per}x ÷ crec. ${s.growth}%). ${s.peg!=null?(s.peg<1?'Barato para su crecimiento.':s.peg<2?'Razonable.':'Caro: pagas mucho por el crecimiento.'):''}`;},bench:[{v:'<1',c:'#16a34a',bg:'#f0fdf4',label:'Barato'},{v:'1-2',c:'#d97706',bg:'#fffbeb',label:'Razonable'},{v:'>2',c:'#dc2626',bg:'#fef2f2',label:'Caro'}],ref:'Peter Lynch — "One Up on Wall Street". Ideal PEG ≤ 1.'},
   ruleof40:{emoji:'🎯',title:'Rule of 40',color:'#0891b2',tag:'CALIDAD',def:'Regla de oro del software/growth: la suma del crecimiento de ingresos y el margen de flujo de caja debe superar el 40%. Equilibra crecer rápido con ser rentable. Por debajo de 40 = o crece poco o quema demasiado.',formula:'Rule of 40 = Crecimiento ventas (%) + Margen FCF (%)',example:(c)=>{const s=classifyStyle();return `${c.name}: ${s.ruleOf40}% (crec. ${s.growth}% + margen FCF ${s.fcfM.toFixed(0)}%). ${s.ruleOf40>=40?'Supera el listón ✓':'Por debajo de 40.'}`;},bench:[{v:'>40%',c:'#16a34a',bg:'#f0fdf4',label:'Saludable'},{v:'30-40%',c:'#d97706',bg:'#fffbeb',label:'Aceptable'},{v:'<30%',c:'#dc2626',bg:'#fef2f2',label:'Flojo'}],ref:'Estándar de SaaS/venture (Brad Feld) aplicado a calidad operativa.'},
   fcfyield:{emoji:'💸',title:'FCF Yield — Rentabilidad de caja',color:'#16a34a',tag:'VALORACIÓN',def:'El flujo de caja libre que genera la empresa en un año dividido por lo que cuesta comprarla entera (market cap). Es el inverso del múltiplo P/FCF: dice qué "interés" en caja te paga el negocio al precio actual. Compáralo con el bono a 10 años.',formula:'FCF Yield = FCF anual / Market Cap',example:(c)=>{const s=classifyStyle();return `${c.name}: FCF yield ${s.fcfYield}% (vs bono 10Y ~4,5%). ${s.fcfYield>=5?'Genera más caja que el bono sin riesgo.':s.fcfYield>=3?'Razonable para su calidad/crecimiento.':'Bajo: el precio descuenta crecimiento futuro.'}`;},bench:[{v:'>5%',c:'#16a34a',bg:'#f0fdf4',label:'Atractivo'},{v:'3-5%',c:'#d97706',bg:'#fffbeb',label:'Normal'},{v:'<3%',c:'#dc2626',bg:'#fef2f2',label:'Exigente'}],ref:'Inverso del EV/FCF — útil para comparar contra renta fija y entre empresas.'},
   reinversion:{emoji:'🔁',title:'Reinversión y Dilución',color:'#b45309',tag:'CAPITAL',def:'Qué hace la empresa con la caja: reinvertir (CapEx) para crecer y cómo trata al accionista. Dilución = emisión de acciones (stock-based comp): positiva resta valor por acción; negativa = recompra neta, que lo aumenta. Reinvertir a ROIC alto es el motor del compounding.',formula:'Dilución = Δ acciones anual % · Reinversión = CapEx / Ventas %',example:(c)=>{const s=classifyStyle();return `${c.name}: dilución ${s.dilution!=null?(s.dilution>0?'+':'')+s.dilution+'%/año':'—'} ${s.dilution!=null?(s.dilution<=0?'(recompra neta ✓)':'(emite acciones)'):''} · CapEx/Ventas ${s.reinvest!=null?s.reinvest+'%':'—'}.`;},bench:[{v:'Recompra',c:'#16a34a',bg:'#f0fdf4',label:'≤0% dilución'},{v:'Estable',c:'#d97706',bg:'#fffbeb',label:'0-1%'},{v:'Diluye',c:'#dc2626',bg:'#fef2f2',label:'>1%/año'}],ref:'Buffett — recompras a precio < valor crean valor; emitir caro lo destruye.'},
-  dcf:{emoji:'🧾',title:'DCF — Flujo de Caja Descontado',color:'#2563eb',tag:'VALORACIÓN',def:'Valora la empresa como la suma de TODO el flujo de caja que generará en el futuro, traído a dinero de hoy con una tasa de descuento (WACC). Es el valor intrínseco "puro". Muy sensible a los supuestos: pequeños cambios en crecimiento o WACC mueven mucho el resultado.',formula:'Valor = Σ FCFₜ / (1+WACC)ᵗ + Valor terminal',example:(c)=>{const d=calcDCF();const up=((d-price)/price*100);return `${c.name}: DCF $${N(d)} vs precio $${N(price)} → ${up>=0?'+':''}${up.toFixed(0)}% de potencial.`;},bench:[{v:'Conservador',c:'#16a34a',bg:'#f0fdf4',label:'usa supuestos prudentes'},{v:'Sensibilidad',c:'#d97706',bg:'#fffbeb',label:'prueba varios WACC/g'}],ref:'Damodaran, Buffett ("owner earnings"). Úsalo como rango, no como número exacto.'},
+  dcf:{emoji:'🧾',title:'DCF — Flujo de Caja Descontado',color:'#2563eb',tag:'VALORACIÓN',def:'Valora la empresa como la suma de TODO el flujo de caja que generará en el futuro, traído a dinero de hoy con una tasa de descuento (WACC). Es el valor intrínseco "puro". Muy sensible a los supuestos: pequeños cambios en crecimiento o WACC mueven mucho el resultado.',formula:'Valor = Σ FCFₜ / (1+WACC)ᵗ + Valor terminal',example:(c)=>{const d=calcDCF();const up=((d-price)/price*100);return `${c.name}: DCF ${curSymG()}${N(d)} vs precio ${curSymG()}${N(price)} → ${up>=0?'+':''}${up.toFixed(0)}% de potencial.`;},bench:[{v:'Conservador',c:'#16a34a',bg:'#f0fdf4',label:'usa supuestos prudentes'},{v:'Sensibilidad',c:'#d97706',bg:'#fffbeb',label:'prueba varios WACC/g'}],ref:'Damodaran, Buffett ("owner earnings"). Úsalo como rango, no como número exacto.'},
   wacc:{emoji:'⚖️',title:'WACC — Coste de Capital',color:'#6b7280',tag:'VALORACIÓN',def:'El retorno mínimo que la empresa debe generar para satisfacer a quienes la financian (accionistas + acreedores). Es la tasa con la que se descuentan los flujos en el DCF y el listón que el ROIC debe superar para crear valor.',formula:'WACC = %Equity·Coste equity + %Deuda·Coste deuda·(1−impuesto)',example:(c)=>`${c.name}: WACC ${c.wacc}%. ROIC ${P(c.roic[9])} → spread ${(c.roic[9]-c.wacc)>=0?'+':''}${(c.roic[9]-c.wacc).toFixed(0)}pp. ${c.roic[9]>c.wacc?'Crea valor ✓':'Destruye valor.'}`,bench:[{v:'ROIC > WACC',c:'#16a34a',bg:'#f0fdf4',label:'Crea valor'},{v:'ROIC < WACC',c:'#dc2626',bg:'#fef2f2',label:'Destruye valor'}],ref:'Si una empresa crece pero ROIC<WACC, crecer la empeora (Buffett/Greenwald).'},
   moat:{emoji:'🏰',title:'MOAT — Ventaja Competitiva',color:'#0891b2',tag:'CALIDAD',def:'El "foso" que protege los beneficios de la competencia y permite mantener ROIC alto durante años. Fuentes: costes de cambio, efecto red, intangibles (marca/patentes), ventajas de coste y escala. Sin foso, los retornos altos atraen competidores y revierten a la media.',formula:'Score ponderado de 10 dimensiones (switching, ROIC, márgenes, escala…)',example:(c)=>{const m=calcMoat();return `${c.name}: MOAT ${m.label} (${m.overall}/100). Cuanto más ancho y duradero, más prima de múltiplo se justifica.`;},bench:[{v:'≥85',c:'#16a34a',bg:'#f0fdf4',label:'Excepcional'},{v:'70-84',c:'#0891b2',bg:'#ecfeff',label:'Sólido'},{v:'<55',c:'#dc2626',bg:'#fef2f2',label:'Débil'}],ref:'Morningstar (Dorsey, "The Little Book that Builds Wealth"), Buffett.'},
-  zonas:{emoji:'🚦',title:'Zonas de precio y Euforia',color:'#d97706',tag:'DECISIÓN',def:'Bandas derivadas del precio justo para saber dónde compras: COMPRAR (MdS ≥ +20%), JUSTO (0–20%), VIGILAR (−15–0%) y CARO (< −15%). La penalización por EUFORIA recorta la puntuación cuando el múltiplo actual supera claramente su mediana histórica — señal de que el precio descuenta demasiado optimismo.',formula:'Zonas sobre precio justo · Euforia si múltiplo actual > mediana 5Y × 1,10',example:(c)=>{const v=calcVerdict();return `${c.name}: precio justo $${N(v.fairBase)}, MdS ${v.msBase>=0?'+':''}${v.msBase}%${v.euforiaPenalty>0?` · ⚠ Euforia −${v.euforiaPenalty} (múltiplo sobre su media).`:'.'}`;},bench:[{v:'≥+20%',c:'#16a34a',bg:'#f0fdf4',label:'Comprar'},{v:'0-20%',c:'#2563eb',bg:'#eff6ff',label:'Justo'},{v:'<−15%',c:'#dc2626',bg:'#fef2f2',label:'Caro'}],ref:'Graham (margen de seguridad) + control de euforia para no pagar de más.'},
+  zonas:{emoji:'🚦',title:'Zonas de precio y Euforia',color:'#d97706',tag:'DECISIÓN',def:'Bandas derivadas del precio justo para saber dónde compras: COMPRAR (MdS ≥ +20%), JUSTO (0–20%), VIGILAR (−15–0%) y CARO (< −15%). La penalización por EUFORIA recorta la puntuación cuando el múltiplo actual supera claramente su mediana histórica — señal de que el precio descuenta demasiado optimismo.',formula:'Zonas sobre precio justo · Euforia si múltiplo actual > mediana 5Y × 1,10',example:(c)=>{const v=calcVerdict();return `${c.name}: precio justo ${curSymG()}${N(v.fairBase)}, MdS ${v.msBase>=0?'+':''}${v.msBase}%${v.euforiaPenalty>0?` · ⚠ Euforia −${v.euforiaPenalty} (múltiplo sobre su media).`:'.'}`;},bench:[{v:'≥+20%',c:'#16a34a',bg:'#f0fdf4',label:'Comprar'},{v:'0-20%',c:'#2563eb',bg:'#eff6ff',label:'Justo'},{v:'<−15%',c:'#dc2626',bg:'#fef2f2',label:'Caro'}],ref:'Graham (margen de seguridad) + control de euforia para no pagar de más.'},
 };
 function showTip(id,el,extra){
   const t=TIPS[id];if(!t) return;
@@ -4952,7 +5101,7 @@ async function fetchWatchPrices(){
       if(p&&p.live){ _priceCache[e.id]={...p,ts:Date.now()}; _saveLastPx(e.id,p.live); }
       const el=document.getElementById('wprice-'+e.id);
       if(el&&p&&p.live){
-        const cur=(e.id==='ASML'||e.id==='CSU')?'€':'$';
+        const cur=curSymOf(e.id);
         el.textContent=cur+(p.live>=1000?Math.round(p.live).toLocaleString('es-ES'):p.live.toFixed(2));
         const ch=document.getElementById('wchg-'+e.id);
         if(ch&&p.changePct!=null){ch.textContent=(p.changePct>=0?'+':'')+p.changePct.toFixed(2)+'%';ch.style.color=p.changePct>=0?'#16a34a':'#dc2626';}
@@ -5105,7 +5254,7 @@ function renderDashboard(){
     if(dbCo&&dbCo.fcf&&dbCo.netDebt&&dbCo.shares){
       const mult=dbCo.med5EvFcf||dbCo.medEvFcf;
       const fairNow=Math.round((dbCo.fcf[9]*mult-dbCo.netDebt[9])/dbCo.shares);
-      const cur=co.key==='ASML'?'€':'$';
+      const cur=curSymOf(co.key);
       objActualStr=cur+(fairNow>=1000?new Intl.NumberFormat('es-ES',{maximumFractionDigits:0}).format(fairNow):fairNow.toFixed(2));
       co._objActual=fairNow;
     }
@@ -5359,7 +5508,7 @@ async function fetchDashNews(){
   const aliasByKey={}; cos.forEach(c=>aliasByKey[c.key]=newsAliasesFor(c));
   // 1) Descarga + puntuación de relevancia por empresa
   const results=await Promise.allSettled(cos.map(async co=>{
-    const sym=YF_TICKER_FH[co.key]||co.fhTicker||co.key;
+    const sym=fhInfoSymbolFor(co.key);
     const own=newsAliasesFor(co);
     const others=cos.filter(c=>c.key!==co.key).flatMap(c=>aliasByKey[c.key]);
     try{
@@ -5627,7 +5776,7 @@ function updateDashCoRow(key,price,pct,change){
   const cEl=document.getElementById('dc-'+key);
   const mdsEl=document.getElementById('dmds-'+key);
   if(pEl){
-    const cur=(key==='ASML')?'€':'$';
+    const cur=curSymOf(key);
     pEl.textContent=cur+(price>=1000?new Intl.NumberFormat('es-ES',{maximumFractionDigits:0}).format(Math.round(price)):price.toFixed(2));
   }
   if(cEl){
@@ -5701,72 +5850,6 @@ let _importedFile=null;
 function getImportedData(ticker){
   try{return JSON.parse(localStorage.getItem('vi_import_'+ticker)||'null');}
   catch(e){return null;}
-}
-
-// ══════════════════════════════════════════════════════════════════
-// DIVISAS — cada empresa cotiza en la suya; los totales necesitan una divisa base
-// ══════════════════════════════════════════════════════════════════
-const _CUR_BY_SUFFIX={TO:'CAD',V:'CAD',NE:'CAD',AS:'EUR',PA:'EUR',DE:'EUR',F:'EUR',MC:'EUR',MI:'EUR',BR:'EUR',LS:'EUR',VI:'EUR',HE:'EUR',IR:'EUR',
-  L:'GBP',SW:'CHF',ST:'SEK',OL:'NOK',CO:'DKK',T:'JPY',HK:'HKD',TW:'TWD',TWO:'TWD',AX:'AUD',SI:'SGD',NS:'INR',BO:'INR',SA:'BRL',MX:'MXN'};
-const CUR_SYM={USD:'$',EUR:'€',CAD:'C$',GBP:'£',CHF:'CHF ',JPY:'¥',TWD:'NT$',AUD:'A$',SEK:'kr ',NOK:'kr ',DKK:'kr ',HKD:'HK$',SGD:'S$',INR:'₹',BRL:'R$',MXN:'MX$'};
-// Excepciones: empresas cuyo precio en la app y en tu hoja es el de su bolsa local
-// aunque el ticker no lleve sufijo.
-const CUR_FORCE={ASML:'EUR'};
-function curOf(key){
-  if(CUR_FORCE[key]) return CUR_FORCE[key];
-  const d=DB[key]||{}, imp=getImportedData(key);
-  const t=String((imp&&imp.ticker)||d.ticker||key).toUpperCase().trim();
-  const m=t.match(/\.([A-Z]+)$/);
-  if(m&&_CUR_BY_SUFFIX[m[1]]) return _CUR_BY_SUFFIX[m[1]];
-  if(/^\d{4}$/.test(t)) return 'TWD';                 // código numérico taiwanés
-  return 'USD';
-}
-function curSymOf(key){return CUR_SYM[curOf(key)]||'$';}
-
-// ── Divisa base de la cartera (en la que se suman los totales) ──
-function baseCur(){try{return localStorage.getItem('vi_base_cur')||'EUR';}catch(e){return 'EUR';}}
-function setBaseCur(c){
-  try{localStorage.setItem('vi_base_cur',c);}catch(e){}
-  fetchFX().then(()=>{renderCartera();renderPortfolioSummary();});
-}
-// Tipos de cambio hacia la divisa base. _FX[X] = cuántas unidades de la BASE vale 1 X.
-let _FX={}, _fxTs=0;
-// Arranque: recupera el último cambio conocido. Si hoy falla la descarga, los totales
-// siguen saliendo (con el aviso de que el cambio no es de hoy) en vez de quedarse en blanco.
-(function(){try{const c=JSON.parse(localStorage.getItem('vi_fx_'+baseCur())||'null');if(c&&c.r){_FX=c.r;_fxTs=c.ts||0;}}catch(e){}})();
-function fxStale(){return _fxTs>0&&(Date.now()-_fxTs)>36*3600*1000;}
-function fxRate(cur){
-  if(cur===baseCur()) return 1;
-  const r=_FX[cur];
-  return (r&&isFinite(r)&&r>0)?r:null;
-}
-function toBase(v,cur){const r=fxRate(cur);return (v==null||r==null)?null:v*r;}
-async function fetchFX(){
-  const base=baseCur();
-  const need=[...new Set(getAllPortfolioCompanies().map(c=>curOf(c.key)))].filter(c=>c!==base);
-  const cacheKey='vi_fx_'+base, ttl=6*3600*1000;
-  let cached=null;
-  try{cached=JSON.parse(localStorage.getItem(cacheKey)||'null');}catch(e){}
-  if(cached&&cached.r){ _FX={...cached.r,..._FX}; _fxTs=cached.ts||_fxTs; }   // parte del último cambio conocido
-  if(cached&&Date.now()-cached.ts<ttl&&need.every(x=>cached.r&&cached.r[x])) return _FX;
-  const out={...(_FX||{})};
-  let algo=false;
-  await Promise.allSettled(need.map(async cur=>{
-    // Yahoo cotiza BASECUR=X como "1 BASE = N CUR" → el factor CUR→BASE es 1/N
-    const q=await fetchQuoteYF(base+cur+'=X');
-    if(q&&q.c>0){ out[cur]=1/q.c; algo=true; }
-  }));
-  _FX=out;
-  if(algo){ _fxTs=Date.now(); try{localStorage.setItem(cacheKey,JSON.stringify({r:_FX,ts:_fxTs}));}catch(e){} }
-  return _FX;
-}
-// Formato de importes en la divisa base (totales de cartera)
-function fmtBase(v,dec){
-  if(v==null||!isFinite(v)) return '—';
-  const sym=CUR_SYM[baseCur()]||'';
-  const a=Math.abs(v);
-  const d=dec!=null?dec:(a>=10000?0:a>=100?0:2);
-  return sym+new Intl.NumberFormat('es-ES',{minimumFractionDigits:d,maximumFractionDigits:d}).format(v);
 }
 
 function getAllPortfolioCompanies(){
@@ -5852,6 +5935,8 @@ function carteraMetrics(co){
 
   // ── Mi posición (divisa de la empresa → divisa base de la cartera) ──
   const cur=curOf(key);
+  const curDet=!!detectedCur(key);          // confirmada por Yahoo vs deducida del sufijo
+  const yfSym=yfSymbolForKey(key);
   const pos=getPositionFor(key);
   const shares=(pos&&pos.shares>0)?pos.shares:null;
   const buyPrice=(pos&&pos.buyPrice>0)?pos.buyPrice:null;
@@ -5883,7 +5968,7 @@ function carteraMetrics(co){
 
   return {key,imp,d,price,dailyPct,weeklyPct,objEVF,mds,obj5,cagr5,price15,mds15,per,g,peg,
           objCons,mdsCons,obj5Cons,cagr5Cons,
-          cur,fxOk,pos,shares,buyPrice,retPct,mktValue,costValue,pnl,
+          cur,curDet,yfSym,fxOk,pos,shares,buyPrice,retPct,mktValue,costValue,pnl,
           roic5,fcfM,ndEbitda,salesG5,origen,impAge};
 }
 function pegColor(peg){return peg==null?'#9a958e':peg<1?'#16a34a':peg<=2?'#eab308':'#dc2626';}
@@ -6052,7 +6137,7 @@ function showCarteraHelp(){
     ['Escenario prudente','La línea «prud.» de las columnas Obj. precio y Obj. 5Y repite el cálculo con los múltiplos un 20% más bajos. El múltiplo es la parte más frágil de cualquier valoración: si aun contrayéndose el retorno sigue siendo bueno, la tesis es robusta.'],
     ['Calidad del negocio','El botón «⚙ Calidad del negocio» añade cuatro columnas: ROIC medio de 5 años, margen de caja libre, deuda neta ÷ EBITDA y crecimiento de ventas a 5 años. Un inversor value filtra primero por calidad y solo después mira el precio.'],
     ['Excel / estimado','La etiqueta junto al ticker dice de dónde salen los números: «Excel» (de tu hoja, con aviso si se importó hace más de 6 meses), «estimado» (proyecciones calculadas por la app, NO son tuyas) o «sin Excel» (datos de fábrica).'],
-    ['Divisa','Cada empresa muestra su precio en la divisa de su bolsa (USD, EUR, CAD…). Los totales del resumen se convierten a la divisa base que elijas arriba, con el cambio de Yahoo Finance.'],
+    ['Divisa','Cada empresa muestra su precio en la divisa de la bolsa de la que se descarga, y esa divisa la declara la propia fuente (no se adivina). Mientras no haya una descarga se deduce del ticker y aparece con un «?» y el borde punteado. Pulsando la divisa puedes cambiar la bolsa de referencia (por ejemplo ASML.AS en Ámsterdam en euros, o ASML en Nasdaq en dólares): el precio y la divisa cambian juntos, para que nunca compares un precio en dólares con unos objetivos calculados en euros. Los totales del resumen se convierten a la divisa base que elijas arriba.'],
     ['Barra lateral','Semáforo visual del potencial anualizado a 5 años: cuanto más larga y verde, mayor retorno esperado.'],
   ];
   m=document.createElement('div');
@@ -6222,7 +6307,10 @@ function renderCartera(){
       <div class="cartera-logo-fallback" style="background:${co.color};display:none;">${k.substring(0,2)}</div>
       <div>
         <div class="cartera-co-name">${co.name}</div>
-        <div class="cartera-ticker">${co.ticker} · ${m.cur} ${org}</div>
+        <div class="cartera-ticker">${co.ticker}
+          <span class="cart-cur${m.curDet?'':' guess'}" onclick="event.stopPropagation();promptListing('${k}')"
+                title="Precio y divisa tomados de ${m.yfSym}${m.curDet?' (divisa confirmada por la fuente)':' (divisa deducida del ticker, aún sin confirmar)'} · pulsa para cambiar de bolsa">${m.cur}${m.curDet?'':'?'}</span>
+          ${org}</div>
       </div>
     </div>
   </td>
@@ -6572,13 +6660,18 @@ function resetCarteraMultiples(){
 function _parseYF(data){
   const q=data?.chart?.result?.[0]; if(!q) return null;
   const meta=q.meta;
-  const c=meta.regularMarketPrice||meta.previousClose;
-  const pc=meta.previousClose||meta.chartPreviousClose;
+  let c=meta.regularMarketPrice||meta.previousClose;
+  let pc=meta.previousClose||meta.chartPreviousClose;
+  const closes=(q.indicators?.quote?.[0]?.close||[]);
+  let oldest=closes.find(v=>v!=null);
+  // Divisa DECLARADA POR LA FUENTE: es la única forma fiable de saber en qué moneda
+  // está el precio (Londres cotiza en peniques, 'GBp' → se pasa a libras).
+  let cur=meta.currency||null, div=1;
+  if(cur==='GBp'||cur==='ZAc'||cur==='ILA'){ div=100; cur=(cur==='GBp')?'GBP':(cur==='ZAc'?'ZAR':'ILS'); }
+  if(div!==1){ c/=div; if(pc) pc/=div; if(oldest) oldest/=div; }
   const dp=pc?(c-pc)/pc*100:0;
-  const closes=q.indicators?.quote?.[0]?.close||[];
-  const oldest=closes.find(v=>v!=null);
   const wp=oldest?(c-oldest)/oldest*100:null;
-  return (c>0)?{c,dp,wp}:null;
+  return (c>0)?{c,dp,wp,cur,sym:meta.symbol||null,exch:meta.fullExchangeName||meta.exchangeName||null}:null;
 }
 async function fetchQuoteYF(ticker){
   const url=`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=5d`;
@@ -6596,7 +6689,7 @@ async function fetchQuoteYF(ticker){
 }
 
 // ══════════ GRÁFICO PRECIO vs VALOR INTRÍNSECO + ANÁLISIS TÉCNICO ══════════
-function curSymG(){const k=coKeyOf(co);if(k==='ASML')return '€';if(k==='2330'||k==='2330.TW')return 'NT$';return '$';}
+function curSymG(){return curSymOf(coKeyOf(co));}
 function buildFairValueChart(){
   const c=document.getElementById('c-fairvalue'); if(!c) return;
   if(charts.fairvalue){try{charts.fairvalue.destroy();}catch(e){}}
@@ -6678,16 +6771,19 @@ async function renderTechnicals(){
 
 async function fetchCarteraPrices(){
   const fhKey=getFinnhubKey();
+  let curNuevas=false;                       // ¿alguna divisa ha quedado confirmada en esta pasada?
   for(const co of getAllPortfolioCompanies()){
-    const yfT=YF_TICKER[co.key]||co.fhTicker||co.ticker||co.key;
-    // Yahoo (gratis) da el último CIERRE diario + variación semanal
+    const yfT=yfSymbolForKey(co.key);
+    // Yahoo (gratis) da el último CIERRE diario, la variación semanal y —clave— LA DIVISA
     let yq=null; try{ yq=await fetchQuoteYF(yfT); }catch(e){}
+    if(yq&&yq.cur&&setDetectedCur(co.key,yq.cur,yq.sym)) curNuevas=true;
     let c=yq?yq.c:null, dp=yq?yq.dp:null, wp=yq?yq.wp:null;
-    // Finnhub da el precio en TIEMPO REAL → prevalece para el precio y el % diario (Yahoo suele ir un día por detrás).
-    // Devuelve c=0 para tickers que no cubre (bolsas no-US) → en ese caso se mantiene Yahoo.
-    if(fhKey){
+    // Finnhub da el precio en TIEMPO REAL → prevalece para el precio y el % diario (Yahoo suele ir
+    // un día por detrás). Solo se pide cuando la cotización de referencia es de EE. UU.: para una
+    // bolsa extranjera Finnhub devolvería otro listado en dólares y falsearía precio y divisa.
+    const fhT=fhSymbolForKey(co.key);
+    if(fhKey&&fhT){
       try{
-        const fhT=YF_TICKER_FH[co.key]||co.fhTicker||co.key;
         const r=await fetch(`https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(fhT)}&token=${fhKey}`,{signal:AbortSignal.timeout(7000)});
         const j=await r.json();
         if(j&&j.c>0){ c=j.c; dp=(j.dp??dp); }   // precio en vivo de Finnhub (wp semanal sigue siendo de Yahoo)
@@ -6697,8 +6793,12 @@ async function fetchCarteraPrices(){
     await new Promise(r=>setTimeout(r,260));
   }
   if(typeof renderStyleCompare==='function') renderStyleCompare(); // refresca comparador con precios live
-  _refreshCarteraWeights();                                        // pesos coherentes: un único total
-  if(typeof renderPortfolioSummary==='function') renderPortfolioSummary(); // totales y avisos con los precios live
+  if(curNuevas){
+    renderCartera();          // divisas ya confirmadas por la fuente → repinta etiquetas, pesos y totales
+  }else{
+    _refreshCarteraWeights(); // pesos coherentes: un único total
+    if(typeof renderPortfolioSummary==='function') renderPortfolioSummary();
+  }
 }
 
 // Recalcula el total de la cartera con TODOS los precios ya actualizados y repinta los pesos.
@@ -7142,6 +7242,8 @@ function deleteCompanyFull(key){
   localStorage.removeItem('vi_import_'+key);
   localStorage.removeItem('vi_drive_'+key);
   localStorage.removeItem('vi_mults_'+key);
+  localStorage.removeItem('vi_yf_'+key);     // bolsa de referencia elegida
+  localStorage.removeItem('vi_cur_'+key);    // divisa detectada
   delete DB[key];
   if(builtin){HIDDEN.add(key);saveHidden();}
   rebuildCoButtons();renderCartera();_refreshRestoreBtn();
