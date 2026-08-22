@@ -470,6 +470,9 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
 .cart-cur{font-size:8px;font-weight:700;padding:1px 5px;border-radius:5px;background:var(--surface2);color:var(--sub);border:1px solid var(--border);cursor:pointer;white-space:nowrap;}
 .cart-cur:hover{border-color:var(--blue);color:var(--blue);}
 .cart-cur.guess{border-style:dashed;}
+/* Aviso: el precio y los objetivos no están en la misma moneda/escala */
+.cart-escala{font-size:8px;font-weight:700;padding:1px 5px;border-radius:5px;margin-left:4px;white-space:nowrap;cursor:pointer;
+  background:color-mix(in srgb,var(--red) 12%,transparent);color:var(--red);border:1px solid color-mix(in srgb,var(--red) 40%,transparent);}
 .cart-src{font-size:7.5px;font-weight:700;padding:1px 5px;border-radius:5px;margin-left:4px;white-space:nowrap;}
 .cart-src.ok{background:color-mix(in srgb,var(--green) 12%,transparent);color:var(--green);}
 .cart-src.est{background:color-mix(in srgb,var(--amber) 16%,transparent);color:var(--amber);}
@@ -1788,28 +1791,123 @@ function curOf(key){
 function curSymOf(key){const c=curOf(key);return CUR_SYM[c]||(c+' ');}
 
 // Cambiar la bolsa de referencia de una empresa (y con ella su divisa)
-function promptListing(key){
+// Acciones ordinarias que representa cada ADR (un ADR de TSM = 5 acciones de Taiwán).
+// Solo informativo: sirve para explicar por qué los dos precios no coinciden.
+const ADR_RATIO={TSM:5,'TSM.US':5,BABA:8,'PDD':4,'INFY':1,'HDB':3};
+
+// Cotizaciones candidatas de una empresa (bolsa local, ADR estadounidense, ticker base…)
+function listingCandidates(key){
+  const out=[]; const up=String(key).toUpperCase();
+  const add=(sym,lbl)=>{ if(!sym) return; const S=String(sym).toUpperCase();
+    if(!out.some(o=>o.sym===S)) out.push({sym:S,lbl}); };
+  add(yfSymbolForKey(key),'en uso ahora');
+  add(YF_LOCAL[up],'bolsa local');
+  const cat=catalogFor(key);
+  if(cat&&cat.tv) add(cat.tv.split(':').pop(),'ADR / EE. UU.');
+  const d=DB[key];
+  if(d&&d.ticker) add(String(d.ticker).toUpperCase(),'ticker de la ficha');
+  add(up.split('.')[0],'ticker base');
+  return out.slice(0,5);
+}
+
+// Diálogo de bolsa de referencia: descarga cada candidata y dice CUÁL ENCAJA con tus cuentas.
+// El objetivo de precio sale de tu Excel, así que la cotización correcta es la que está en su
+// misma escala: si el objetivo es NT$3.000, un precio de $419 (el ADR) no es comparable.
+async function promptListing(key){
   const d=DB[key]||{}, nm=d.name||key;
-  const actual=yfSymbolForKey(key), det=detectedCur(key);
-  const txt='Bolsa de referencia de '+nm+'\n\n'
-    +'Símbolo de Yahoo Finance del que se toma el precio (y con él, la divisa).\n'
-    +'IMPORTANTE: elige la que cotice en la MISMA moneda de las cuentas de tu Excel. El valor\n'
-    +'intrínseco sale de las cuentas y se compara con el precio; si no coinciden, el margen de\n'
-    +'seguridad queda desviado por el tipo de cambio.\n'
-    +'Ejemplos: ASML.AS (Ámsterdam, EUR) · ASML (Nasdaq, USD) · CNSWF (CSU en USD) · CSU.TO (Toronto, CAD) · 2330.TW (Taiwán, TWD)\n\n'
-    +'Ahora mismo: '+actual+(det&&det.cur?(' → '+det.cur+(det.sym&&det.sym!==actual?(' ['+det.sym+']'):'')):' (divisa aún sin confirmar)')+'\n'
-    +'Escribe «auto» para volver al valor por defecto.';
-  const v=prompt(txt,actual);
-  if(v===null) return;
+  const actual=yfSymbolForKey(key);
+  const cands=listingCandidates(key);
+  const _t=(typeof avgTargetsFor==='function')?avgTargetsFor(key):null;
+  const obj=(_t&&_t[0]!=null)?_t[0]:null;      // objetivo del próximo año, en la moneda de tus cuentas
+
+  let m=document.getElementById('listing-modal');
+  if(!m){
+    m=document.createElement('div');
+    m.id='listing-modal';
+    m.style.cssText='position:fixed;inset:0;z-index:2200;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px;';
+    m.onclick=e=>{ if(e.target===m) m.remove(); };
+    document.body.appendChild(m);
+  }
+  const cerrar="document.getElementById('listing-modal')?.remove()";
+  const marco=cuerpo=>`<div style="background:var(--surface);border:1.5px solid var(--border);border-radius:16px;max-width:560px;width:100%;max-height:86vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.3);">
+      <div style="padding:15px 18px 11px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px;">
+        <div>
+          <div style="font-size:13.5px;font-weight:700;color:var(--text);">Cotización de referencia · ${nm}</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px;">De aquí salen el precio y la divisa</div>
+        </div>
+        <button onclick="${cerrar}" style="border:none;background:var(--surface2);color:var(--sub);border-radius:8px;padding:4px 10px;cursor:pointer;font-size:12px;font-weight:700;">✕</button>
+      </div>
+      <div style="padding:13px 18px 17px;">${cuerpo}</div>
+    </div>`;
+  m.innerHTML=marco('<div style="font-size:11.5px;color:var(--muted);padding:14px 0;text-align:center;">Consultando cotizaciones…</div>');
+
+  // Descarga en paralelo el precio y la divisa de cada candidata
+  const datos=await Promise.all(cands.map(async c=>{
+    let q=null; try{ q=await fetchQuoteYF(c.sym); }catch(e){}
+    return {...c, px:q?q.c:null, cur:q?q.cur:null};
+  }));
+
+  const fmtq=x=>x.px==null?'sin datos':((CUR_SYM[x.cur]||(x.cur?x.cur+' ':''))+new Intl.NumberFormat('es-ES',{maximumFractionDigits:x.px>=100?0:2}).format(x.px));
+  // Coherencia: cociente entre el precio y el objetivo salido de TUS cuentas
+  const ratio=x=>(obj&&x.px)?x.px/obj:null;
+  const encaja=x=>{const r=ratio(x);return r!=null&&r>0.25&&r<4;};
+  const mejor=datos.filter(x=>x.px!=null).sort((a,b)=>{
+    const ra=ratio(a),rb=ratio(b);
+    if(ra==null||rb==null) return 0;
+    return Math.abs(Math.log(ra))-Math.abs(Math.log(rb));
+  })[0];
+
+  const filas=datos.map(x=>{
+    const sel=x.sym===actual;
+    const r=ratio(x);
+    const adr=ADR_RATIO[x.sym];
+    const nota=obj==null?'<span style="color:var(--muted);">sin objetivo con el que comparar</span>'
+      : x.px==null?'<span style="color:var(--muted);">no se pudo consultar</span>'
+      : encaja(x)?'<span style="color:var(--green);font-weight:700;">✓ misma escala que tus objetivos</span>'
+      : `<span style="color:var(--red);font-weight:700;">✗ ${r>=1?(r.toFixed(1)+'× por encima'):((1/r).toFixed(1)+'× por debajo')} de tus objetivos</span>`;
+    return `<button onclick="aplicarListing('${key}','${x.sym}')" style="width:100%;text-align:left;display:flex;align-items:center;gap:10px;padding:9px 11px;margin-bottom:6px;border-radius:11px;cursor:pointer;
+        border:1.5px solid ${sel?'var(--blue)':'var(--border)'};background:${sel?'color-mix(in srgb,var(--blue) 8%,transparent)':'var(--surface2)'};">
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:12.5px;font-weight:700;color:var(--text);">${x.sym}
+          <span style="font-size:8.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-left:5px;">${x.lbl}</span>
+          ${sel?'<span style="font-size:8.5px;font-weight:700;color:var(--blue);margin-left:4px;">EN USO</span>':''}</div>
+        <div style="font-size:10px;color:var(--sub);margin-top:2px;">${fmtq(x)}${adr?` · 1 ADR = ${adr} acciones`:''}</div>
+        <div style="font-size:9.5px;margin-top:2px;">${nota}</div>
+      </div>
+      <span style="font-size:10px;font-weight:700;color:var(--blue);white-space:nowrap;">${sel?'':'usar ›'}</span>
+    </button>`;
+  }).join('');
+
+  const ayuda=obj!=null
+    ? `<div style="font-size:10.5px;color:var(--sub);line-height:1.6;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:9px 11px;margin-bottom:10px;">
+         Tu objetivo de precio, calculado con las cuentas de tu Excel, es
+         <b>${curSymOf(key)}${new Intl.NumberFormat('es-ES',{maximumFractionDigits:0}).format(Math.round(obj))}</b>.
+         La cotización correcta es la que está en <b>esa misma moneda y escala</b>${mejor&&encaja(mejor)?` — aquí, <b>${mejor.sym}</b>`:''}.
+         Un ADR no vale lo mismo que una acción: cada uno representa varias, así que su precio no es comparable con unos objetivos por acción.
+       </div>`
+    : `<div style="font-size:10.5px;color:var(--sub);line-height:1.6;margin-bottom:10px;">Elige la bolsa de la que quieres tomar el precio. Debe cotizar en la misma moneda que las cuentas de tu Excel.</div>`;
+
+  m.innerHTML=marco(ayuda+filas+
+    `<div style="display:flex;gap:8px;margin-top:4px;">
+       <input id="listing-manual" placeholder="…u otro símbolo de Yahoo (ej: 2330.TW)" value="" style="flex:1;font-size:11.5px;padding:7px 10px;border:1px solid var(--border);border-radius:9px;background:var(--surface2);color:var(--text);text-transform:uppercase;"/>
+       <button onclick="aplicarListing('${key}',document.getElementById('listing-manual').value)" style="font-size:11px;font-weight:700;padding:7px 14px;border-radius:9px;border:none;background:var(--navy);color:#fff;cursor:pointer;">Usar</button>
+     </div>
+     <div style="margin-top:8px;"><a href="#" onclick="event.preventDefault();aplicarListing('${key}','auto')" style="font-size:10px;color:var(--muted);">Volver al valor por defecto</a></div>`);
+}
+// Fija la cotización de referencia elegida y recarga precios
+function aplicarListing(key,sym){
+  const t=String(sym||'').trim().toUpperCase();
   try{
-    const t=v.trim().toUpperCase();
     if(!t||t==='AUTO') localStorage.removeItem('vi_yf_'+key);
     else localStorage.setItem('vi_yf_'+key,t);
     localStorage.removeItem('vi_cur_'+key);      // la divisa se vuelve a detectar
   }catch(e){}
+  document.getElementById('listing-modal')?.remove();
   delete _carteraPrices[key];
-  renderCartera();
-  fetchCarteraPrices();
+  delete _priceCache[key];
+  if(typeof renderCartera==='function') renderCartera();
+  if(typeof fetchCarteraPrices==='function') fetchCarteraPrices();
+  if(_curView==='analysis'&&typeof coKeyOf==='function'&&coKeyOf(co)===key&&typeof fetchLivePrice==='function') fetchLivePrice();
 }
 
 // ── Divisa base de la cartera (en la que se suman los totales) ──
@@ -6167,6 +6265,11 @@ function carteraMetrics(co){
 
   // ── Mi posición (divisa de la empresa → divisa base de la cartera) ──
   const cur=curOf(key);
+  // ¿Precio y objetivo en la misma moneda y escala? El objetivo sale de TUS cuentas; si el
+  // precio viene de otra bolsa (o de un ADR, que equivale a varias acciones) no son comparables
+  // y el margen de seguridad no significa nada.
+  const escala=(objEVF>0&&price>0)?price/objEVF:null;
+  const escalaMal=escala!=null&&(escala>4||escala<0.25);
   const curDet=!!detectedCur(key);          // confirmada por Yahoo vs deducida del sufijo
   const yfSym=yfSymbolForKey(key);
   const pos=getPositionFor(key);
@@ -6200,7 +6303,7 @@ function carteraMetrics(co){
 
   return {key,imp,d,price,dailyPct,weeklyPct,objEVF,mds,obj5,cagr5,price15,mds15,per,g,peg,
           objCons,mdsCons,obj5Cons,cagr5Cons,
-          cur,curDet,yfSym,fxOk,pos,shares,buyPrice,retPct,mktValue,costValue,pnl,
+          cur,curDet,yfSym,escala,escalaMal,fxOk,pos,shares,buyPrice,retPct,mktValue,costValue,pnl,
           roic5,fcfM,ndEbitda,salesG5,origen,impAge};
 }
 function pegColor(peg){return peg==null?'#9a958e':peg<1?'#16a34a':peg<=2?'#eab308':'#dc2626';}
@@ -6543,6 +6646,8 @@ function renderCartera(){
         <div class="cartera-ticker">${co.ticker}
           <span class="cart-cur${m.curDet?'':' guess'}" onclick="event.stopPropagation();promptListing('${k}')"
                 title="Precio y divisa tomados de ${m.yfSym}${m.curDet?' (divisa confirmada por la fuente)':' (divisa deducida del ticker, aún sin confirmar)'} · pulsa para cambiar de bolsa">${m.cur}${m.curDet?'':'?'}</span>
+          ${m.escalaMal?`<span class="cart-escala" onclick="event.stopPropagation();promptListing('${k}')"
+                title="El precio (${m.yfSym}) es ${m.escala>=1?m.escala.toFixed(1)+' veces mayor':(1/m.escala).toFixed(1)+' veces menor'} que tu objetivo de precio. Suele significar que la cotización es de otra bolsa o de un ADR (que equivale a varias acciones), y entonces el margen de seguridad no vale. Pulsa para elegir la cotización correcta.">⚠ escala</span>`:''}
           ${org}</div>
       </div>
     </div>
