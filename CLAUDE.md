@@ -78,6 +78,17 @@ TABS: resumen, graficos, alertas(🔍 Análisis), valoracion, academia, tesis.
 `calcStressDCF` · `calcMoat` · `calcFCFQuality` · `avgTargetsFor`/`evfTargetsFor` (precios objetivo) ·
 `getCompanyMults`/`applyCompanyMults`/`baseMultsFor` · `computeMediansFor` · `recalc` (+`_refresh*` DOM).
 
+**Histórico comparable (rupturas de perímetro)** `histStart` (primer índice comparable) ·
+`histBreak` (`{i0,yrs,broken,year,prev,base}`) · `cagrH` (CAGR sólo del tramo post-ruptura, `null` si no hay) ·
+`cagrHLbl` (etiqueta "CAGR 3Y*") · `PN` (% con "s/d") · `autoBreakNote` (rellena `spinoffNote`) ·
+`_kpiStart` (mini-gráficos) · `_histCellStyle`/`_histTableNote` (atenúa columnas pre-ruptura).
+Detecta caídas de ventas ≥60% en un año **sin recuperación** posterior (≥80% del nivel previo):
+escisiones, venta de divisiones o cambio de divisa en las cuentas. Ejemplo: NBIS (Nebius, ex-Yandex)
+vendió el negocio ruso en 2024 → sin esto la app leía "las ventas se hundieron" cuando en realidad
+2024 y 2025 crecieron muchísimo. **Todo crecimiento/tendencia se mide desde `histStart`**, nunca desde
+el índice 0. Las **medianas de múltiplos NO se recortan** (con 1-3 datos no serían medianas y moverían
+todos los precios objetivo); ahí sólo se avisa al usuario.
+
 **Proyecciones automáticas (sin Excel)** `ensureWebProj` (consenso FMP o modelo SEC) · `setProjSource` ·
 `_preferFMPIfAvailable` · `_estimateProjections` (rellena pEB/pF/pEPS/pND por márgenes) ·
 `autoISDFromFinancials` · `fetchFMPEstimates`. Marca `estimated`, banner `estimatedBanner()`.
