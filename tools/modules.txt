@@ -1,0 +1,72 @@
+# Orden de carga de los módulos JS (uno por línea, las # son comentarios).
+# Es la ÚNICA fuente de verdad: tools/check.sh comprueba que index.html
+# lleve exactamente estos <script defer>, en este orden.
+#
+# Sólo hay tres reglas de orden que importan de verdad:
+#   1) data/empresas.js antes que core/estado.js  (estado.js hace `let co=DB.MSFT`)
+#   2) app/arranque.js el ÚLTIMO                  (arranca con todo ya declarado)
+#   3) cada fichero con código suelto de nivel superior es autocontenido
+# El resto son declaraciones de funciones (se elevan): el orden es sólo estético.
+
+core/cdn.js
+
+data/empresas.js
+data/catalogo.js
+data/sec.js
+
+core/estado.js
+core/privado.js
+
+market/divisas.js
+market/yahoo.js
+market/ultimo-precio.js
+market/precio-vivo.js
+
+company/perfil-datos.js
+company/perfil-auto.js
+
+valuation/multiplos.js
+valuation/motor.js
+valuation/proyecciones.js
+valuation/veredicto.js
+valuation/estilo.js
+
+ui/iconos.js
+ui/kpi.js
+ui/tips.js
+ui/graficos.js
+ui/tecnico.js
+ui/panel-empresa.js
+
+user/mi-posicion.js
+user/mi-posicion-render.js
+user/copia-seguridad.js
+
+tabs/resumen.js
+tabs/graficos.js
+tabs/valoracion.js
+tabs/proyecciones.js
+tabs/moat-dcf.js
+tabs/analisis.js
+tabs/tesis.js
+tabs/academia.js
+
+dashboard/panel.js
+dashboard/mercado.js
+dashboard/noticias.js
+
+cartera/nucleo.js
+cartera/tabla.js
+cartera/ayuda.js
+cartera/resumen.js
+cartera/precios.js
+
+watchlist/seguimiento.js
+watchlist/render.js
+
+import/importar.js
+
+app/navegacion.js
+app/recalculo.js
+app/vistas.js
+app/arranque.js
