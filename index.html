@@ -299,7 +299,7 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
 .dash-co-tbl td{padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:middle;}
 .dash-co-tbl tr:hover td{background:var(--surface2);}
 .dash-co-tbl tr:last-child td{border-bottom:none;}
-.verd-pill-sm{font-size:8px;font-weight:700;padding:3px 8px;border-radius:10px;white-space:nowrap;}
+.verd-pill-sm{font-size:8px;font-weight:700;padding:2px 7px;border-radius:9px;white-space:nowrap;}
 .dash-drive-btn{font-size:9px;padding:3px 7px;border-radius:7px;border:1px solid var(--border);background:transparent;cursor:pointer;color:var(--sub);text-decoration:none;white-space:nowrap;transition:all .1s;}
 .dash-drive-btn:hover{background:#eff6ff;color:#2563eb;border-color:#bfdbfe;}
 .dark .dash-drive-btn:hover{background:#0c1832;color:#7ab4f5;border-color:#1e3a6e;}
@@ -428,8 +428,14 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
 /* ═══ CARTERA ═══ */
 #view-cartera{display:none;max-width:1400px;margin:0 auto;padding:16px 20px 40px;}
 .cartera-tbl{width:100%;border-collapse:collapse;}
-.cartera-tbl th{font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);padding:9px 12px;text-align:left;border-bottom:2px solid var(--border);background:var(--surface2);white-space:nowrap;}
-.cartera-tbl td{padding:11px 12px;border-bottom:1px solid var(--border);vertical-align:middle;}
+.cartera-tbl{font-variant-numeric:tabular-nums;}
+.cartera-tbl th{font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);padding:6px 9px;text-align:left;border-bottom:1px solid var(--border);background:var(--surface2);white-space:nowrap;line-height:1.25;}
+.cartera-tbl td{padding:5px 9px;border-bottom:1px solid var(--border);vertical-align:middle;line-height:1.2;}
+/* Las celdas apilan cifra + detalle: interlineado corto para que la fila no crezca */
+.cartera-tbl td>div{line-height:1.18;}
+/* Detalle secundario dentro de una celda (MdS, escenario prudente, peso…) */
+.c-sub{font-size:9.5px;font-weight:600;}
+.c-sub2{font-size:9px;font-weight:600;color:var(--muted);margin-left:5px;}
 .cartera-tbl tr:hover td{background:var(--surface2);}
 .cartera-tbl tr:last-child td{border-bottom:none;}
 /* Tabla congelada: la fila de conceptos (arriba) y la columna Empresa (izquierda) no se mueven
@@ -441,7 +447,7 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
 .cartera-tbl tr:not(.cart-grp):hover td:first-child{background:var(--surface2);}
 /* Cabeceras de grupo (Invertidas / En seguimiento) */
 .cart-grp td{padding:0!important;background:var(--surface2);border-bottom:1px solid var(--border);}
-.cart-grp-inner{display:flex;align-items:center;gap:8px;padding:8px 12px 8px 0;cursor:pointer;user-select:none;}
+.cart-grp-inner{display:flex;align-items:center;gap:8px;padding:5px 12px 5px 0;cursor:pointer;user-select:none;}
 /* El título del grupo queda fijo a la izquierda igual que la columna Empresa
    (fondo opaco: al desplazar, el texto de la derecha pasa por debajo) */
 .cart-grp-lead{position:sticky;left:0;display:flex;align-items:center;gap:8px;flex-shrink:0;padding:0 10px 0 12px;background:var(--surface2);}
@@ -512,19 +518,19 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
 .today-n{font-size:10.5px;color:var(--sub);font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .today-v{font-size:11px;font-weight:700;}
 .today-empty{font-size:10px;color:var(--muted);padding:5px 0;}
-.cartera-co-name{font-size:12px;font-weight:700;color:var(--text);}
-.cartera-ticker{font-size:10px;color:var(--muted);font-weight:600;margin-top:1px;}
+.cartera-co-name{font-size:11.5px;font-weight:700;color:var(--text);line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:190px;}
+.cartera-ticker{font-size:9.5px;color:var(--muted);font-weight:600;margin-top:0;line-height:1.3;}
 .cartera-sector{font-size:10px;color:var(--sub);}
-.cartera-price{font-size:14px;font-weight:600;color:var(--blue);}
+.cartera-price{font-size:13px;font-weight:600;color:var(--blue);}
 .cartera-vi{font-size:14px;font-weight:600;}
 .cartera-pot{font-size:12px;font-weight:600;padding:3px 9px;border-radius:10px;}
 .cartera-pill{font-size:9px;font-weight:700;padding:3px 9px;border-radius:10px;white-space:nowrap;}
-.cartera-logo{width:30px;height:30px;border-radius:8px;object-fit:contain;border:1px solid var(--border);padding:2px;background:var(--surface);}
-.cartera-logo-fallback{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;color:#fff;flex-shrink:0;}
+.cartera-logo{width:24px;height:24px;border-radius:7px;object-fit:contain;border:1px solid var(--border);padding:2px;background:var(--surface);flex-shrink:0;}
+.cartera-logo-fallback{width:24px;height:24px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff;flex-shrink:0;}
 .cartera-tag{font-size:8px;font-weight:700;padding:2px 6px;border-radius:6px;background:var(--surface2);color:var(--sub);}
 .cartera-import-badge{font-size:8px;font-weight:700;padding:1px 6px;border-radius:6px;background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0;}
 .cartera-import-badge.no-import{background:#fff7ed;color:#d97706;border-color:#fed7aa;}
-.cartera-action-btn{padding:4px 10px;border-radius:7px;border:1px solid var(--border);background:transparent;cursor:pointer;font-size:10px;font-weight:600;color:var(--sub);transition:all .1s;white-space:nowrap;}
+.cartera-action-btn{padding:2px 7px;border-radius:6px;border:1px solid var(--border);background:transparent;cursor:pointer;font-size:10px;font-weight:600;color:var(--sub);transition:all .1s;white-space:nowrap;}
 .cartera-action-btn:hover{background:#eff6ff;color:#2563eb;border-color:#bfdbfe;}
 .dark .cartera-action-btn:hover{background:#0c1832;color:#7ab4f5;border-color:#1e3a6e;}
 .cartera-action-btn.red:hover{background:#fef2f2;color:#dc2626;border-color:#fecaca;}
@@ -5319,8 +5325,8 @@ function renderWatchlist(){
     const verdict=pre?pre.verdict:'—', vcolor=pre?pre.color:'#9a958e', score=pre?pre.score:null;
     const sector=e.sector||(co&&co.sector)||'';
     return `<tr style="border-bottom:1px solid ${_dm()?'#2a3a52':'#f0ede8'};">
-      <td style="padding:9px 10px;">
-        <div style="display:flex;align-items:center;gap:9px;">
+      <td>
+        <div style="display:flex;align-items:center;gap:8px;">
           ${logoUrl?`<img src="${logoUrl}" class="cartera-logo" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"/>`:''}
           <div class="cartera-logo-fallback" style="background:#1e3a5f;display:${logoUrl?'none':'flex'};">${e.id.substring(0,2)}</div>
           <div>
@@ -6624,10 +6630,11 @@ function renderCartera(){
         const peso=(m.mktValue!=null&&totalMkt>0)?(m.mktValue/totalMkt*100):null;
         // En modo privado se ocultan coste, acciones y valor; la rentabilidad y el peso se quedan
         return `<div style="font-size:12px;font-weight:700;color:var(--text);">${mny(fmt(m.buyPrice,k))}</div>`
-          +`<div style="font-size:10px;font-weight:700;color:${rc};">${sp(m.retPct)}</div>`
+          +`<div><span class="c-sub" style="color:${rc};">${sp(m.retPct)}</span>`
           +(m.mktValue!=null
-             ? `<div style="font-size:9px;color:var(--muted);font-weight:600;" title="${privado()?'Peso':(m.shares+' acciones · valor '+fmtBase(m.mktValue)+' · '+peso.toFixed(1)+'%')} de tu cartera">${privado()?'':m.shares+' acc · '+fmtBase(m.mktValue,0)+' · '}<b>${peso.toFixed(0)}%</b></div>`
-             : `<div style="font-size:9px;color:var(--amber);font-weight:700;" title="Sin nº de acciones no se puede calcular el peso de la posición">+ nº acciones</div>`);
+             ? `<span class="c-sub2" title="${privado()?'Peso':(m.shares+' acciones · valor '+fmtBase(m.mktValue)+' · '+peso.toFixed(1)+'%')} de tu cartera">${privado()?'':m.shares+' acc · '}<b>${peso.toFixed(0)}%</b></span>`
+             : `<span class="c-sub2" style="color:var(--amber);" title="Sin nº de acciones no se puede calcular el peso de la posición">+ nº acc</span>`)
+          +`</div>`;
       }
       return `<span style="font-size:10px;color:#2563eb;font-weight:700;border:1px dashed #2563eb66;border-radius:8px;padding:2px 7px;white-space:nowrap;">+ coste</span>`;
     })();
@@ -6637,8 +6644,8 @@ function renderCartera(){
       return `<td class="col-cal" style="text-align:right;font-size:11.5px;font-weight:700;color:${c};" title="${tip}">${fmtF(v)}</td>`;
     };
     return`<tr id="crow-${k}" class="cart-r cart-r-${gid}"${open?'':' style="display:none;"'}>
-  <td style="padding:7px 10px;cursor:pointer;" onclick="setView('analysis');setTimeout(()=>{if(DB['${k}'])switchCo('${k}');},80);" title="Abrir análisis de ${co.name}">
-    <div style="display:flex;align-items:center;gap:9px;">
+  <td style="cursor:pointer;" onclick="setView('analysis');setTimeout(()=>{if(DB['${k}'])switchCo('${k}');},80);" title="Abrir análisis de ${co.name}">
+    <div style="display:flex;align-items:center;gap:8px;">
       ${logoUrl?`<img src="${logoUrl}" class="cartera-logo" loading="lazy" onerror="this.onerror=null;if(!this.dataset.fb){this.dataset.fb=1;this.src='${logoFallback(k)}';}else{this.style.display='none';this.nextElementSibling.style.display='flex';}"/>`:''}
       <div class="cartera-logo-fallback" style="background:${co.color};display:none;">${k.substring(0,2)}</div>
       <div>
@@ -6654,36 +6661,34 @@ function renderCartera(){
   </td>
   <td style="text-align:right;">
     <div class="cartera-price" id="cprice-${k}">${fmt(m.price,k)}</div>
-    <div id="cday-${k}" style="font-size:9px;font-weight:700;color:${dCol};">${m.dailyPct!=null?sp(m.dailyPct,2):''}</div>
+    <div id="cday-${k}" style="font-size:9.5px;font-weight:700;color:${dCol};">${m.dailyPct!=null?sp(m.dailyPct,2):''}</div>
   </td>
   <td id="cpos-${k}" style="text-align:right;cursor:pointer;" onclick="event.stopPropagation();setCarteraPos('${k}')" title="Pulsa para poner/editar tu precio de compra medio y tus acciones">${posCell}</td>
   <td style="text-align:right;">
-    <div id="cweek-${k}" style="font-size:12px;font-weight:600;color:${wCol};">${m.weeklyPct!=null?(m.weeklyPct>=0?'▲':'▼')+sp(m.weeklyPct,1):'—'}</div>
+    <div id="cweek-${k}" style="font-size:11.5px;font-weight:600;color:${wCol};">${m.weeklyPct!=null?(m.weeklyPct>=0?'▲':'▼')+sp(m.weeklyPct,1):'—'}</div>
   </td>
   <td style="text-align:right;background:color-mix(in srgb, var(--amber) 10%, var(--surface));">
     <div id="cobjevf-${k}" style="font-size:13px;font-weight:600;color:var(--text);">${fmt(m.objEVF,k)}</div>
-    <div id="cmds-${k}" style="font-size:10px;font-weight:600;color:${mdsCol(m.mds)};">${m.mds!=null?sp(m.mds,0)+' MdS':'—'}</div>
-    <div id="cprud-${k}" style="font-size:9px;color:var(--muted);font-weight:600;" title="Escenario prudente: mismo objetivo con múltiplos un 20% más bajos">prud. ${m.mdsCons!=null?sp(m.mdsCons,0):'—'}</div>
+    <div><span class="c-sub" id="cmds-${k}" style="color:${mdsCol(m.mds)};">${m.mds!=null?sp(m.mds,0)+' MdS':'—'}</span><span class="c-sub2" id="cprud-${k}" title="Escenario prudente: mismo objetivo con múltiplos un 20% más bajos">prud. ${m.mdsCons!=null?sp(m.mdsCons,0):'—'}</span></div>
   </td>
   <td style="text-align:right;">
     <div id="c15-${k}" style="font-size:12px;font-weight:700;color:${inZone?'#16a34a':'var(--text)'};">${fmt(m.price15,k)}</div>
-    <div id="cmds15-${k}" style="font-size:10px;font-weight:600;color:${mdsCol(m.mds15)};">${m.mds15!=null?sp(m.mds15,0)+' MdS':'—'}</div>
+    <div class="c-sub" id="cmds15-${k}" style="color:${mdsCol(m.mds15)};">${m.mds15!=null?sp(m.mds15,0)+' MdS':'—'}</div>
   </td>
   <td style="text-align:right;">
-    <div id="cobj5-${k}" style="font-size:12px;font-weight:700;color:var(--navy);">${fmt(m.obj5,k)}</div>
-    <div id="cret-${k}" style="font-size:10px;font-weight:700;color:${retCol(m.cagr5)};">${m.cagr5!=null?sp(m.cagr5,0)+'/año':''}</div>
-    <div id="cprud5-${k}" style="font-size:9px;color:var(--muted);font-weight:600;" title="Escenario prudente: múltiplos un 20% más bajos">prud. ${m.cagr5Cons!=null?sp(m.cagr5Cons,0)+'/año':'—'}</div>
+    <div id="cobj5-${k}" style="font-size:12.5px;font-weight:700;color:var(--navy);">${fmt(m.obj5,k)}</div>
+    <div><span class="c-sub" id="cret-${k}" style="color:${retCol(m.cagr5)};">${m.cagr5!=null?sp(m.cagr5,0)+'/año':''}</span><span class="c-sub2" id="cprud5-${k}" title="Escenario prudente: múltiplos un 20% más bajos">prud. ${m.cagr5Cons!=null?sp(m.cagr5Cons,0)+'/año':'—'}</span></div>
   </td>
   <td style="text-align:center;" id="cpeg-${k}">${pegBar(m.peg,m.per,m.g)}</td>
   <td style="text-align:center;">${m.verdict
-      ? `<span class="verd-pill-sm" style="background:${m.vcolor}15;color:${m.vcolor};" title="Score ${m.score}/100 — mismo veredicto que la pestaña Análisis">${m.verdict}</span><div style="font-size:9px;color:var(--muted);font-weight:700;margin-top:2px;">${m.score}/100</div>`
+      ? `<span class="verd-pill-sm" style="background:${m.vcolor}15;color:${m.vcolor};" title="Score ${m.score}/100 — mismo veredicto que la pestaña Análisis">${m.verdict}</span><div style="font-size:9px;color:var(--muted);font-weight:700;">${m.score}/100</div>`
       : '<span style="color:#9a958e;font-size:11px;">—</span>'}</td>
   ${qual(m.roic5,v=>v.toFixed(0)+'%',v=>v>=15,v=>v<8,'ROIC medio de los últimos 5 años · >15% excelente, <8% flojo')}
   ${qual(m.fcfM,v=>v.toFixed(0)+'%',v=>v>=15,v=>v<5,'Margen de caja libre del último año · >15% muy bueno')}
   ${qual(m.ndEbitda,v=>v.toFixed(1)+'x',v=>v<1,v=>v>3,'Deuda neta / EBITDA · <1x sólida, >3x apalancada')}
   ${qual(m.salesG5,v=>(v>=0?'+':'')+v.toFixed(0)+'%',v=>v>=10,v=>v<3,'Crecimiento anual de ventas de los últimos 5 años')}
   <td style="text-align:center;" onclick="event.stopPropagation();">
-    <div style="display:flex;gap:3px;justify-content:center;align-items:center;">
+    <div style="display:flex;gap:2px;justify-content:center;align-items:center;">
       ${driveUrl
         ? `<a href="${driveUrl}" target="_blank" rel="noopener" class="cartera-action-btn" title="Abrir tu hoja de cálculo en Drive para comparar" style="text-decoration:none;display:inline-block;">📊</a>`
         : `<button class="cartera-action-btn" title="Añadir enlace de Google Sheets" onclick="promptDriveUrl('${k}')">＋📊</button>`}
@@ -7178,10 +7183,11 @@ function updateCarteraRow(key){
     const rc=m.retPct==null?'#9a958e':m.retPct>=0?'#16a34a':'#dc2626';
     const peso=(m.mktValue!=null&&_cartTotal>0)?(m.mktValue/_cartTotal*100):null;
     p('cpos-'+key).innerHTML=`<div style="font-size:12px;font-weight:700;color:var(--text);">${mny(fmt(m.buyPrice))}</div>`
-      +`<div style="font-size:10px;font-weight:700;color:${rc};">${sp(m.retPct)}</div>`
+      +`<div><span class="c-sub" style="color:${rc};">${sp(m.retPct)}</span>`
       +(m.mktValue!=null
-        ? `<div style="font-size:9px;color:var(--muted);font-weight:600;">${privado()?'':m.shares+' acc · '+fmtBase(m.mktValue,0)+' · '}${peso!=null?'<b>'+peso.toFixed(0)+'%</b>':''}</div>`
-        : `<div style="font-size:9px;color:var(--amber);font-weight:700;">+ nº acciones</div>`);
+        ? `<span class="c-sub2">${privado()?'':m.shares+' acc · '}${peso!=null?'<b>'+peso.toFixed(0)+'%</b>':''}</span>`
+        : `<span class="c-sub2" style="color:var(--amber);">+ nº acc</span>`)
+      +`</div>`;
   }
 }
 
