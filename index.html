@@ -484,6 +484,9 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
 .cart-src.est{background:color-mix(in srgb,var(--amber) 16%,transparent);color:var(--amber);}
 .cart-src.app{background:var(--surface2);color:var(--muted);}
 /* Chips de filtro */
+.sec-fold{display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;user-select:none;flex-wrap:wrap;}
+.sec-fold:hover .dash-sec-title{color:var(--blue);}
+.sec-chev{font-size:9px;color:var(--muted);font-weight:700;}
 .cart-chip{font-size:10px;font-weight:700;padding:4px 11px;border-radius:9px;border:1px solid var(--border);background:var(--surface);color:var(--sub);cursor:pointer;}
 .cart-chip:hover{border-color:var(--blue);color:var(--blue);}
 .cart-chip.on{background:var(--navy);border-color:var(--navy);color:#fff;}
@@ -500,6 +503,9 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
 .pf-val{font-size:19px;font-weight:700;line-height:1.25;margin-top:2px;}
 .pf-sub{font-size:9.5px;color:var(--muted);font-weight:600;}
 .pf-conc{margin-top:11px;padding-top:10px;border-top:1px solid var(--border);}
+.pf-quesos{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;}
+.pf-quesito{min-width:0;}
+.pf-hchip{font-size:9.5px;font-weight:700;color:var(--sub);background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:1px 8px;margin-left:6px;vertical-align:middle;white-space:nowrap;}
 .pf-conc-t{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:5px;}
 .pf-bar{display:flex;height:9px;border-radius:5px;overflow:hidden;background:var(--surface2);}
 .pf-bar>div{height:100%;}
@@ -518,7 +524,7 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
 .today-n{font-size:10.5px;color:var(--sub);font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .today-v{font-size:11px;font-weight:700;}
 .today-empty{font-size:10px;color:var(--muted);padding:5px 0;}
-.cartera-co-name{font-size:11.5px;font-weight:700;color:var(--text);line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:190px;}
+.cartera-co-name{font-size:11.5px;font-weight:700;color:var(--text);line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px;}
 .cartera-ticker{font-size:9.5px;color:var(--muted);font-weight:600;margin-top:0;line-height:1.3;}
 .cartera-sector{font-size:10px;color:var(--sub);}
 .cartera-price{font-size:13px;font-weight:600;color:var(--blue);}
@@ -820,7 +826,7 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
   <div class="card" id="cartera-summary" style="margin-bottom:12px;"></div>
 
   <!-- ── Qué mirar hoy ── -->
-  <div id="cartera-today" class="today-grid"></div>
+  <div id="cartera-today" style="margin-bottom:12px;"></div>
 
   <!-- ── Filtros rápidos de la tabla ── -->
   <div id="cartera-filters" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px;"></div>
@@ -831,9 +837,9 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
         <tr>
           <th style="text-align:left;" data-sort="name" onclick="sortCartera('name')">Empresa <span class="sort-ind"></span></th>
           <th style="text-align:right;" data-sort="price" onclick="sortCartera('price')">Precio <i class="col-i" onclick="event.stopPropagation();showColInfo('cartera','precio',event)" title="¿Qué es? Pulsa para ver">ⓘ</i> <span class="sort-ind"></span><br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">live · hoy</span></th>
-          <th style="text-align:right;" data-sort="retPct" onclick="sortCartera('retPct')">Mi coste <i class="col-i" onclick="event.stopPropagation();showColInfo('cartera','coste',event)" title="¿Qué es? Pulsa para ver">ⓘ</i> <span class="sort-ind"></span><br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">medio · rdto. · peso</span></th>
+          <th style="text-align:right;" data-sort="retPct" onclick="sortCartera('retPct')">Mi coste <i class="col-i" onclick="event.stopPropagation();showColInfo('cartera','coste',event)" title="¿Qué es? Pulsa para ver">ⓘ</i> <span class="sort-ind"></span><br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">rdto. · peso</span></th>
           <th style="text-align:right;" data-sort="weeklyPct" onclick="sortCartera('weeklyPct')">Sem. <i class="col-i" onclick="event.stopPropagation();showColInfo('cartera','sem',event)" title="¿Qué es? Pulsa para ver">ⓘ</i> <span class="sort-ind"></span></th>
-          <th style="text-align:right;background:color-mix(in srgb, var(--amber) 10%, var(--surface));" data-sort="mds" onclick="sortCartera('mds')">Obj. precio <i class="col-i" onclick="event.stopPropagation();showColInfo('cartera','obj',event)" title="¿Qué es? Pulsa para ver">ⓘ</i> <span class="sort-ind"></span><br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">prom. 4 múlt. · MdS · prudente</span></th>
+          <th style="text-align:right;background:color-mix(in srgb, var(--amber) 10%, var(--surface));" data-sort="mds" onclick="sortCartera('mds')">Obj. precio <i class="col-i" onclick="event.stopPropagation();showColInfo('cartera','obj',event)" title="¿Qué es? Pulsa para ver">ⓘ</i> <span class="sort-ind"></span><br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">prom. 4 múlt. · MdS</span></th>
           <th style="text-align:right;" data-sort="mds15" onclick="sortCartera('mds15')">Entrada <i class="col-i" onclick="event.stopPropagation();showColInfo('cartera','entrada',event)" title="¿Qué es? Pulsa para ver">ⓘ</i> <span class="sort-ind"></span><br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">15% anual</span></th>
           <th style="text-align:right;" data-sort="cagr5" onclick="sortCartera('cagr5')">Obj. 5Y <i class="col-i" onclick="event.stopPropagation();showColInfo('cartera','obj5',event)" title="¿Qué es? Pulsa para ver">ⓘ</i> <span class="sort-ind"></span><br><span style="font-size:8px;font-weight:400;text-transform:none;letter-spacing:0;">promedio · ret. anual</span></th>
           <th style="text-align:center;" data-sort="peg" onclick="sortCartera('peg')">PEG <i class="col-i" onclick="event.stopPropagation();showColInfo('cartera','peg',event)" title="¿Qué es? Pulsa para ver">ⓘ</i> <span class="sort-ind"></span></th>
@@ -5433,31 +5439,31 @@ async function fetchWatchPrices(){
 // ── Render dashboard ──
 const DASH_COMPANIES=[
   {key:'CSU', name:'Constellation Software',ticker:'CSU.TO', fhTicker:'CSU.TO',    color:'#1e3a5f',score:77,verdict:'COMPRAR',vc:'#16a34a',
-   earnings:'2026-08-06',elbl:'Q2 2026',
+   earnings:'2026-11-06',elbl:'Q3 2026',
    drive:'https://docs.google.com/spreadsheets/d/1lgpQ7WpOg6ZF4MdqFpLQPVtdGQVg6al9bIlYmQ1NJ8U/edit?usp=drive_web'},
   {key:'ASML',name:'ASML Holding N.V.',     ticker:'ASML',fhTicker:'ASML',   color:'#0066cc',score:28,verdict:'EVITAR', vc:'#dc2626',
-   earnings:'2026-07-16',elbl:'Q2 2026',
+   earnings:'2026-10-15',elbl:'Q3 2026',
    drive:'https://docs.google.com/spreadsheets/d/1TGqeRkGGvfgJeVQ4AOj9ZANQHVfT_Hx9gRbsLed5mfk/edit?usp=drive_web&ouid=108702865563280575992'},
   {key:'AMZN',name:'Amazon.com Inc.',        ticker:'AMZN',fhTicker:'AMZN',   color:'#e47911',score:54,verdict:'MANTENER',vc:'#d97706',
-   earnings:'2026-08-01',elbl:'Q2 2026',
+   earnings:'2026-10-29',elbl:'Q3 2026',
    drive:'https://docs.google.com/spreadsheets/d/1facSdU7BR6Q-WTd6149zFEyrQ8h_Ym16uAiV_3r9gmk/edit?usp=drive_web'},
   {key:'MSFT',name:'Microsoft Corporation',  ticker:'MSFT',fhTicker:'MSFT',   color:'#00a4ef',score:71,verdict:'COMPRAR',vc:'#16a34a',
-   earnings:'2026-07-30',elbl:'Q4 FY26',
+   earnings:'2026-10-28',elbl:'Q1 FY27',
    drive:'https://docs.google.com/spreadsheets/d/14Ae9FhaC0rz1EViqUYHj5sx2bsCCAkY7bftukoU0HL8/edit'},
   {key:'AAPL',name:'Apple Inc.',              ticker:'AAPL',fhTicker:'AAPL',   color:'#555',   score:43,verdict:'EVITAR', vc:'#dc2626',
-   earnings:'2026-07-31',elbl:'Q3 FY26',
+   earnings:'2026-10-30',elbl:'Q4 FY26',
    drive:'https://docs.google.com/spreadsheets/d/1DZjsCNdxIPdPbK44w82MnoSqb2kObNaPBjf-OfMIKJ0/edit?usp=drive_web'},
   {key:'GOOGL',name:'Alphabet Inc.',          ticker:'GOOGL',fhTicker:'GOOGL', color:'#4285f4',score:57,verdict:'MANTENER',vc:'#d97706',
-   earnings:'2026-07-29',elbl:'Q2 2026',
+   earnings:'2026-10-27',elbl:'Q3 2026',
    drive:'https://docs.google.com/spreadsheets/d/1HitKQkGLmmaalHbDLg5e1F-IYb57co4o/edit?usp=drive_web'},
   {key:'META',name:'Meta Platforms Inc.',     ticker:'META',fhTicker:'META',   color:'#1877f2',score:16,verdict:'EVITAR', vc:'#dc2626',
-   earnings:'2026-07-30',elbl:'Q2 2026',
+   earnings:'2026-10-28',elbl:'Q3 2026',
    drive:'https://docs.google.com/spreadsheets/d/1v-6hPrH9_CjzeU4IzsaZWWjjFpIcoiKJ/edit?usp=drive_web&ouid=108702865563280575992&rtpof=true'},
   {key:'NVDA',name:'NVIDIA Corporation',      ticker:'NVDA',fhTicker:'NVDA',   color:'#76b900',score:46,verdict:'EVITAR', vc:'#dc2626',
    earnings:'2026-08-27',elbl:'Q2 FY27',
    drive:'https://docs.google.com/spreadsheets/d/1gFLvI4ThZ1brcPXU5NbAjPTSo1P0pWAavJz58cHLlE0/edit?usp=drive_web'},
   {key:'WDC', name:'Western Digital Corp.',   ticker:'WDC', fhTicker:'WDC',   color:'#005594',score:22,verdict:'EVITAR', vc:'#dc2626',
-   earnings:'2026-04-30',elbl:'Q3 FY26',
+   earnings:'2026-10-29',elbl:'Q1 FY27',
    drive:'https://docs.google.com/spreadsheets/d/14f2Eq80UMkHYxPoTEQRDOPp85dSMz3tP7QXbKtmAxBk/edit?usp=drive_web'},
 ];
 
@@ -5564,18 +5570,38 @@ function logoFallback(key){
 const LOGOS_DASH=new Proxy({},{get:(_,k)=>typeof k==='string'?logoUrlFor(k):undefined}); // compat: LOGOS_DASH[key] sigue funcionando
 
 const MACRO_CAL=[
-  {date:'2026-05-21',title:'Actas FOMC',sub:'Publicación actas reunión 6-7 mayo',c:'#1e3a5f'},
-  {date:'2026-06-06',title:'NFP Mayo',sub:'Empleos no agrícolas — clave para Fed',c:'#d97706'},
-  {date:'2026-06-11',title:'IPC Mayo EE.UU.',sub:'Dato inflación mensual',c:'#dc2626'},
-  {date:'2026-06-18',title:'Decisión Fed (FOMC)',sub:'¿Bajada en junio?',c:'#1e3a5f'},
-  {date:'2026-07-02',title:'NFP Junio',sub:'Dato empleo mensual',c:'#d97706'},
-  {date:'2026-07-15',title:'IPC Junio EE.UU.',sub:'Dato inflación',c:'#dc2626'},
-  {date:'2026-07-29',title:'PIB EE.UU. Q2',sub:'1ª estimación trimestral',c:'#7c3aed'},
-  {date:'2026-07-30',title:'Decisión Fed (FOMC)',sub:'Reunión julio',c:'#1e3a5f'},
-  {date:'2026-09-17',title:'Decisión Fed (FOMC)',sub:'Reunión septiembre',c:'#1e3a5f'},
-  {date:'2026-11-05',title:'Decisión Fed (FOMC)',sub:'Reunión noviembre',c:'#1e3a5f'},
-  {date:'2026-12-16',title:'Decisión Fed (FOMC)',sub:'Reunión diciembre',c:'#1e3a5f'},
+  {date:'2026-08-28',title:'PCE Julio EE.UU.',sub:'Inflación preferida de la Fed',c:'#dc2626'},
+  {date:'2026-09-04',title:'NFP Agosto',sub:'Empleos no agrícolas — clave para la Fed',c:'#d97706'},
+  {date:'2026-09-10',title:'Decisión BCE',sub:'Tipos de la zona euro (Berlín)',c:'#0891b2'},
+  {date:'2026-09-11',title:'IPC Agosto EE.UU.',sub:'Dato de inflación mensual',c:'#dc2626'},
+  {date:'2026-09-16',title:'Decisión Fed (FOMC)',sub:'Reunión sept. 15-16 + proyecciones',c:'#1e3a5f'},
+  {date:'2026-10-02',title:'NFP Septiembre',sub:'Dato de empleo mensual',c:'#d97706'},
+  {date:'2026-10-15',title:'IPC Septiembre EE.UU.',sub:'Dato de inflación',c:'#dc2626'},
+  {date:'2026-10-28',title:'Decisión Fed (FOMC)',sub:'Reunión oct. 27-28',c:'#1e3a5f'},
+  {date:'2026-10-29',title:'Decisión BCE',sub:'Tipos de la zona euro (Frankfurt)',c:'#0891b2'},
+  {date:'2026-12-09',title:'Decisión Fed (FOMC)',sub:'Reunión dic. 8-9',c:'#1e3a5f'},
 ];
+
+let _allEarnFetched=false;
+async function fetchAllEarnings(){
+  if(_allEarnFetched) return;
+  const key=(typeof getFinnhubKey==='function')?getFinnhubKey():null; if(!key) return;
+  _allEarnFetched=true;
+  const from=new Date().toISOString().slice(0,10);
+  const to=new Date(Date.now()+120*864e5).toISOString().slice(0,10);
+  let changed=false;
+  await Promise.all(DASH_COMPANIES.map(async co=>{
+    const sym=co.fhTicker||co.ticker;
+    try{
+      const r=await fetch(`https://finnhub.io/api/v1/calendar/earnings?from=${from}&to=${to}&symbol=${encodeURIComponent(sym)}&token=${key}`,{signal:AbortSignal.timeout(8000)});
+      if(!r.ok) return;
+      const j=await r.json();
+      const next=((j&&j.earningsCalendar)||[]).map(e=>e&&e.date).filter(Boolean).sort()[0];
+      if(next && next!==co.earnings){ co.earnings=next; changed=true; }
+    }catch(e){}
+  }));
+  if(changed) renderDashboard();   // el guard evita recursión
+}
 
 function renderDashboard(){
   // Tabla empresas
@@ -5661,7 +5687,7 @@ function renderDashboard(){
       const d=new Date(e.date);
       const diff=Math.ceil((d-now)/(86400000));
       const urg=diff<=7?'background:#fef2f2;color:#dc2626;':diff<=30?'background:#fffbeb;color:#d97706;':'background:#f5f4f1;color:var(--muted);';
-      const icons={'#1e3a5f':'🏦','#dc2626':'📈','#d97706':'👷','#7c3aed':'📋'};
+      const icons={'#1e3a5f':'🏦','#0891b2':'🏛️','#dc2626':'📈','#d97706':'👷','#7c3aed':'📋'};
       return`<div class="ev-item">
         <div class="ev-datebox"><div class="ev-day">${d.getDate()}</div><div class="ev-mon">${d.toLocaleString('es-ES',{month:'short'})}</div></div>
         <div style="flex:1;">
@@ -5673,6 +5699,7 @@ function renderDashboard(){
     }).join('');
   }
   renderStyleCompare();   // comparador Growth vs Value de la cartera
+  fetchAllEarnings();     // afina las fechas de resultados con datos reales (Finnhub)
 }
 
 
@@ -6511,6 +6538,15 @@ function toggleGvCompare(){
 }
 
 // ── Render portfolio table (compacta y visual) ──
+// ── Plegado genérico de secciones del dashboard (resumen, «qué mirar hoy»…) ──
+function _secOpen(id){ try{return localStorage.getItem('vi_sec_'+id)!=='0';}catch(e){return true;} }
+function toggleSec(id){
+  const open=!_secOpen(id);
+  try{localStorage.setItem('vi_sec_'+id,open?'1':'0');}catch(e){}
+  const body=document.getElementById('body-'+id), chev=document.getElementById('chev-'+id);
+  if(body){ body.style.display=open?(body.classList.contains('today-grid')?'grid':'block'):'none'; body.style.marginTop=open?'10px':'0'; }
+  if(chev) chev.textContent=open?'▲ ocultar':'▼ mostrar';
+}
 // ── Plegado de las dos listas de la cartera (invertidas / en seguimiento) ──
 function carteraGrupoAbierto(gid){
   try{return localStorage.getItem('vi_cart_grp_'+gid)!=='0';}catch(e){return true;}
@@ -6558,6 +6594,18 @@ function verdictFor(key,px){
     return calcVerdict();
   }catch(e){ return null; }
   finally{ co=_co; price=_px; tEVF=_evf; tPER=_per; tEVE=_eve; tEVEI=_evei; _projSource=_ps; _isEdited=_ed; }
+}
+
+// Nombre de empresa reducido a lo esencial: sin sufijos corporativos, acrónimos largos
+// en mayúsculas pasan a Capitalizado (NVIDIA→Nvidia) y los cortos se conservan (ASML, AMD).
+function shortCoName(name){
+  if(!name) return '';
+  let s=String(name).trim();
+  s=s.replace(/\.com\b/gi,'');
+  s=s.replace(/\b(the|inc|incorporated|corp|corporation|company|co|holdings?|group|plc|ag|n\.?v|s\.?a|s\.?p\.?a|ltd|limited|llc|technologies|international|platforms)\b\.?/gi,' ');
+  s=s.replace(/[.,]/g,' ').replace(/\s+/g,' ').trim();
+  s=s.split(' ').map(w=>(/^[A-ZÁÉÍÓÚÑ]{5,}$/.test(w))?(w[0]+w.slice(1).toLowerCase()):w).join(' ');
+  return s||String(name).trim();
 }
 
 function renderCartera(){
@@ -6630,11 +6678,10 @@ function renderCartera(){
         const peso=(m.mktValue!=null&&totalMkt>0)?(m.mktValue/totalMkt*100):null;
         // En modo privado se ocultan coste, acciones y valor; la rentabilidad y el peso se quedan
         return `<div style="font-size:12px;font-weight:700;color:var(--text);">${mny(fmt(m.buyPrice,k))}</div>`
-          +`<div><span class="c-sub" style="color:${rc};">${sp(m.retPct)}</span>`
-          +(m.mktValue!=null
-             ? `<span class="c-sub2" title="${privado()?'Peso':(m.shares+' acciones · valor '+fmtBase(m.mktValue)+' · '+peso.toFixed(1)+'%')} de tu cartera">${privado()?'':m.shares+' acc · '}<b>${peso.toFixed(0)}%</b></span>`
-             : `<span class="c-sub2" style="color:var(--amber);" title="Sin nº de acciones no se puede calcular el peso de la posición">+ nº acc</span>`)
-          +`</div>`;
+          +`<div class="c-sub" style="color:${rc};">${sp(m.retPct)}</div>`
+          +(peso!=null
+             ? `<div class="c-sub2" title="${privado()?'Peso':(m.shares+' acciones · valor '+fmtBase(m.mktValue))} de tu cartera">${peso.toFixed(0)}% cartera</div>`
+             : (m.buyPrice&&!m.shares?`<div class="c-sub2" style="color:var(--amber);" title="Añade el nº de acciones para ver el peso de la posición">+ nº acc</div>`:''));
       }
       return `<span style="font-size:10px;color:#2563eb;font-weight:700;border:1px dashed #2563eb66;border-radius:8px;padding:2px 7px;white-space:nowrap;">+ coste</span>`;
     })();
@@ -6649,7 +6696,7 @@ function renderCartera(){
       ${logoUrl?`<img src="${logoUrl}" class="cartera-logo" loading="lazy" onerror="this.onerror=null;if(!this.dataset.fb){this.dataset.fb=1;this.src='${logoFallback(k)}';}else{this.style.display='none';this.nextElementSibling.style.display='flex';}"/>`:''}
       <div class="cartera-logo-fallback" style="background:${co.color};display:none;">${k.substring(0,2)}</div>
       <div>
-        <div class="cartera-co-name">${co.name}</div>
+        <div class="cartera-co-name" title="${co.name}">${shortCoName(co.name)}</div>
         <div class="cartera-ticker">${co.ticker}
           <span class="cart-cur${m.curDet?'':' guess'}" onclick="event.stopPropagation();promptListing('${k}')"
                 title="Precio y divisa tomados de ${m.yfSym}${m.curDet?' (divisa confirmada por la fuente)':' (divisa deducida del ticker, aún sin confirmar)'} · pulsa para cambiar de bolsa">${m.cur}${m.curDet?'':'?'}</span>
@@ -6669,7 +6716,7 @@ function renderCartera(){
   </td>
   <td style="text-align:right;background:color-mix(in srgb, var(--amber) 10%, var(--surface));">
     <div id="cobjevf-${k}" style="font-size:13px;font-weight:600;color:var(--text);">${fmt(m.objEVF,k)}</div>
-    <div><span class="c-sub" id="cmds-${k}" style="color:${mdsCol(m.mds)};">${m.mds!=null?sp(m.mds,0)+' MdS':'—'}</span><span class="c-sub2" id="cprud-${k}" title="Escenario prudente: mismo objetivo con múltiplos un 20% más bajos">prud. ${m.mdsCons!=null?sp(m.mdsCons,0):'—'}</span></div>
+    <div class="c-sub" id="cmds-${k}" style="color:${mdsCol(m.mds)};">${m.mds!=null?sp(m.mds,0)+' MdS':'—'}</div>
   </td>
   <td style="text-align:right;">
     <div id="c15-${k}" style="font-size:12px;font-weight:700;color:${inZone?'#16a34a':'var(--text)'};">${fmt(m.price15,k)}</div>
@@ -6677,7 +6724,7 @@ function renderCartera(){
   </td>
   <td style="text-align:right;">
     <div id="cobj5-${k}" style="font-size:12.5px;font-weight:700;color:var(--navy);">${fmt(m.obj5,k)}</div>
-    <div><span class="c-sub" id="cret-${k}" style="color:${retCol(m.cagr5)};">${m.cagr5!=null?sp(m.cagr5,0)+'/año':''}</span><span class="c-sub2" id="cprud5-${k}" title="Escenario prudente: múltiplos un 20% más bajos">prud. ${m.cagr5Cons!=null?sp(m.cagr5Cons,0)+'/año':'—'}</span></div>
+    <div class="c-sub" id="cret-${k}" style="color:${retCol(m.cagr5)};">${m.cagr5!=null?sp(m.cagr5,0)+'/año':''}</div>
   </td>
   <td style="text-align:center;" id="cpeg-${k}">${pegBar(m.peg,m.per,m.g)}</td>
   <td style="text-align:center;">${m.verdict
@@ -6781,11 +6828,17 @@ function _paintFilterChips(FILTERS,hidden){
 // RESUMEN DE CARTERA — las cifras que un inversor mira antes que nada
 // ══════════════════════════════════════════════════════════════════
 // Sector amplio a partir del texto libre de `sector` (para medir concentración)
+// Buckets concretos (no genéricos): semiconductores, memoria, datacenters, software…
+// El orden importa: gana la primera regla que casa.
 const _SECTOR_RULES=[
-  [/semicond|chip|gpu|litograf|euv|foundry|wafer/i,'Semiconductores'],
-  [/software|cloud|saas|vms|internet|search|social|platform|ia\b|inteligencia/i,'Software / Internet'],
-  [/hardware|storage|hdd|device|consumer tech|electr/i,'Hardware / Electrónica'],
-  [/ecommerce|retail|consumo|consumer|food|beverage|bebida|lujo|luxury|apparel/i,'Consumo'],
+  [/memoria|hdd|ssd|nand|dram|flash|disco|almacenamiento|storage/i,'Memoria / Almacenamiento'],
+  [/semicond|litograf|euv|foundry|wafer|\bgpu\b|\bchip|procesador|fundici/i,'Semiconductores'],
+  [/datacenter|data center|centro de datos|hyperscal|infraestructura de nube/i,'Datacenters'],
+  [/software|saas|\bvms\b|\berp\b|aplicaciones|ofim/i,'Software'],
+  [/nube|cloud|\baws\b|\bazure\b/i,'Nube'],
+  [/publicidad|\bads\b|advertising|buscador|search|social|red social/i,'Publicidad / Internet'],
+  [/ecommerce|e-commerce|comercio electr|retail|minorista|marketplace/i,'E-commerce'],
+  [/hardware|dispositiv|iphone|smartphone|wearable|electrón|consumer tech|consumo tecnol/i,'Hardware / Consumo'],
   [/salud|health|pharma|farma|biotech|medical|medic/i,'Salud'],
   [/banco|bank|financ|seguro|insur|asset manage|payment|pago/i,'Financiero'],
   [/energ|oil|gas|petról|petrol|renovable|solar/i,'Energía'],
@@ -6794,10 +6847,26 @@ const _SECTOR_RULES=[
   [/inmobil|reit|real estate/i,'Inmobiliario'],
   [/utilit|agua|eléctric|electric/i,'Utilities'],
 ];
+// Sector definido para las empresas de fábrica (evita etiquetas genéricas)
+const _SECTOR_OVR={MSFT:'Software',ASML:'Semiconductores',AMZN:'E-commerce',CSU:'Software',
+  AAPL:'Hardware / Consumo',GOOGL:'Publicidad / Internet',META:'Publicidad / Internet',
+  NVDA:'Semiconductores',WDC:'Memoria / Almacenamiento'};
 function sectorBucket(key){
+  if(_SECTOR_OVR[key]) return _SECTOR_OVR[key];
   const t=String(sectorOf(key)||(getImportedData(key)||{}).sector||'');
   for(const [re,name] of _SECTOR_RULES) if(re.test(t)) return name;
   return t?'Otros':'Sin clasificar';
+}
+// Queso (donut) en SVG: segmentos [{label,pct,color}] — sin dependencias ni ciclo de vida
+function _donutSVG(segs,size){
+  const r=size/2-7, cx=size/2, cy=size/2, C=2*Math.PI*r; let off=0;
+  const arcs=segs.filter(s=>s.pct>0.05).map(s=>{
+    const len=C*s.pct/100;
+    const el=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${s.color}" stroke-width="12" stroke-dasharray="${len.toFixed(2)} ${(C-len).toFixed(2)}" stroke-dashoffset="${(-off).toFixed(2)}" transform="rotate(-90 ${cx} ${cy})"><title>${s.label}: ${s.pct.toFixed(1)}%</title></circle>`;
+    off+=len; return el;
+  }).join('');
+  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" style="flex-shrink:0;">`
+    +`<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--surface2)" stroke-width="12"/>${arcs}</svg>`;
 }
 
 // Rentabilidad del S&P 500 desde cada fecha de compra (para saber si bates al índice)
@@ -6920,18 +6989,30 @@ function renderPortfolioSummary(){
   if(st.sinAcciones>0) avisos.push(`${st.sinAcciones} posición(es) sin nº de acciones: no cuentan en los totales`);
   if(st.sinCambio.length) avisos.push(`sin tipo de cambio ${[...new Set(st.sinCambio)].join('/')}→${bc}: esas posiciones quedan fuera de los totales`);
   if(fxStale()) avisos.push(`el tipo de cambio no es de hoy (último disponible: ${new Date(_fxTs).toLocaleDateString('es-ES')})`);
+  const accSegs=st.top.map(t=>({label:t.key,pct:t.pct,color:t.color}));
+  const secSegs=st.sectors.map((sc,i)=>({label:sc.n,pct:sc.pct,color:PAL[i%PAL.length]}));
+  const quesito=(titulo,segs,keyed)=>`<div class="pf-quesito">
+      <div class="pf-conc-t">${titulo}</div>
+      <div style="display:flex;align-items:center;gap:12px;">
+        ${_donutSVG(segs,108)}
+        <div class="pf-leg" style="flex:1;">${segs.filter(s=>s.pct>0.05).map(s=>`<span><i style="background:${s.color};"></i>${s.label} <b>${s.pct.toFixed(0)}%</b></span>`).join('')}</div>
+      </div>
+    </div>`;
   const conc=st.totalMkt>0?`
-    <div class="pf-conc">
-      <div class="pf-conc-t">Concentración por sector</div>
-      <div class="pf-bar">${st.sectors.map((s,i)=>`<div style="width:${s.pct}%;background:${PAL[i%PAL.length]};" title="${s.n}: ${s.pct.toFixed(1)}%"></div>`).join('')}</div>
-      <div class="pf-leg">${st.sectors.map((s,i)=>`<span><i style="background:${PAL[i%PAL.length]};"></i>${s.n} ${s.pct.toFixed(0)}%</span>`).join('')}</div>
-      <div class="pf-conc-t" style="margin-top:9px;">Mayores posiciones</div>
-      <div class="pf-leg">${st.top.slice(0,5).map(t=>`<span><i style="background:${t.color};"></i>${t.key} ${t.pct.toFixed(0)}%</span>`).join('')}</div>
+    <div class="pf-conc pf-quesos">
+      ${quesito('Concentración por acción',accSegs)}
+      ${quesito('Concentración por sector',secSegs)}
     </div>`:'';
   const avisoHtml=avisos.length?`<div class="pf-warn">⚠ ${avisos.join(' · ')}</div>`:'';
 
+  const open=_secOpen('resumen');
+  const resumenChip=sinPos?'':(privado()?`<span class="pf-hchip">${st.inv.length} posic.</span>`
+        :(st.totalMkt>0?`<span class="pf-hchip">${fmtBase(st.totalMkt,0)} · <b style="color:${st.pnl>=0?'var(--green)':'var(--red)'};">${pct(st.pnlPct)}</b></span>`:''));
   el.innerHTML=`<div class="pf-head">
-      <div class="dash-sec-title" style="margin:0;">Resumen de mi cartera</div>
+      <div class="sec-fold" style="flex:1;" onclick="toggleSec('resumen')">
+        <div class="dash-sec-title" style="margin:0;">Resumen de mi cartera ${resumenChip}</div>
+        <span class="sec-chev" id="chev-resumen">${open?'▲ ocultar':'▼ mostrar'}</span>
+      </div>
       <div style="display:flex;align-items:center;gap:6px;">
         <span style="font-size:9.5px;color:var(--muted);font-weight:600;">Divisa base</span>
         <select class="pf-cur" onchange="setBaseCur(this.value)">
@@ -6939,8 +7020,10 @@ function renderPortfolioSummary(){
         </select>
       </div>
     </div>
-    <div class="pf-tiles">${tiles}</div>
-    ${conc}${avisoHtml}`;
+    <div id="body-resumen" style="display:${open?'block':'none'};margin-top:${open?'10px':'0'};">
+      <div class="pf-tiles">${tiles}</div>
+      ${conc}${avisoHtml}
+    </div>`;
   renderTodayPanel(rows);
 }
 
@@ -6953,7 +7036,7 @@ function renderTodayPanel(rows){
   const caidas=rows.filter(r=>r.m.weeklyPct!=null&&r.m.weeklyPct<=-7).sort((a,b)=>a.m.weeklyPct-b.m.weeklyPct);
   const item=(r,txt,c)=>`<a class="today-item" onclick="setView('analysis');setTimeout(()=>{if(DB['${r.co.key}'])switchCo('${r.co.key}');},80);">
       <span class="today-k" style="color:${r.co.color};">${r.co.key}</span>
-      <span class="today-n">${r.co.name}</span>
+      <span class="today-n" title="${r.co.name}">${shortCoName(r.co.name)}</span>
       <span class="today-v" style="color:${c};">${txt}</span></a>`;
   const listas=[
     {t:'En zona de compra',s:'precio ≤ tu entrada para +15% anual',c:'var(--green)',
@@ -6966,10 +7049,19 @@ function renderTodayPanel(rows){
      items:caidas.map(r=>item(r,r.m.weeklyPct.toFixed(1)+'%','var(--red)')),
      vacio:'Sin caídas fuertes esta semana.'},
   ];
-  el.innerHTML=listas.map(l=>`<div class="today-col">
-      <div class="today-t" style="border-color:${l.c};">${l.t}<span>${l.s}</span></div>
+  const open=_secOpen('today');
+  const totalItems=zona.length+caras.length+caidas.length;
+  const grid=listas.map(l=>`<div class="today-col">
+      <div class="today-t" style="border-color:${l.c};">${l.t} <span style="font-weight:700;color:var(--muted);">${l.items.length}</span><span>${l.s}</span></div>
       ${l.items.length?l.items.join(''):`<div class="today-empty">${l.vacio}</div>`}
     </div>`).join('');
+  el.innerHTML=`<div class="card" style="padding:10px 14px;">
+    <div class="sec-fold" onclick="toggleSec('today')">
+      <div class="dash-sec-title" style="margin:0;">Qué mirar hoy <span style="font-weight:600;color:var(--muted);font-size:10px;">${totalItems} señal${totalItems===1?'':'es'}</span></div>
+      <span class="sec-chev" id="chev-today">${open?'▲ ocultar':'▼ mostrar'}</span>
+    </div>
+    <div class="today-grid" id="body-today" style="display:${open?'grid':'none'};margin-top:${open?'10px':'0'};">${grid}</div>
+  </div>`;
 }
 
 // ── Multiple sliders ──
@@ -7176,18 +7268,15 @@ function updateCarteraRow(key){
   if(p('cobj5-'+key)) p('cobj5-'+key).textContent=fmt(m.obj5);
   if(p('cret-'+key)){p('cret-'+key).textContent=m.cagr5!=null?sp(m.cagr5,0)+'/año':'';p('cret-'+key).style.color=retCol(m.cagr5);}
   if(p('cpeg-'+key)) p('cpeg-'+key).innerHTML=pegBar(m.peg,m.per,m.g);
-  if(p('cprud-'+key)) p('cprud-'+key).textContent='prud. '+(m.mdsCons!=null?sp(m.mdsCons,0):'—');
-  if(p('cprud5-'+key)) p('cprud5-'+key).textContent='prud. '+(m.cagr5Cons!=null?sp(m.cagr5Cons,0)+'/año':'—');
   // Mi coste: el rendimiento y el peso dependen del precio, así que también se refrescan
   if(p('cpos-'+key)&&m.buyPrice){
     const rc=m.retPct==null?'#9a958e':m.retPct>=0?'#16a34a':'#dc2626';
     const peso=(m.mktValue!=null&&_cartTotal>0)?(m.mktValue/_cartTotal*100):null;
     p('cpos-'+key).innerHTML=`<div style="font-size:12px;font-weight:700;color:var(--text);">${mny(fmt(m.buyPrice))}</div>`
-      +`<div><span class="c-sub" style="color:${rc};">${sp(m.retPct)}</span>`
-      +(m.mktValue!=null
-        ? `<span class="c-sub2">${privado()?'':m.shares+' acc · '}${peso!=null?'<b>'+peso.toFixed(0)+'%</b>':''}</span>`
-        : `<span class="c-sub2" style="color:var(--amber);">+ nº acc</span>`)
-      +`</div>`;
+      +`<div class="c-sub" style="color:${rc};">${sp(m.retPct)}</div>`
+      +(peso!=null
+        ? `<div class="c-sub2">${peso.toFixed(0)}% cartera</div>`
+        : (m.buyPrice&&!m.shares?`<div class="c-sub2" style="color:var(--amber);">+ nº acc</div>`:''));
   }
 }
 
