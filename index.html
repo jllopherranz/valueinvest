@@ -824,6 +824,7 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
       <button class="co-btn" onclick="openImportModal(null)"><span id="aic-imp"></span>Importar Excel</button>
       <button id="btn-refresh-imports" class="co-btn" onclick="refreshAllImports()"><span id="aic-sync"></span>Sincronizar con hojas<span id="sync-check" style="display:inline-flex;align-items:center;margin-left:2px;"></span></button>
       <button id="btn-autosync" class="cart-chip" onclick="toggleAutoSync()">⏱ Auto: no</button>
+      <select id="autosync-hour" class="pf-cur" style="display:none;" onchange="setAutoSyncHour(this.value)" title="Hora a la que se sincroniza sola cada día"></select>
       <button id="btn-restore-hidden" class="co-btn" style="display:none;" onclick="restoreHidden()"><span id="aic-restore"></span>Restaurar ocultas</button>
       <button class="co-btn" onclick="openBackupModal()" title="Copia tus empresas y precios de compra a otro dispositivo (móvil). Tus datos se guardan solo en este navegador."><span id="aic-backup"></span>Copia / Pasar al móvil</button>
       <span id="dash-prices-ts" style="font-size:9px;color:var(--muted);">—</span>
@@ -7846,29 +7847,74 @@ function importDiff(prev,next){
 // Sincroniza TODAS las empresas con enlace de hoja (importadas o de fábrica): re-descarga, re-parsea
 // y actualiza TODOS los datos — históricos, proyecciones, estimaciones, medianas y múltiplos objetivo.
 const SYNC_CONC=4;                 // descargas simultáneas
-const AUTOSYNC_DAYS=7;             // antigüedad a partir de la cual se resincroniza sola
+// ── Cita diaria de sincronización (por defecto, 8:00) ──────────────────────
+// La app es 100% de navegador (no hay servidor), así que no existe un cron real:
+// la cita se cumple (a) con un latido mientras la pestaña esté abierta y
+// (b) recuperándola en cuanto abras la app si la hora ya había pasado.
+const AUTOSYNC_HOUR_DEF=8;
 function autoSyncOn(){ try{return localStorage.getItem('vi_autosync')==='1';}catch(e){return false;} }
 function lastSyncTs(){ try{return +localStorage.getItem('vi_lastsync')||0;}catch(e){return 0;} }
+function autoSyncHour(){
+  const h=parseInt((()=>{try{return localStorage.getItem('vi_autosync_hour');}catch(e){return null;}})(),10);
+  return (h>=0&&h<=23)?h:AUTOSYNC_HOUR_DEF;
+}
+function setAutoSyncHour(h){
+  try{localStorage.setItem('vi_autosync_hour',String(parseInt(h,10)||0));}catch(e){}
+  paintAutoSyncBtn(); maybeAutoSync();
+}
 function toggleAutoSync(){
   const on=!autoSyncOn();
   try{localStorage.setItem('vi_autosync',on?'1':'0');}catch(e){}
   paintAutoSyncBtn();
   if(on) maybeAutoSync();
 }
+const _hhmm=h=>String(h).padStart(2,'0')+':00';
 function paintAutoSyncBtn(){
-  const b=document.getElementById('btn-autosync'); if(!b) return;
-  const on=autoSyncOn(), ts=lastSyncTs();
+  const b=document.getElementById('btn-autosync');
+  const sel=document.getElementById('autosync-hour');
+  const on=autoSyncOn(), ts=lastSyncTs(), h=autoSyncHour();
+  if(sel){
+    sel.style.display=on?'inline-block':'none';
+    if(!sel.options.length) sel.innerHTML=Array.from({length:24},(_,i)=>'<option value="'+i+'">'+_hhmm(i)+'</option>').join('');
+    sel.value=String(h);
+  }
+  if(!b) return;
   b.classList.toggle('on',on);
-  b.textContent=on?'⏱ Auto: sí':'⏱ Auto: no';
-  b.title=(on?'Se resincroniza sola en segundo plano si la última vez fue hace más de '+AUTOSYNC_DAYS+' días.'
-             :'Desactivada: solo se sincroniza cuando pulsas «Sincronizar con hojas».')
+  b.textContent=on?('⏱ Auto '+_hhmm(h)):'⏱ Auto: no';
+  b.title=(on
+      ? 'Cada día a las '+_hhmm(h)+' se resincroniza sola con tus hojas.\nSi a esa hora la app estaba cerrada, lo hace en cuanto la abras.'
+      : 'Desactivada: solo se sincroniza cuando pulsas «Sincronizar con hojas».')
     +(ts?'\nÚltima sincronización: '+new Date(ts).toLocaleString('es-ES'):'\nAún sin sincronizar.');
 }
-// Resincroniza sola, en segundo plano y sin interrumpir, si toca.
+// La cita de HOY (p. ej. hoy a las 8:00, en hora local del dispositivo)
+function _citaHoy(){ const d=new Date(); d.setHours(autoSyncHour(),0,0,0); return d.getTime(); }
+// ¿Toca? Solo si la cita de hoy ya pasó y no se ha sincronizado desde entonces.
+function autoSyncDue(){
+  if(!autoSyncOn()) return false;
+  const cita=_citaHoy();
+  return Date.now()>=cita && lastSyncTs()<cita;
+}
+// Si hay varias pestañas abiertas, que no sincronicen todas a la vez.
+function _claimAutoSync(){
+  try{
+    const prev=+localStorage.getItem('vi_syncclaim')||0;
+    if(Date.now()-prev<120000) return false;         // otra pestaña acaba de empezar
+    localStorage.setItem('vi_syncclaim',String(Date.now()));
+  }catch(e){}
+  return true;
+}
+let _autoSyncBeat=null;
 function maybeAutoSync(){
-  if(!autoSyncOn()) return;
-  if(Date.now()-lastSyncTs() < AUTOSYNC_DAYS*864e5) return;
-  setTimeout(()=>refreshAllImports(true),3000);   // deja cargar precios primero
+  paintAutoSyncBtn();
+  if(!_autoSyncBeat){
+    // Un latido por minuto: cubre la pestaña abierta toda la noche. Es barato y,
+    // si el equipo ha estado suspendido, al reanudar comprueba la hora igualmente.
+    _autoSyncBeat=setInterval(()=>{ if(autoSyncDue()&&_claimAutoSync()) refreshAllImports(true); },60000);
+    document.addEventListener('visibilitychange',()=>{
+      if(!document.hidden&&autoSyncDue()&&_claimAutoSync()) refreshAllImports(true);
+    });
+  }
+  if(autoSyncDue()&&_claimAutoSync()) setTimeout(()=>refreshAllImports(true),3000);  // deja cargar precios primero
 }
 
 function _syncReport(html){
