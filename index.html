@@ -2800,6 +2800,96 @@ function shareholderYield(c,px){
           recompra:+buyback.toFixed(2), total:+total.toFixed(2)};
 }
 
+// ══ CONTRASTE CON EL CONSENSO DE ANALISTAS ════════════════════════════
+// TU HOJA NO SE TOCA. La app solo la lee: compara tus proyecciones con el
+// consenso y señala dónde discrepan, para que lo tengas en cuenta al decidir.
+// Ninguna cifra tuya se sustituye ni se corrige.
+const CONS_UMBRAL=10;      // a partir de aquí la diferencia se considera relevante
+async function consensusDiff(key){
+  key=key||coKeyOf(co);
+  const c=DB[key]; if(!c) return {ok:false,motivo:'sin empresa'};
+  if(c.estimated) return {ok:false,motivo:'esta empresa aún no tiene tu Excel importado'};
+  let w=null; try{ w=await ensureWebProj(key); }catch(e){}
+  if(!w||!w.rows||!w.rows.length) return {ok:false,motivo:(w&&w.error)||'no hay consenso disponible para este valor'};
+  if(w.src!=='fmp') return {ok:false,motivo:'no hay consenso de analistas (FMP) para este valor; lo que hay es un modelo automático, no opinión de analistas'};
+  const porAnio={}; w.rows.forEach(r=>{porAnio[r.yr]=r;});
+  const campos=[
+    {k:'ventas', lbl:'Ventas',  mio:i=>_serie([c.pS?.[i]])[0],   suyo:r=>r.s,   dec:0},
+    {k:'ebitda', lbl:'EBITDA',  mio:i=>_serie([c.pEB?.[i]])[0],  suyo:r=>r.eb,  dec:0},
+    {k:'eps',    lbl:'BPA',     mio:i=>_serie([c.pEPS?.[i]])[0], suyo:r=>r.eps, dec:2},
+  ];
+  const filas=[];
+  (c.pY||[]).forEach((yr,i)=>{
+    const r=porAnio[yr]; if(!r) return;
+    campos.forEach(f=>{
+      const mio=f.mio(i), suyo=f.suyo(r);
+      if(mio==null||suyo==null||!isFinite(mio)||!isFinite(suyo)||Math.abs(suyo)<1e-9) return;
+      const dif=(mio-suyo)/Math.abs(suyo)*100;
+      filas.push({yr, campo:f.lbl, k:f.k, mio, suyo, dif:+dif.toFixed(0), dec:f.dec,
+                  relevante:Math.abs(dif)>=CONS_UMBRAL});
+    });
+  });
+  if(!filas.length) return {ok:false,motivo:'los años de tu hoja y los del consenso no coinciden'};
+  // Sesgo medio por concepto: ¿vas sistemáticamente por encima o por debajo?
+  const sesgo={};
+  ['ventas','ebitda','eps'].forEach(k=>{
+    const v=filas.filter(f=>f.k===k);
+    if(v.length) sesgo[k]=+(v.reduce((a,f)=>a+f.dif,0)/v.length).toFixed(0);
+  });
+  const rel=filas.filter(f=>f.relevante);
+  const medio=filas.length?+(filas.reduce((a,f)=>a+f.dif,0)/filas.length).toFixed(0):0;
+  return {ok:true, filas, rel, sesgo, medio, nA:w.nA||null, años:(c.pY||[]).filter(y=>porAnio[y]),
+    veredicto: rel.length===0 ? 'Tus proyecciones van en línea con el consenso'
+      : medio>=CONS_UMBRAL  ? 'Tu hoja es más optimista que el consenso'
+      : medio<=-CONS_UMBRAL ? 'Tu hoja es más prudente que el consenso'
+      : 'Coincides en el conjunto, pero hay años sueltos que se separan'};
+}
+// Pinta el contraste en un contenedor (asíncrono: el consenso viene de la red)
+function renderConsensusDiff(){
+  const el=document.getElementById('cons-diff'); if(!el) return;
+  const key=coKeyOf(co);
+  el.innerHTML='<div class="card" style="margin-bottom:12px;"><div class="ctitle">Contraste con el consenso de analistas</div><div style="font-size:11.5px;color:var(--muted);">Consultando…</div></div>';
+  consensusDiff(key).then(d=>{
+    if(coKeyOf(co)!==key) return;                     // cambiaste de empresa mientras tanto
+    const el2=document.getElementById('cons-diff'); if(!el2) return;
+    if(!d.ok){
+      el2.innerHTML=`<div class="card" style="margin-bottom:12px;">
+        <div class="ctitle">Contraste con el consenso de analistas</div>
+        <div style="font-size:11.5px;color:var(--sub);line-height:1.55;">No se puede contrastar: ${d.motivo}.${/FMP|consenso/i.test(d.motivo)?' El consenso viene de FMP, que cubre sobre todo valores estadounidenses y necesita su API key en Ajustes.':''}</div></div>`;
+      return;
+    }
+    const cc=v=>Math.abs(v)<CONS_UMBRAL?'var(--muted)':v>0?'var(--amber)':'var(--blue)';
+    const fmtV=(v,dec)=>dec?v.toFixed(dec):N(Math.round(v));
+    el2.innerHTML=`<div class="card" style="margin-bottom:12px;">
+      <div class="ctitle" style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+        Contraste con el consenso de analistas
+        <span style="font-size:9px;font-weight:600;color:var(--muted);text-transform:none;letter-spacing:0;">${d.nA?d.nA+' analistas · ':''}solo informativo: tu hoja no se toca</span></div>
+      <div style="font-size:12.5px;font-weight:700;color:${cc(d.medio)};margin-bottom:8px;">${d.veredicto}${Math.abs(d.medio)>=CONS_UMBRAL?` (${d.medio>=0?'+':''}${d.medio}% de media)`:''}</div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:10px;">
+        ${['ventas','ebitda','eps'].filter(k=>d.sesgo[k]!=null).map(k=>`<div>
+          <div style="font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);">${k==='eps'?'BPA':k}</div>
+          <div style="font-size:17px;font-weight:700;color:${cc(d.sesgo[k])};">${d.sesgo[k]>=0?'+':''}${d.sesgo[k]}%</div>
+          <div style="font-size:9.5px;color:var(--muted);font-weight:600;">vs consenso</div></div>`).join('')}
+      </div>
+      ${d.rel.length?`<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:11.5px;min-width:400px;">
+        <thead><tr style="color:var(--muted);font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;">
+          <th style="text-align:left;padding:4px 7px;">Año</th><th style="text-align:left;padding:4px 7px;">Concepto</th>
+          <th style="text-align:right;padding:4px 7px;">Tu hoja</th><th style="text-align:right;padding:4px 7px;">Consenso</th>
+          <th style="text-align:right;padding:4px 7px;">Diferencia</th></tr></thead>
+        <tbody>${d.rel.map(f=>`<tr style="border-top:1px solid var(--border);">
+          <td style="padding:4px 7px;color:var(--sub);font-weight:600;">${f.yr}</td>
+          <td style="padding:4px 7px;color:var(--text);font-weight:600;">${f.campo}</td>
+          <td style="padding:4px 7px;text-align:right;font-weight:700;color:var(--text);">${fmtV(f.mio,f.dec)}</td>
+          <td style="padding:4px 7px;text-align:right;color:var(--sub);">${fmtV(f.suyo,f.dec)}</td>
+          <td style="padding:4px 7px;text-align:right;font-weight:700;color:${cc(f.dif)};">${f.dif>=0?'+':''}${f.dif}%</td>
+        </tr>`).join('')}</tbody></table></div>`
+        :'<div style="font-size:11.5px;color:var(--sub);">Ninguna diferencia por encima del '+CONS_UMBRAL+'% en los años comparados.</div>'}
+      <div style="margin-top:9px;font-size:10.5px;color:var(--sub);line-height:1.5;">
+        Se comparan solo los años que tu hoja y el consenso tienen en común (${d.años.join(', ')}). Si vas por encima, tu tesis exige que la empresa bata a los analistas: no está mal, pero conviene saberlo. <b>Tu Excel manda y no se modifica</b> — esto es una segunda opinión.</div>
+    </div>`;
+  }).catch(()=>{});
+}
+
 // ══ FASE 3 · ESCENARIOS, SENSIBILIDAD Y SEGUIMIENTO ═══════════════════
 
 // ── Escenarios con probabilidad ────────────────────────────────────────
@@ -2939,24 +3029,27 @@ function dataConfidence(c){
   c=c||co;
   const key=Object.keys(DB).find(k=>DB[k]===c);
   const imp=key?getImportedData(key):null;
+  const edad=imp&&imp.importDate?Math.floor((Date.now()-new Date(imp.importDate).getTime())/864e5):null;
+  // Lo que decide la fiabilidad es si el análisis descansa en TU Excel de TIKR,
+  // no si la hoja trae filas opcionales: tu plantilla tiene lo que quieres ver.
   const chk=[
-    {n:'Histórico de 10 años',    ok:_serie(c.sales).length>=8,  clave:true},
-    {n:'Proyecciones de tu hoja', ok:!c.estimated&&_serie(c.pS).length>=5, clave:true},
-    {n:'Múltiplos históricos',    ok:_serie(c.hEvF).length>=5||_serie(c.hPER).length>=5, clave:true},
-    {n:'Histórico de acciones',   ok:_serie(c.sharesHist).length>=3},
-    {n:'CapEx',                   ok:_serie(c.capex).length>=3},
-    {n:'Retribución en acciones', ok:_serie(c.sbc).length>=3},
-    {n:'Tipo impositivo',         ok:_serie(c.taxRate).length>=3},
-    {n:'Capital invertido',       ok:_serie(c.investedCap).length>=3},
-    {n:'Dividendos',              ok:_serie(c.dividends).length>=3},
-    {n:'Circulante',              ok:_serie(c.workingCap).length>=3},
+    {n:'Histórico de 10 años de tu hoja', ok:_serie(c.sales).length>=8},
+    {n:'Proyecciones de tu hoja',         ok:!c.estimated&&_serie(c.pS).length>=5},
+    {n:'Múltiplos históricos de tu hoja', ok:_serie(c.hEvF).length>=5||_serie(c.hPER).length>=5},
+    {n:'Importada y al día',              ok:!!imp&&(edad==null||edad<=180)},
   ];
   const n=chk.filter(x=>x.ok).length;
   const pct=Math.round(n/chk.length*100);
-  const edad=imp&&imp.importDate?Math.floor((Date.now()-new Date(imp.importDate).getTime())/864e5):null;
-  return {pct, n, total:chk.length, items:chk, edadDias:edad,
-    label:pct>=80?'ALTA':pct>=50?'MEDIA':'BAJA',
-    color:pct>=80?'#16a34a':pct>=50?'#d97706':'#dc2626'};
+  // Datos de detalle que la hoja aporta si los tiene. No restan: solo suman análisis.
+  const extra=[
+    {n:'CapEx',ok:_serie(c.capex).length>=3},{n:'Retribución en acciones',ok:_serie(c.sbc).length>=3},
+    {n:'Tipo impositivo',ok:_serie(c.taxRate).length>=3},{n:'Capital invertido',ok:_serie(c.investedCap).length>=3},
+    {n:'Dividendos',ok:_serie(c.dividends).length>=3},{n:'Circulante',ok:_serie(c.workingCap).length>=3},
+    {n:'Histórico de acciones',ok:_serie(c.sharesHist).length>=3},
+  ].filter(x=>x.ok).map(x=>x.n);
+  return {pct, n, total:chk.length, items:chk, edadDias:edad, extra,
+    label:pct>=75?'ALTA':pct>=50?'MEDIA':'BAJA',
+    color:pct>=75?'#16a34a':pct>=50?'#d97706':'#dc2626'};
 }
 
 // ── Dilución REAL a partir del histórico de acciones diluidas ──────────
@@ -4855,8 +4948,10 @@ function rValoracion(){
   const _fvColor=_fvPrem>5?'#dc2626':_fvPrem<-5?'#16a34a':'#d97706';
   const _fvWord=_fvPrem>5?'cara':_fvPrem<-5?'barata':'en precio justo';
 
+  setTimeout(renderConsensusDiff,60);   // el consenso llega por red: se rellena solo
   return`<div>
   ${estimatedBanner()}
+  <div id="cons-diff"></div>
   ${rEscenarios()}
 
   <!-- SIM BANNER -->
@@ -5304,11 +5399,11 @@ function rAnalisis(){
         <div style="font-size:9.5px;color:var(--muted);font-weight:600;line-height:1.4;">${sub}</div></div>`;
      const roiicCol=!ri.ok?'var(--muted)':ri.pct>=25?'var(--green)':ri.pct>=12?'var(--amber)':'var(--red)';
      return`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:9px;margin-bottom:10px;">
-       ${tile('Fiabilidad del dato',cf.pct+'%',cf.n+' de '+cf.total+' fuentes · '+cf.label+(cf.edadDias!=null?' · importado hace '+cf.edadDias+'d':''),cf.color,
-              cf.items.map(i=>(i.ok?'✓ ':'✗ ')+i.n).join(' · '))}
+       ${tile('Apoyo en tu Excel',cf.pct+'%',cf.n+' de '+cf.total+' pilares · '+cf.label+(cf.edadDias!=null?' · sincronizado hace '+cf.edadDias+'d':''),cf.color,
+              cf.items.map(i=>(i.ok?'✓ ':'✗ ')+i.n).join(' · ')+(cf.extra.length?' · detalle extra: '+cf.extra.join(', '):''))}
        ${tile('ROIIC 5 años',ri.ok?(ri.pct>=0?'+':'')+ri.pct+'%':'sin dato',
-              ri.ok?('retorno del capital nuevo · ROIC actual '+P(ri.roicActual)):'hace falta EBIT y ROIC de 6 años',roiicCol,
-              ri.ok?('Δ NOPAT '+N(ri.dNopat)+'M ÷ Δ capital invertido '+N(ri.dIC)+'M. Mide lo que rinde el euro SIGUIENTE, no el ya invertido.'):'')}
+              ri.ok?('el ROIC dice qué rinde lo invertido; esto, el euro siguiente'):'hace falta EBIT y ROIC de 6 años',roiicCol,
+              ri.ok?('Sale del EBIT y el ROIC que tu hoja ya calcula: Δ NOPAT '+N(ri.dNopat)+'M ÷ Δ capital invertido '+N(ri.dIC)+'M en '+ri.años+' años. ROIC actual '+P(ri.roicActual)+'. Si el ROIIC cae muy por debajo del ROIC, el negocio está dejando de componer aunque el ROIC medio aún no lo refleje.'):'')}
        ${tile('Coste de la retribución en acciones',sb.ok?sb.pctVentas+'% ventas':'sin dato',
               sb.ok?('FCF '+curSymG()+N(sb.fcfAjustado)+'M tras restarla ('+sb.pctFCF+'% del FCF)'):'añade la fila SBC a tu hoja 2.FCF',
               sb.ok?(sb.pctVentas>=8?'var(--red)':sb.pctVentas>=4?'var(--amber)':'var(--green)'):'var(--muted)',
@@ -8771,15 +8866,11 @@ async function refreshAllImports(auto){
         const res=parseExcelData(buf,key,prev?.name||DB[key]?.name||key,prev?.sector||DB[key]?.sector||'',prev?.color||DB[key]?.color||'#1e3a5f',url);
         if(!importLooksValid(res)) throw new Error('la hoja se leyó pero vino sin datos (¿plantilla cambiada o no es pública?)');
         const cambios=importDiff(prev,res);
-        const CH=res.camposHoja||{};
-        const ETQ={capex:'CapEx',cfo:'flujo operativo',sbc:'retribución en acciones',workingCap:'circulante',
-          taxRate:'impuestos',dividends:'dividendos',investedCap:'capital invertido',sharesHist:'histórico de acciones'};
-        const faltan=Object.keys(ETQ).filter(k=>!CH[k]).map(k=>ETQ[k]);
         const habiaMults=!!localStorage.getItem('vi_mults_'+key);
         localStorage.setItem('vi_import_'+key,JSON.stringify(res));  // datos + proyecciones + múltiplos/precios objetivo
         localStorage.removeItem('vi_mults_'+key);                     // la hoja manda sobre ediciones previas
         _applyImportToDB(key,res);
-        results.push({key,state:'ok',cambios,habiaMults,faltan});
+        results.push({key,state:'ok',cambios,habiaMults});
       }catch(e){
         results.push({key,state:'err',msg:(e&&e.message)||'error'});  // se conservan los datos anteriores
       }
@@ -8810,18 +8901,6 @@ async function refreshAllImports(auto){
       +(r.habiaMults?' <span style="color:var(--amber);">· se descartaron tus múltiplos editados a mano (manda la hoja)</span>':'')+'</div>').join('');
   } else if(ok.length){
     html+='<div class="sync-line">Sin cambios respecto a la última vez: tus hojas y la app dicen lo mismo.</div>';
-  }
-  // Filas que TIKR suele dar y que tu plantilla aún no expone: con ellas el
-  // análisis deja de suponer (impuestos, CapEx, SBC, capital invertido…)
-  const conFaltas=ok.filter(r=>r.faltan&&r.faltan.length);
-  if(conFaltas.length){
-    const cuenta={};
-    conFaltas.forEach(r=>r.faltan.forEach(f=>{cuenta[f]=(cuenta[f]||0)+1;}));
-    const lista=Object.entries(cuenta).sort((a,b)=>b[1]-a[1])
-      .map(([f,n])=>f+(n<ok.length?' ('+n+')':'')).join(' · ');
-    html+='<div class="sync-line" style="color:var(--sub);border-top:1px solid var(--border);margin-top:6px;padding-top:6px;">'
-      +'<b>Filas que tu plantilla aún no trae:</b> '+lista
-      +'. Añadirlas en TIKR hace que el análisis las mida en vez de suponerlas.</div>';
   }
   if(err.length) html+='<div class="sync-line err">⚠ No se pudieron actualizar (se conservan sus datos anteriores): '
     +err.map(r=>'<b>'+r.key+'</b> ('+r.msg+')').join(' · ')+'</div>';
