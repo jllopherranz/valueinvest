@@ -484,6 +484,13 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
 .cart-src.est{background:color-mix(in srgb,var(--amber) 16%,transparent);color:var(--amber);}
 .cart-src.app{background:var(--surface2);color:var(--muted);}
 /* Chips de filtro */
+/* Informe de sincronización con las hojas */
+.sync-head{display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--text);margin-bottom:4px;}
+.sync-t{font-size:9px;font-weight:700;color:var(--muted);background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:1px 7px;}
+.sync-x{margin-left:auto;cursor:pointer;color:var(--muted);font-size:12px;font-weight:700;padding:0 3px;}
+.sync-x:hover{color:var(--red);}
+.sync-line{font-size:10.5px;color:var(--sub);font-weight:600;line-height:1.5;}
+.sync-line.err{color:var(--red);}
 .sec-fold{display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;user-select:none;flex-wrap:wrap;}
 .sec-fold:hover .dash-sec-title{color:var(--blue);}
 .sec-chev{font-size:9px;color:var(--muted);font-weight:700;}
@@ -816,11 +823,15 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
       <button class="co-btn co-btn-primary" onclick="openImportModal('NUEVA')"><span id="aic-add"></span>Añadir empresa</button>
       <button class="co-btn" onclick="openImportModal(null)"><span id="aic-imp"></span>Importar Excel</button>
       <button id="btn-refresh-imports" class="co-btn" onclick="refreshAllImports()"><span id="aic-sync"></span>Sincronizar con hojas<span id="sync-check" style="display:inline-flex;align-items:center;margin-left:2px;"></span></button>
+      <button id="btn-autosync" class="cart-chip" onclick="toggleAutoSync()">⏱ Auto: no</button>
       <button id="btn-restore-hidden" class="co-btn" style="display:none;" onclick="restoreHidden()"><span id="aic-restore"></span>Restaurar ocultas</button>
       <button class="co-btn" onclick="openBackupModal()" title="Copia tus empresas y precios de compra a otro dispositivo (móvil). Tus datos se guardan solo en este navegador."><span id="aic-backup"></span>Copia / Pasar al móvil</button>
       <span id="dash-prices-ts" style="font-size:9px;color:var(--muted);">—</span>
     </div>
   </div>
+
+  <!-- ── Informe de la última sincronización con las hojas ── -->
+  <div class="card" id="sync-report" style="display:none;margin-bottom:12px;padding:9px 13px;"></div>
 
   <!-- ── Resumen de cartera: valor, ganancia, vs índice, concentración ── -->
   <div class="card" id="cartera-summary" style="margin-bottom:12px;"></div>
@@ -6197,6 +6208,7 @@ function updateDashCoRow(key,price,pct,change){
   setTimeout(()=>setView('dash'),0);
   setTimeout(()=>{fetchDashPrices();},400);
   setTimeout(()=>{fetchDashNews();},1400);
+  setTimeout(()=>{ if(typeof paintAutoSyncBtn==='function') paintAutoSyncBtn(); if(typeof maybeAutoSync==='function') maybeAutoSync(); },1800);
 })();
 
 // ═══════════════════════════════════════════════════════════════════
@@ -7444,16 +7456,53 @@ function parseExcelData(arrayBuffer,ticker,name,sector,color,driveUrl){
   const is=gs('1.IS'),fcfS=gs('2.FCF'),roicS=gs('3.ROIC'),valS=gs('4.Valoracion');
   if(!is||!valS) throw new Error('Hojas "1.IS" y "4.Valoracion" no encontradas.');
 
+  // Busca la fila por la etiqueta de la columna A. Gana la coincidencia MÁS precisa
+  // (exacta → empieza por → contiene). Antes ganaba la primera que «contuviera» el texto,
+  // así que «EBITDA margin» podía colarse como EBITDA y «Beneficio operativo» como PER
+  // (contiene «per»): de ahí que un simple reordenado de filas cambiara los números.
   const findRow=(data,label,from=0)=>{
     if(!data) return null;
-    const lc=label.toLowerCase();
+    const lc=label.trim().toLowerCase();
+    let starts=null,has=null;
     for(let i=from;i<data.length;i++){
       const c=data[i]?.[0];
-      if(c&&String(c).trim().toLowerCase().includes(lc)) return data[i];
+      if(!c) continue;
+      const t=String(c).trim().toLowerCase();
+      if(t===lc) return data[i];                       // exacta: gana siempre
+      if(starts===null&&t.startsWith(lc)) starts=data[i];
+      if(has===null&&t.includes(lc)) has=data[i];
     }
-    return null;
+    return starts||has;
   };
-  const nums=(row,start,n)=>row?Array.from({length:n},(_,i)=>{const v=row[start+i];return typeof v==='number'?v:null;}):Array(n).fill(null);
+  // Convierte una celda en número. Acepta texto numérico («1.234,5», «1,234.5», «12%»,
+  // «(300)» negativo contable): al exportar de Google Sheets algunas celdas llegan como
+  // cadena y antes se descartaban (null), lo que movía medianas y márgenes sin motivo.
+  const toNum=v=>{
+    if(typeof v==='number') return isFinite(v)?v:null;
+    if(typeof v!=='string') return null;
+    let t=v.trim();
+    if(!t||t==='-'||t==='–'||t==='—'||t.startsWith('#')) return null;   // vacío o error (#N/A, #REF!)
+    const neg=/^\(.*\)$/.test(t); if(neg) t=t.slice(1,-1);
+    const isPct=t.endsWith('%'); if(isPct) t=t.slice(0,-1);
+    t=t.replace(/[\s\u00a0€$£]/g,'');
+    const lastC=t.lastIndexOf(','),lastD=t.lastIndexOf('.');
+    if(lastC>=0&&lastD>=0){                                   // conviven . y , → manda el último
+      if(lastC>lastD) t=t.replace(/\./g,'').replace(',','.'); // 1.234,5 (es)
+      else t=t.replace(/,/g,'');                              // 1,234.5 (en)
+    } else {
+      const sep=lastC>=0?',':(lastD>=0?'.':null);
+      if(sep){
+        const partes=t.split(sep);
+        // Un único separador seguido de 3 cifras (1.200 / 1,200) es de millares, no decimal
+        const esMillares=partes.length>2||partes[1].length===3;
+        t=esMillares?t.split(sep).join(''):t.replace(sep,'.');
+      }
+    }
+    const n=parseFloat(t);
+    if(!isFinite(n)||!/\d/.test(t)) return null;
+    return (neg?-n:n)/(isPct?100:1);
+  };
+  const nums=(row,start,n)=>row?Array.from({length:n},(_,i)=>toNum(row[start+i])):Array(n).fill(null);
   const pct=arr=>arr.map(v=>v!=null?+(v*100).toFixed(2):null);
 
   // Años REALES leídos de la cabecera de 1.IS (cada empresa puede ir desfasada: NVIDIA reporta
@@ -7508,10 +7557,10 @@ function parseExcelData(arrayBuffer,ticker,name,sector,color,driveUrl){
   const netDebt=nums(ndRow,1,10), pND=nums(ndRow,11,5);
 
   const priceRow=findRow(valS,'Precio por acción actual')||findRow(valS,'Precio actual');
-  const price=typeof priceRow?.[1]==='number'?priceRow[1]:null;
+  const price=toNum(priceRow?.[1]);
 
   // Median multiples (col index 16 = column Q)
-  const medFrom=(row,col=16)=>typeof row?.[col]==='number'?+row[col].toFixed(2):null;
+  const medFrom=(row,col=16)=>{const v=toNum(row?.[col]);return v==null?null:+v.toFixed(2);};
   // OJO: "EV / EBITDA" CONTIENE "EV / EBIT" → findRow normal confunde EV/EBIT con EV/EBITDA.
   // Buscador específico de EV/EBIT (contiene ebit pero NO ebitda).
   const findEvEbit=(data,from=0)=>{ if(!data) return null; for(let i=from;i<data.length;i++){ const c=data[i]?.[0]; if(c){const t=String(c).toLowerCase(); if(t.includes('ebit')&&!t.includes('ebitda')&&t.includes('ev')) return data[i];}} return null; };
@@ -7538,10 +7587,8 @@ function parseExcelData(arrayBuffer,ticker,name,sector,color,driveUrl){
     const r2=findRow(valS,'EV / FCF',tSecIdx+1);
     const r3=findRow(valS,'EV / EBITDA',tSecIdx+1);
     const r4=findEvEbit(valS,tSecIdx+1);
-    tPER=typeof r1?.[1]==='number'?r1[1]:null;
-    tEVF=typeof r2?.[1]==='number'?r2[1]:null;
-    tEVEB=typeof r3?.[1]==='number'?r3[1]:null;
-    tEVEI=typeof r4?.[1]==='number'?r4[1]:null;
+    tPER=toNum(r1?.[1]); tEVF=toNum(r2?.[1]);
+    tEVEB=toNum(r3?.[1]); tEVEI=toNum(r4?.[1]);
   }
 
   // Target prices & MoS (section after "Precio objetivo")
@@ -7751,45 +7798,163 @@ function _sheetUrlFor(key){
   const imp=getImportedData(key);
   return (imp&&imp.driveUrl)||localStorage.getItem('vi_drive_'+key)||DASH_COMPANIES.find(c=>c.key===key)?.drive||'';
 }
+// Descarga el .xlsx. Antes se probaba el enlace directo y SOLO al fallar el proxy (en serie):
+// como Google no manda cabeceras CORS el directo casi siempre falla, así que se pagaba la
+// espera dos veces. Ahora salen los dos a la vez y vale el primero que conteste.
 async function _fetchSheetBuf(id){
-  try{const r=await fetch('https://docs.google.com/spreadsheets/d/'+id+'/export?format=xlsx',{signal:AbortSignal.timeout(20000)});if(!r.ok)throw 0;return await r.arrayBuffer();}
-  catch(e){const r2=await fetch('https://api.allorigins.win/raw?url='+encodeURIComponent('https://docs.google.com/spreadsheets/d/'+id+'/export?format=xlsx'),{signal:AbortSignal.timeout(22000)});return await r2.arrayBuffer();}
+  const u='https://docs.google.com/spreadsheets/d/'+id+'/export?format=xlsx';
+  const get=async(url,ms)=>{
+    const r=await fetch(url,{signal:AbortSignal.timeout(ms)});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const b=await r.arrayBuffer();
+    if(!b||b.byteLength<1000) throw new Error('respuesta vacía');   // suele ser la pantalla de login
+    return b;
+  };
+  return Promise.any([
+    get(u,15000),
+    get('https://api.allorigins.win/raw?url='+encodeURIComponent(u),18000),
+  ]).catch(()=>{ throw new Error('no se pudo descargar'); });
+}
+
+// ¿El parseo trae lo esencial? Sirve de red de seguridad: si una hoja se lee mal
+// (renombrada, con columnas movidas o devolviendo la página de login) NO se machacan
+// los datos buenos que ya había — se deja la empresa como estaba y se avisa.
+function importLooksValid(res){
+  if(!res) return false;
+  const n=a=>(a||[]).filter(v=>v!=null).length;
+  return n(res.sales)>=3 && (n(res.fcf)>=3 || n(res.netIncome)>=3);
+}
+
+// Resumen de QUÉ ha cambiado respecto a la importación anterior (para saber por qué
+// se mueven los números después de sincronizar en vez de tener que adivinarlo).
+function importDiff(prev,next){
+  if(!prev) return ['primera importación'];
+  const out=[], last=a=>{const v=(a||[]).filter(x=>x!=null);return v.length?v[v.length-1]:null;};
+  const cmp=(lbl,a,b,dec=1)=>{
+    if(a==null&&b==null) return;
+    if(a==null||b==null){ out.push(lbl+(b==null?': ya no viene en la hoja':': dato nuevo')); return; }
+    const d=(a===0)?(b===0?0:100):((b-a)/Math.abs(a)*100);
+    if(Math.abs(d)>=1) out.push(lbl+' '+(+a).toFixed(dec)+' → '+(+b).toFixed(dec)+' ('+(d>=0?'+':'')+d.toFixed(0)+'%)');
+  };
+  cmp('ventas último año',last(prev.sales),last(next.sales),0);
+  cmp('FCF último año',last(prev.fcf),last(next.fcf),0);
+  cmp('mediana EV/FCF',prev.medEvFcf,next.medEvFcf);
+  cmp('mediana PER',prev.medPER,next.medPER);
+  cmp('objetivo próx. año',(prev.targetPrices||{}).avg?.[0],(next.targetPrices||{}).avg?.[0],2);
+  return out;
 }
 // Sincroniza TODAS las empresas con enlace de hoja (importadas o de fábrica): re-descarga, re-parsea
 // y actualiza TODOS los datos — históricos, proyecciones, estimaciones, medianas y múltiplos objetivo.
-async function refreshAllImports(){
+const SYNC_CONC=4;                 // descargas simultáneas
+const AUTOSYNC_DAYS=7;             // antigüedad a partir de la cual se resincroniza sola
+function autoSyncOn(){ try{return localStorage.getItem('vi_autosync')==='1';}catch(e){return false;} }
+function lastSyncTs(){ try{return +localStorage.getItem('vi_lastsync')||0;}catch(e){return 0;} }
+function toggleAutoSync(){
+  const on=!autoSyncOn();
+  try{localStorage.setItem('vi_autosync',on?'1':'0');}catch(e){}
+  paintAutoSyncBtn();
+  if(on) maybeAutoSync();
+}
+function paintAutoSyncBtn(){
+  const b=document.getElementById('btn-autosync'); if(!b) return;
+  const on=autoSyncOn(), ts=lastSyncTs();
+  b.classList.toggle('on',on);
+  b.textContent=on?'⏱ Auto: sí':'⏱ Auto: no';
+  b.title=(on?'Se resincroniza sola en segundo plano si la última vez fue hace más de '+AUTOSYNC_DAYS+' días.'
+             :'Desactivada: solo se sincroniza cuando pulsas «Sincronizar con hojas».')
+    +(ts?'\nÚltima sincronización: '+new Date(ts).toLocaleString('es-ES'):'\nAún sin sincronizar.');
+}
+// Resincroniza sola, en segundo plano y sin interrumpir, si toca.
+function maybeAutoSync(){
+  if(!autoSyncOn()) return;
+  if(Date.now()-lastSyncTs() < AUTOSYNC_DAYS*864e5) return;
+  setTimeout(()=>refreshAllImports(true),3000);   // deja cargar precios primero
+}
+
+function _syncReport(html){
+  const el=document.getElementById('sync-report'); if(!el) return;
+  el.style.display=html?'block':'none';
+  el.innerHTML=html||'';
+}
+function closeSyncReport(){ _syncReport(''); }
+
+// Sincroniza TODAS las empresas con enlace de hoja (importadas o de fábrica): re-descarga,
+// re-parsea y actualiza históricos, proyecciones, medianas y múltiplos objetivo.
+// En paralelo (4 a la vez) y sin bloquear con alertas: al terminar deja un informe de
+// qué ha cambiado en cada empresa.
+async function refreshAllImports(auto){
+  if(refreshAllImports._running) return;
   const seen=new Set(), keys=[];
   getAllPortfolioCompanies().forEach(c=>{ if(!seen.has(c.key)&&/\/d\//.test(_sheetUrlFor(c.key))){seen.add(c.key);keys.push(c.key);} });
   for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.startsWith('vi_import_')){const key=k.replace('vi_import_','');if(!seen.has(key)){seen.add(key);keys.push(key);}}}
-  if(!keys.length){alert('No hay empresas con enlace de hoja. Añade el enlace de Google Sheets con ＋📊 o importa con 📂.');return;}
+  if(!keys.length){
+    if(!auto) _syncReport('<div class="sync-head"><b>No hay ninguna empresa con enlace de hoja.</b><span class="sync-x" onclick="closeSyncReport()">✕</span></div>'
+      +'<div class="sync-line">Añade el enlace de Google Sheets con <b>＋📊</b> en su fila, o importa el archivo con <b>📂</b>.</div>');
+    return;
+  }
+  refreshAllImports._running=true;
   const btn=document.getElementById('btn-refresh-imports');
-  const origTxt=btn?btn.textContent:'';
+  const origHTML=btn?btn.innerHTML:'';
   if(btn) btn.disabled=true;
   const activeKey=coKeyOf(co);
-  let ok=0; const fail=[];
-  for(const key of keys){
-    const url=_sheetUrlFor(key);
-    const id=(url.match(/\/d\/([^/]+)/)||[])[1];
-    if(!id){fail.push(key+' (sin enlace)');continue;}
-    if(btn) btn.textContent='🔄 '+key+'…';
-    try{
-      const imp=getImportedData(key);
-      const buf=await _fetchSheetBuf(id);
-      const res=parseExcelData(buf,key,imp?.name||DB[key]?.name||key,imp?.sector||DB[key]?.sector||'',imp?.color||DB[key]?.color||'#1e3a5f',url);
-      if(!res) throw new Error('plantilla no válida');
-      localStorage.setItem('vi_import_'+key,JSON.stringify(res)); // datos + proyecciones + múltiplos/precios objetivo
-      localStorage.removeItem('vi_mults_'+key);                    // la hoja manda sobre ediciones previas
-      _applyImportToDB(key,res);
-      ok++;
-    }catch(e){fail.push(key);}
-    await new Promise(r=>setTimeout(r,300));
-  }
-  // Refrescar la empresa abierta con sus datos nuevos
+  const t0=Date.now();
+  const queue=keys.slice(), done=[], results=[];
+  const paint=()=>{ if(btn) btn.textContent='🔄 '+done.length+'/'+keys.length+'…'; };
+  paint();
+  if(!auto) _syncReport('<div class="sync-head"><b>Sincronizando '+keys.length+' empresa(s) con tus hojas…</b></div>'
+    +'<div class="sync-line" id="sync-live">Descargando…</div>');
+
+  const worker=async()=>{
+    while(queue.length){
+      const key=queue.shift();
+      const url=_sheetUrlFor(key);
+      const id=(url.match(/\/d\/([^/]+)/)||[])[1];
+      const prev=getImportedData(key);
+      if(!id){ results.push({key,state:'err',msg:'sin enlace de hoja'}); done.push(key); paint(); continue; }
+      try{
+        const buf=await _fetchSheetBuf(id);
+        const res=parseExcelData(buf,key,prev?.name||DB[key]?.name||key,prev?.sector||DB[key]?.sector||'',prev?.color||DB[key]?.color||'#1e3a5f',url);
+        if(!importLooksValid(res)) throw new Error('la hoja se leyó pero vino sin datos (¿plantilla cambiada o no es pública?)');
+        const cambios=importDiff(prev,res);
+        const habiaMults=!!localStorage.getItem('vi_mults_'+key);
+        localStorage.setItem('vi_import_'+key,JSON.stringify(res));  // datos + proyecciones + múltiplos/precios objetivo
+        localStorage.removeItem('vi_mults_'+key);                     // la hoja manda sobre ediciones previas
+        _applyImportToDB(key,res);
+        results.push({key,state:'ok',cambios,habiaMults});
+      }catch(e){
+        results.push({key,state:'err',msg:(e&&e.message)||'error'});  // se conservan los datos anteriores
+      }
+      done.push(key); paint();
+      const live=document.getElementById('sync-live');
+      if(live) live.textContent=done.length+' de '+keys.length+' — '+done.slice(-1)[0];
+    }
+  };
+  await Promise.all(Array.from({length:Math.min(SYNC_CONC,keys.length)},worker));
+
+  try{localStorage.setItem('vi_lastsync',String(Date.now()));}catch(e){}
   if(activeKey){ _isEdited=false; applyCompanyMults(co); resetIS(); }
   rebuildCoButtons(); renderCartera();
   if(typeof curTab!=='undefined' && document.getElementById('cnt')) showTab(curTab);
-  if(btn){ btn.textContent=origTxt; btn.disabled=false; }
-  alert('✅ Sincronizadas '+ok+' empresa(s) con su hoja (datos, proyecciones, estimaciones y múltiplos objetivo).'+(fail.length?'\n⚠ No se pudieron actualizar: '+fail.join(', ')+'\n(revisa que tengan enlace y sean públicas)':''));
+  if(btn){ btn.innerHTML=origHTML; btn.disabled=false; }
+  paintAutoSyncBtn();
+  refreshAllImports._running=false;
+
+  // ── Informe: qué ha cambiado y qué ha fallado ──
+  const ok=results.filter(r=>r.state==='ok'), err=results.filter(r=>r.state==='err');
+  const conCambios=ok.filter(r=>r.cambios.length);
+  const segs=((Date.now()-t0)/1000).toFixed(1);
+  if(auto&&!err.length&&!conCambios.length){ _syncReport(''); return; }   // silencio si no hay nada que contar
+  let html='<div class="sync-head"><b>'+(auto?'Sincronización automática':'Sincronizadas')+': '+ok.length+' de '+keys.length+'</b>'
+    +'<span class="sync-t">'+segs+' s</span><span class="sync-x" onclick="closeSyncReport()">✕</span></div>';
+  if(conCambios.length){
+    html+=conCambios.map(r=>'<div class="sync-line"><b>'+r.key+'</b> '+r.cambios.join(' · ')
+      +(r.habiaMults?' <span style="color:var(--amber);">· se descartaron tus múltiplos editados a mano (manda la hoja)</span>':'')+'</div>').join('');
+  } else if(ok.length){
+    html+='<div class="sync-line">Sin cambios respecto a la última vez: tus hojas y la app dicen lo mismo.</div>';
+  }
+  if(err.length) html+='<div class="sync-line err">⚠ No se pudieron actualizar (se conservan sus datos anteriores): '
+    +err.map(r=>'<b>'+r.key+'</b> ('+r.msg+')').join(' · ')+'</div>';
+  _syncReport(html);
 }
 </script>
 <script>
