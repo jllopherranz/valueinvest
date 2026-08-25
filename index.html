@@ -2288,7 +2288,7 @@ function switchCo(k){
     btn.style.borderColor=act?co.color:'';
     btn.style.color=act?'#fff':'';
   });
-  resetIS();applyCompanyMults(co);updateEarningsBadge();fetchEarningsDate();fetchLivePrice();showTab(curTab);recalc();
+  resetIS();applyCompanyMults(co);loadRatesFor(k);updateEarningsBadge();fetchEarningsDate();fetchLivePrice();showTab(curTab);recalc();
   // Ficha pública (logo, sector, bolsa, web): si falta, se trae y se repinta el resumen
   if(!companyProfile(k)){
     fetchCompanyProfile(k).then(pr=>{
@@ -2589,6 +2589,119 @@ function _persistMod(field,i,val){
   try{localStorage.setItem('vi_autoval_'+k,JSON.stringify(o));}catch(e){}
 }
 
+// ══ CLASIFICACIÓN POR SECTOR ═════════════════════════════════════════
+// Vive aquí arriba porque sectorRefFor (justo debajo) la necesita ya en el
+// primer render; declarada más abajo daba un ReferenceError por TDZ.
+// Buckets concretos (no genéricos): semiconductores, memoria, datacenters, software…
+// El orden importa: gana la primera regla que casa.
+const _SECTOR_RULES=[
+  [/memoria|hdd|ssd|nand|dram|flash|disco|almacenamiento|storage/i,'Memoria / Almacenamiento'],
+  [/semicond|litograf|euv|foundry|wafer|\bgpu\b|\bchip|procesador|fundici/i,'Semiconductores'],
+  [/datacenter|data center|centro de datos|hyperscal|infraestructura de nube/i,'Datacenters'],
+  [/software|saas|\bvms\b|\berp\b|aplicaciones|ofim/i,'Software'],
+  [/nube|cloud|\baws\b|\bazure\b/i,'Nube'],
+  [/publicidad|\bads\b|advertising|buscador|search|social|red social/i,'Publicidad / Internet'],
+  [/ecommerce|e-commerce|comercio electr|retail|minorista|marketplace/i,'E-commerce'],
+  [/hardware|dispositiv|iphone|smartphone|wearable|electrón|consumer tech|consumo tecnol/i,'Hardware / Consumo'],
+  [/salud|health|pharma|farma|biotech|medical|medic/i,'Salud'],
+  [/banco|bank|financ|seguro|insur|asset manage|payment|pago/i,'Financiero'],
+  [/energ|oil|gas|petról|petrol|renovable|solar/i,'Energía'],
+  [/industri|aero|defen|maquinar|construc|transport|logíst|logist/i,'Industrial'],
+  [/telecom|media|entertain|streaming/i,'Telecom / Media'],
+  [/inmobil|reit|real estate/i,'Inmobiliario'],
+  [/utilit|agua|eléctric|electric/i,'Utilities'],
+];
+// Sector definido para las empresas de fábrica (evita etiquetas genéricas)
+const _SECTOR_OVR={MSFT:'Software',ASML:'Semiconductores',AMZN:'E-commerce',CSU:'Software',
+  AAPL:'Hardware / Consumo',GOOGL:'Publicidad / Internet',META:'Publicidad / Internet',
+  NVDA:'Semiconductores',WDC:'Memoria / Almacenamiento'};
+function sectorBucket(key){
+  if(_SECTOR_OVR[key]) return _SECTOR_OVR[key];
+  const t=String(sectorOf(key)||(getImportedData(key)||{}).sector||'');
+  for(const [re,name] of _SECTOR_RULES) if(re.test(t)) return name;
+  return t?'Otros':'Sin clasificar';
+}
+// ══ BENCHMARKS DE SECTOR ══════════════════════════════════════════════
+// Antes el checklist leía co.sectorAvgRoic / sectorAvgGrowth / sectorAvgPER /
+// sectorAvgEvFcf, campos que NO existen en ningún sitio (el guardado se llama
+// sectorAvgROIC): las cuatro referencias caían siempre al mismo valor por
+// defecto y todas las empresas se comparaban contra el mismo listón.
+// Ahora: mediana de TUS empresas del mismo sector concreto si hay al menos 3;
+// si no, referencia del sector; y como último recurso, media general.
+const SECTOR_REF={
+  'Semiconductores':        {cagr:12,ebitdaMg:35,fcfMg:22,roicRef:18,pervRef:28,evfRef:30},
+  'Memoria / Almacenamiento':{cagr:6, ebitdaMg:22,fcfMg:8, roicRef:8, pervRef:14,evfRef:16},
+  'Datacenters':            {cagr:15,ebitdaMg:40,fcfMg:15,roicRef:10,pervRef:30,evfRef:35},
+  'Software':               {cagr:14,ebitdaMg:35,fcfMg:28,roicRef:20,pervRef:32,evfRef:30},
+  'Nube':                   {cagr:18,ebitdaMg:30,fcfMg:20,roicRef:18,pervRef:30,evfRef:30},
+  'Publicidad / Internet':  {cagr:12,ebitdaMg:35,fcfMg:24,roicRef:25,pervRef:24,evfRef:24},
+  'E-commerce':             {cagr:12,ebitdaMg:15,fcfMg:7, roicRef:12,pervRef:35,evfRef:35},
+  'Hardware / Consumo':     {cagr:6, ebitdaMg:30,fcfMg:22,roicRef:35,pervRef:26,evfRef:26},
+  'Salud':                  {cagr:7, ebitdaMg:28,fcfMg:18,roicRef:15,pervRef:20,evfRef:22},
+  'Financiero':             {cagr:6, ebitdaMg:40,fcfMg:25,roicRef:12,pervRef:12,evfRef:12},
+  'Energía':                {cagr:4, ebitdaMg:30,fcfMg:12,roicRef:12,pervRef:12,evfRef:12},
+  'Industrial':             {cagr:6, ebitdaMg:20,fcfMg:10,roicRef:14,pervRef:20,evfRef:22},
+  'Telecom / Media':        {cagr:4, ebitdaMg:30,fcfMg:12,roicRef:8, pervRef:15,evfRef:15},
+  'Inmobiliario':           {cagr:4, ebitdaMg:55,fcfMg:20,roicRef:6, pervRef:18,evfRef:20},
+  'Utilities':              {cagr:3, ebitdaMg:35,fcfMg:8, roicRef:7, pervRef:16,evfRef:18},
+};
+const SECTOR_REF_DEF={cagr:10,ebitdaMg:25,fcfMg:15,roicRef:15,pervRef:22,evfRef:24};
+const _median=a=>{const v=(a||[]).filter(x=>x!=null&&isFinite(x)).sort((x,y)=>x-y);
+  if(!v.length) return null; const m=v.length>>1; return v.length%2?v[m]:(v[m-1]+v[m])/2;};
+// Devuelve los seis listones + de dónde salen (para poder enseñarlo en la ficha)
+function sectorRefFor(c){
+  const key=Object.keys(DB).find(k=>DB[k]===c)||c?.ticker;
+  const bucket=(typeof sectorBucket==='function'&&key)?sectorBucket(key):null;
+  const base=Object.assign({},SECTOR_REF[bucket]||SECTOR_REF_DEF,{fuente:SECTOR_REF[bucket]?('referencia '+bucket):'referencia general',n:0});
+  // Mediana de tus propias empresas del mismo sector (excluida la analizada)
+  if(bucket&&typeof sectorBucket==='function'){
+    const peers=Object.keys(DB).filter(k=>DB[k]!==c&&sectorBucket(k)===bucket).map(k=>DB[k])
+      .filter(p=>p&&p.sales&&p.sales.length>=10&&p.roic&&p.fcfM);
+    if(peers.length>=3){
+      const g=_median(peers.map(p=>(p.sales[4]>0&&p.sales[9]>0)?cagr(p.sales[9],p.sales[4],5):null));
+      const eb=_median(peers.map(p=>p.ebitdaM?.[9])), fm=_median(peers.map(p=>p.fcfM?.[9]));
+      const rc=_median(peers.map(p=>p.roic?.[9]));
+      const pe=_median(peers.map(p=>p.med5PER||p.medPER)), ef=_median(peers.map(p=>p.med5EvFcf||p.medEvFcf));
+      return {cagr:g??base.cagr, ebitdaMg:eb??base.ebitdaMg, fcfMg:fm??base.fcfMg,
+              roicRef:rc??base.roicRef, pervRef:pe??base.pervRef, evfRef:ef??base.evfRef,
+              fuente:'mediana de tus '+peers.length+' empresas de '+bucket, n:peers.length};
+    }
+  }
+  return base;
+}
+
+// ── Dilución REAL a partir del histórico de acciones diluidas ──────────
+// La serie ya venía en la hoja y se descartaba: solo se guardaba el último año,
+// y el MOAT puntuaba "sin dilución" leyendo un 0 fijo. Ahora, si hay histórico,
+// manda el dato; si no (empresas de fábrica), se usa el supuesto isD.di.
+// Signo: + = se emiten acciones (diluye) · − = recompra neta.
+function dilutionFor(c){
+  c=c||co;
+  const h=(c.sharesHist||[]).filter(v=>v!=null&&isFinite(v)&&v>0);
+  if(h.length>=3){
+    const años=h.length-1;
+    const anual=(Math.pow(h[h.length-1]/h[0],1/años)-1)*100;
+    return {pct:+anual.toFixed(2), real:true, años, desde:h[0], hasta:h[h.length-1]};
+  }
+  const di=(c.isD&&c.isD.di&&c.isD.di.length)?c.isD.di[0]:0;
+  return {pct:di, real:false, años:null};
+}
+// Texto corto para explicarlo en la ficha
+function dilutionLabel(c){
+  const d=dilutionFor(c);
+  const cuerpo=d.pct<=-0.5?`recompra neta del ${Math.abs(d.pct).toFixed(1)}% anual`
+             :d.pct<0.5 ?`acciones prácticamente planas (${d.pct>=0?'+':''}${d.pct.toFixed(1)}%/año)`
+             :`dilución del ${d.pct.toFixed(1)}% anual`;
+  return d.real
+    ? `${cuerpo} · ${d.años} años reales de tu hoja (${Math.round(d.desde)} → ${Math.round(d.hasta)}M acciones)`
+    : `${cuerpo} · supuesto, sin histórico de acciones`;
+}
+
+// ── Años reales de la serie (la cabecera de tu hoja manda; NVIDIA llega a 2026) ──
+const _y0=c=>((c||co).years||[])[0]||'';
+const _y9=c=>{const y=(c||co).years||[];return y[y.length-1]||y[9]||'';};
+const _yPrev=c=>{const y=(c||co).years||[];return y[y.length-2]||y[8]||'';};
+
 function calcMoat(){
   const r9=co.roic[9],rt=co.roic[9]-co.roic[0],sg=cagr(co.sales[9],co.sales[0],9);
   const fm=co.fcfM[9],dd=co.netDebt[9]/co.ebitda[9],cx=co.isD.cx[0];
@@ -2602,11 +2715,11 @@ function calcMoat(){
     {n:"CapEx / Ventas (ligereza de activos)",w:10,s:Math.min(100,Math.max(0,Math.round((1-cx/10)*100))),why:`CapEx/Ventas ${cx}%.`},
     {n:"Working Capital negativo",w:10,s:co.isD.wc[0]<-15?90:co.isD.wc[0]<-5?70:co.isD.wc[0]<0?50:35,why:`WC/Ventas ${co.isD.wc[0]}%.`},
     {n:"ROIC vs coste de capital",w:15,s:r9>=50?100:r9>=30?92:r9>=20?82:r9>=15?68:r9>=10?50:25,why:`ROIC ${P(r9)} vs WACC ~${co.wacc}%. Spread ${(r9-co.wacc).toFixed(0)}pp.`},
-    {n:"Tendencia ROIC 10 años",w:8,s:rt>=0?85:rt>=-10?55:rt>=-20?30:15,why:`De ${co.roic[0]}% (2016) a ${r9}% (2025).`},
+    {n:"Tendencia ROIC 10 años",w:8,s:rt>=0?85:rt>=-10?55:rt>=-20?30:15,why:`De ${co.roic[0]}% (${_y0()}) a ${r9}% (${_y9()}).`},
     {n:"Margen FCF consistente",w:12,s:fm>=35?95:fm>=25?85:fm>=20?75:fm>=15?60:fm>=10?42:25,why:`Margen FCF ${P(fm)}.`},
     {n:"CAGR Ventas 10 años",w:12,s:sg>=40?98:sg>=25?90:sg>=20?82:sg>=15?70:sg>=10?55:35,why:`CAGR ${P(sg)}.`},
     {n:"Capital allocation / reinversión FCF",w:10,s:capAlloc,why:capWhy},
-    {n:"Sin dilución accionarial",w:8,s:Math.max(0,100-Math.abs(co.isD.di[0])*15),why:`Dilución anual: ${co.isD.di[0]}%.`},
+    {n:"Sin dilución accionarial",w:8,s:(()=>{const d=dilutionFor().pct;return d<=0?Math.min(100,92+Math.min(8,Math.abs(d)*4)):Math.max(0,100-d*15);})(),why:dilutionLabel()},
     {n:"Solidez balance (Deuda/EBITDA)",w:10,s:dd<0?100:dd<1?88:dd<2?68:dd<3?42:12,why:`Deuda/EBITDA ${dd.toFixed(1)}x.`},
   ];
   let tot=0,w=0;items.forEach(it=>{tot+=it.s*it.w;w+=it.w;});
@@ -2790,7 +2903,43 @@ function calcVerdict(){
 }
 
 // ── RECALC ──
+// ── TASAS DEL DCF POR EMPRESA ─────────────────────────────────────────
+// Antes dr/gr/tg eran globales: el DCF descontaba TODAS las empresas al 10%
+// aunque cada una tuviera su propio WACC guardado (de 9% a 14%), y los valores
+// que tocabas en una empresa se arrastraban a la siguiente porque switchCo
+// llamaba a resetIS(), que solo reinicia las proyecciones.
+// Ahora cada empresa arranca con dr = su WACC y recuerda lo que ajustes.
+function _ratesKey(k){ return 'vi_rates_'+k; }
+function defaultRatesFor(c){
+  const wacc=(c&&c.wacc>0)?c.wacc:10;
+  // Crecimiento por defecto: el CAGR del FCF a 10 años, acotado a un rango sensato
+  let g=12;
+  if(c&&c.fcf&&c.fcf[0]>0&&c.fcf[9]>0) g=Math.max(2,Math.min(20,cagr(c.fcf[9],c.fcf[0],9)));
+  return {dr:wacc, gr:+g.toFixed(1), tg:3};
+}
+function loadRatesFor(k){
+  const c=DB[k]||co, def=defaultRatesFor(c);
+  let saved=null;
+  try{ saved=JSON.parse(localStorage.getItem(_ratesKey(k))||'null'); }catch(e){}
+  const r=(saved&&saved.dr>0)?saved:def;
+  dr=r.dr; gr=r.gr; tg=r.tg;
+  return r;
+}
+function saveRatesFor(k){
+  if(!k) return;
+  try{ localStorage.setItem(_ratesKey(k),JSON.stringify({dr,gr,tg})); }catch(e){}
+}
+// Vuelve a las tasas por defecto de la empresa (su WACC y su CAGR histórico)
+function resetRates(){
+  const k=coKeyOf(co); if(!k) return;
+  try{ localStorage.removeItem(_ratesKey(k)); }catch(e){}
+  loadRatesFor(k);
+  if(typeof showTab==='function'&&typeof curTab!=='undefined') showTab(curTab);
+  recalc();
+}
+
 function recalc(){
+  saveRatesFor(coKeyOf(co));           // recuerda dr/gr/tg de ESTA empresa
   const hdrInp=document.getElementById('price-inp');
   const valInp=document.getElementById('val-price-inp');
   const active=document.activeElement;
@@ -2967,23 +3116,23 @@ function sld(id,lbl,val,min,max,step,unit,color,hint){
 const KPI_ACCORDION={
   ventas:{icon:'📦',label:'Ventas 2025',color:'#2563eb',
     def:'Total de ingresos cobrados a clientes. Primera línea del P&L.',
-    analysis:(c)=>{const g=pct(c.sales[9],c.sales[8]);return`En 2025, ${c.name} generó ${curSymG()}${N(c.sales[9])}M en ventas (${g>0?'+':''}${g.toFixed(1)}% vs 2024). CAGR 10Y: ${P(cagr(c.sales[9],c.sales[0],9))}.`;},
+    analysis:(c)=>{const g=pct(c.sales[9],c.sales[8]);return`En ${_y9(c)}, ${c.name} generó ${curSymG()}${N(c.sales[9])}M en ventas (${g>0?'+':''}${g.toFixed(1)}% vs ${_yPrev(c)}). CAGR 10Y: ${P(cagr(c.sales[9],c.sales[0],9))}.`;},
     benchFn:(c)=>{const v=cagr(c.sales[9],c.sales[8],1);return{value:v,sector:15,label:'CAGR YoY',unit:'%'};},tipId:'ventas'},
   ebitda:{icon:'💼',label:'EBITDA 2025',color:'#b45309',
     def:'Beneficio antes de intereses, impuestos, amortización y depreciación.',
-    analysis:(c)=>{const g=pct(c.ebitda[9],c.ebitda[8]);return`EBITDA ${curSymG()}${N(c.ebitda[9])}M, margen ${P(c.ebitdaM[9])} (${g>0?'+':''}${g.toFixed(1)}% vs 2024). Sector: ${P(c.sectorAvgEbitdaM)}.`;},
-    benchFn:(c)=>{return{value:c.ebitdaM[9],sector:c.sectorAvgEbitdaM,label:'Margen EBITDA',unit:'%'};},tipId:'ebitda'},
+    analysis:(c)=>{const g=pct(c.ebitda[9],c.ebitda[8]);return`EBITDA ${curSymG()}${N(c.ebitda[9])}M, margen ${P(c.ebitdaM[9])} (${g>0?'+':''}${g.toFixed(1)}% vs ${_yPrev(c)}). Sector: ${P(sectorRefFor(c).ebitdaMg)}.`;},
+    benchFn:(c)=>{return{value:c.ebitdaM[9],sector:sectorRefFor(c).ebitdaMg,label:'Margen EBITDA',unit:'%'};},tipId:'ebitda'},
   fcf:{icon:'💵',label:'FCF 2025',color:'#16a34a',
     def:'"Los beneficios son opinión, el cash es realidad." — Buffett.',
-    analysis:(c)=>{const g=pct(c.fcf[9],c.fcf[8]);return`FCF ${curSymG()}${N(c.fcf[9])}M (margen ${P(c.fcfM[9])}), ${g>0?'+':''}${g.toFixed(1)}% vs 2024. CAGR 10Y: ${P(cagr(c.fcf[9],c.fcf[0],9))}.`;},
-    benchFn:(c)=>{return{value:c.fcfM[9],sector:c.sectorAvgFcfM,label:'Margen FCF',unit:'%'};},tipId:'fcf'},
+    analysis:(c)=>{const g=pct(c.fcf[9],c.fcf[8]);return`FCF ${curSymG()}${N(c.fcf[9])}M (margen ${P(c.fcfM[9])}), ${g>0?'+':''}${g.toFixed(1)}% vs ${_yPrev(c)}. CAGR 10Y: ${P(cagr(c.fcf[9],c.fcf[0],9))}.`;},
+    benchFn:(c)=>{return{value:c.fcfM[9],sector:sectorRefFor(c).fcfMg,label:'Margen FCF',unit:'%'};},tipId:'fcf'},
   roic:{icon:'🎯',label:'ROIC 2025',color:'#b45309',
     def:'Retorno sobre capital invertido. ROIC > WACC = crea valor.',
-    analysis:(c)=>{const vs=c.roic[9]-c.wacc;return`ROIC ${P(c.roic[9])} vs WACC ~${c.wacc}% → spread +${vs.toFixed(1)}pp. Era ${P(c.roic[0])} en 2016.`;},
-    benchFn:(c)=>{return{value:c.roic[9],sector:c.sectorAvgROIC,label:'ROIC vs sector',unit:'%'};},tipId:'roic'},
+    analysis:(c)=>{const vs=c.roic[9]-c.wacc;return`ROIC ${P(c.roic[9])} vs WACC ~${c.wacc}% → spread ${vs>=0?'+':''}${vs.toFixed(1)}pp. Era ${P(c.roic[0])} en ${_y0(c)}.`;},
+    benchFn:(c)=>{return{value:c.roic[9],sector:sectorRefFor(c).roicRef,label:'ROIC vs sector',unit:'%'};},tipId:'roic'},
   eps:{icon:'📈',label:'EPS 2025',color:'#d97706',
     def:'Beneficio por acción. Validar siempre con FCF/acción.',
-    analysis:(c)=>{const g=pct(c.eps[9],c.eps[8]);return`EPS ${curSymG()}${N(c.eps[9],2)} (${g>0?'+':''}${g.toFixed(1)}% vs 2024). FCF/acción ${curSymG()}${N(c.fcfps[9],2)}.`;},
+    analysis:(c)=>{const g=pct(c.eps[9],c.eps[8]);return`EPS ${curSymG()}${N(c.eps[9],2)} (${g>0?'+':''}${g.toFixed(1)}% vs ${_yPrev(c)}). FCF/acción ${curSymG()}${N(c.fcfps[9],2)}.`;},
     benchFn:(c)=>{const g=cagr(c.eps[9],c.eps[0],9);return{value:g,sector:12,label:'CAGR EPS 10Y',unit:'%'};},tipId:'eps'},
   netDebt:{icon:'🏦',label:'Deuda/EBITDA',color:'#dc2626',
     def:'Negativo = posición de caja neta — "fortín financiero".',
@@ -3584,10 +3733,12 @@ function computeStyleFor(c,px){
   const quality=roic>=20&&fcfM>=18;
   // ── Indicadores adicionales ──
   const per=c.eps[9]>0?px/c.eps[9]:null;
-  const peg=(per&&growth>0)?per/growth:null;            // PEG (Lynch): <1 barato, >2 caro
+  const gEpsOk=(c.eps[4]>0&&c.eps[9]>0)?gEps5:null;     // crecimiento del BPA, si es medible
+  const peg=(per&&gEpsOk>0)?per/gEpsOk:null;            // PEG clásico (Lynch): PER ÷ crec. BPA
+  const pegVentas=(per&&growth>0)?per/growth:null;      // variante con el crecimiento mixto
   const ruleOf40=growth+fcfM;                            // crecimiento% + margen FCF%
   const fcfYield=fcfCur/(px*c.shares)*100;               // rentabilidad de caja al precio actual (FCF año en curso)
-  const dilution=(c.isD&&c.isD.di&&c.isD.di.length)?c.isD.di[0]:null; // <0 = recompra neta
+  const dilution=dilutionFor(c).pct;                     // <0 = recompra neta (histórico real si lo hay)
   const reinvest=(c.isD&&c.isD.cx&&c.isD.cx.length)?c.isD.cx[0]:null;  // CapEx/Ventas %
   let style,icon,color,desc;
   if(growth>=18&&quality){
@@ -3614,7 +3765,8 @@ function computeStyleFor(c,px){
   ];
   return{style,icon,color,desc,growth:+growth.toFixed(1),roic,fcfM,evfcfCur:+evfcfCur.toFixed(1),cheapPct:+cheapPct.toFixed(1),
     growthScore:Math.round(growthScore),qualityScore:Math.round(qualityScore),valueScore:Math.round(valueScore),badges,
-    per:per!=null?+per.toFixed(1):null,peg:peg!=null?+peg.toFixed(2):null,ruleOf40:+ruleOf40.toFixed(0),
+    per:per!=null?+per.toFixed(1):null,peg:peg!=null?+peg.toFixed(2):null,
+    pegVentas:pegVentas!=null?+pegVentas.toFixed(2):null,gEps:gEpsOk!=null?+gEpsOk.toFixed(1):null,ruleOf40:+ruleOf40.toFixed(0),
     fcfYield:+fcfYield.toFixed(1),dilution,reinvest};
 }
 function classifyStyle(){return computeStyleFor(co,price);}
@@ -3672,7 +3824,7 @@ function rResumen(){
   const chkItems=[
     {pos:true,title:'Crecimiento ventas',why:`CAGR 10Y ${P(cagr(co.sales[9],co.sales[0],9))} · Último año ${P(pct(co.sales[9],co.sales[8]))}`},
     {pos:co.roic[9]>=co.wacc,title:co.roic[9]>=co.wacc?'ROIC > WACC':'ROIC < WACC',why:`${P(co.roic[9])} vs WACC ${co.wacc}%. Spread ${(co.roic[9]-co.wacc)>=0?'+':''}${(co.roic[9]-co.wacc).toFixed(0)}pp`},
-    {pos:co.fcfM[9]>=10,title:'Margen FCF',why:`${P(co.fcfM[9])} · sector ~${P(co.sectorAvgFcfM)}`},
+    {pos:co.fcfM[9]>=10,title:'Margen FCF',why:`${P(co.fcfM[9])} · sector ~${P(sectorRefFor(co).fcfMg)}`},
     {pos:moat.overall>=70,title:`MOAT ${moat.label}`,why:`${moat.overall}/100 · ${moat.dimensions?Object.entries(moat.dimensions).filter(([,v])=>v>=15).map(([k])=>k).join(', '):''}`},
     {pos:co.netDebt[9]/co.ebitda[9]<2,title:co.netDebt[9]<0?'Caja neta':'Deuda controlada',why:`ND/EBITDA ${(co.netDebt[9]/co.ebitda[9]).toFixed(1)}x`},
     {pos:quality.ratio>=0.80,title:`Calidad beneficio: ${quality.label}`,why:`FCF/NI 5Y ${(quality.ratio*100).toFixed(0)}%`},
@@ -3691,7 +3843,7 @@ function rResumen(){
      hist:()=>co.sales.slice(5),
      hist_fmt:v=>''+curSymG()+N(Math.round(v/1000))+'B',
      est:()=>co.pS.slice(0,3),
-     detail:()=>`Ventas FY25: ${curSymG()}${N(co.sales[9])}M. CAGR 10Y ${P(cagr(co.sales[9],co.sales[0],9))}. Último año: ${P(pct(co.sales[9],co.sales[8]))}. Estimaciones: ${co.pS.slice(0,3).map((v,i)=>`${co.pY[i]}E ${curSymG()}${N(Math.round(v/1000))}B`).join(' · ')}.`},
+     detail:()=>`Ventas ${_y9()}: ${curSymG()}${N(co.sales[9])}M. CAGR 10Y ${P(cagr(co.sales[9],co.sales[0],9))}. Último año: ${P(pct(co.sales[9],co.sales[8]))}. Estimaciones: ${co.pS.slice(0,3).map((v,i)=>`${co.pY[i]}E ${curSymG()}${N(Math.round(v/1000))}B`).join(' · ')}.`},
     {key:'fcf',icon:'💵',lbl:'Free Cash Flow',
      main:()=>''+curSymG()+N(co.fcf[9])+'M',
      pct_val:()=>co.fcfM[9],
@@ -3701,17 +3853,17 @@ function rResumen(){
      hist:()=>co.fcf.slice(5),
      hist_fmt:v=>v<0?'−'+curSymG()+N(Math.round(Math.abs(v)/1000))+'B':''+curSymG()+N(Math.round(v/1000))+'B',
      est:()=>co.pF.slice(0,3),
-     detail:()=>`FCF FY25: ${curSymG()}${N(co.fcf[9])}M. Margen FCF ${P(co.fcfM[9])} (sector ~${P(co.sectorAvgFcfM)}). FCF/acción ${curSymG()}${N(co.fcfps[9],2)}. Est: ${co.pF.slice(0,3).map((v,i)=>`${co.pY[i]}E ${curSymG()}${N(Math.round(v/1000))}B`).join(' · ')}.`},
+     detail:()=>`FCF ${_y9()}: ${curSymG()}${N(co.fcf[9])}M. Margen FCF ${P(co.fcfM[9])} (sector ~${P(sectorRefFor(co).fcfMg)}). FCF/acción ${curSymG()}${N(co.fcfps[9],2)}. Est: ${co.pF.slice(0,3).map((v,i)=>`${co.pY[i]}E ${curSymG()}${N(Math.round(v/1000))}B`).join(' · ')}.`},
     {key:'ebitda',icon:'🏭',lbl:'EBITDA',
      main:()=>''+curSymG()+N(co.ebitda[9])+'M',
      pct_val:()=>co.ebitdaM[9],
      pct_lbl:'Margen',
-     sub:()=>'Sector ~'+P(co.sectorAvgEbitdaM),
+     sub:()=>'Sector ~'+P(sectorRefFor(co).ebitdaMg),
      c:'#b45309',
      hist:()=>co.ebitda.slice(5),
      hist_fmt:v=>''+curSymG()+N(Math.round(v/1000))+'B',
      est:()=>co.pEB.slice(0,3),
-     detail:()=>`EBITDA FY25: ${curSymG()}${N(co.ebitda[9])}M. Margen EBITDA ${P(co.ebitdaM[9])} vs sector ~${P(co.sectorAvgEbitdaM)}. Est: ${co.pEB.slice(0,3).map((v,i)=>`${co.pY[i]}E ${curSymG()}${N(Math.round(v/1000))}B`).join(' · ')}.`},
+     detail:()=>`EBITDA ${_y9()}: ${curSymG()}${N(co.ebitda[9])}M. Margen EBITDA ${P(co.ebitdaM[9])} vs sector ~${P(sectorRefFor(co).ebitdaMg)}. Est: ${co.pEB.slice(0,3).map((v,i)=>`${co.pY[i]}E ${curSymG()}${N(Math.round(v/1000))}B`).join(' · ')}.`},
     {key:'eps',icon:'📈',lbl:'EPS',
      main:()=>''+curSymG()+N(co.eps[9],2),
      pct_val:()=>pct(co.eps[9],co.eps[8]),
@@ -3721,7 +3873,7 @@ function rResumen(){
      hist:()=>co.eps.slice(5),
      hist_fmt:v=>''+curSymG()+N(v,2),
      est:()=>co.pEPS.slice(0,3),
-     detail:()=>`EPS FY25: ${curSymG()}${N(co.eps[9],2)}. Crecimiento YoY ${P(pct(co.eps[9],co.eps[8]))}. CAGR 10Y ${P(cagr(co.eps[9],co.eps[0],9))}. Est: ${co.pEPS.slice(0,3).map((v,i)=>`${co.pY[i]}E ${curSymG()}${N(v,2)}`).join(' · ')}.`},
+     detail:()=>`EPS ${_y9()}: ${curSymG()}${N(co.eps[9],2)}. Crecimiento YoY ${P(pct(co.eps[9],co.eps[8]))}. CAGR 10Y ${P(cagr(co.eps[9],co.eps[0],9))}. Est: ${co.pEPS.slice(0,3).map((v,i)=>`${co.pY[i]}E ${curSymG()}${N(v,2)}`).join(' · ')}.`},
     {key:'roic',icon:'🎯',lbl:'ROIC',
      main:()=>P(co.roic[9]),
      pct_val:()=>co.roic[9]-co.wacc,
@@ -3812,15 +3964,8 @@ function rResumen(){
     cagr(co.sales[9],co.sales[7],2) < cagr(co.sales[7],co.sales[4],3)*0.6 ? {icon:'⚠️', txt:'Desaceleración significativa en crecimiento de ventas últimos 2 años'} : null,
   ].filter(Boolean);
 
-  // ── Benchmarks de sector para el checklist ──
-  const sectorRef = {
-    cagr:    co.sectorAvgGrowth  || 12,
-    fcfMg:   co.sectorAvgFcfM    || 15,
-    ebitdaMg:co.sectorAvgEbitdaM || 22,
-    roicRef: co.sectorAvgRoic    || 15,
-    pervRef: co.sectorAvgPER     || 25,
-    evfRef:  co.sectorAvgEvFcf   || 25,
-  };
+  // ── Benchmarks de sector para el checklist (ver sectorRefFor) ──
+  const sectorRef = sectorRefFor(co);
 
   // ── Ficha empresa (de FICHA) ──
   const coKey=Object.keys(DB).find(k=>DB[k]===co)||'MSFT';
@@ -4494,7 +4639,7 @@ function rDCF(){
       </div>
       <div class="dcf-info-box">Fórmula: DCF = Σ[FCF×(1+g)ⁿ/(1+r)ⁿ] + TV×/(1+r)¹⁰ donde TV=FCF₁₀×(1+g)/(r−g)</div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
-        ${[['gr','Crecimiento FCF (10a)',gr,0,30,0.5,'%','#2563eb','CAGR hist: ~'+((((Math.pow(Math.max(co.fcf[9],.01)/Math.max(co.fcf[0],.01),1/9))-1)*100).toFixed(0))+'%'],['dr','Tasa de descuento',dr,6,20,0.5,'%','#1e3a5f','WACC ~10%'],['tg','Crecimiento terminal',tg,0,5,0.5,'%','#7c3aed','PIB nominal ~4-5%']].map(p=>`<div>${sld(p[0],p[1],p[2],p[3],p[4],p[5],p[6],p[7],p[8])}</div>`).join('')}
+        ${[['gr','Crecimiento FCF (10a)',gr,0,30,0.5,'%','#2563eb','CAGR hist: ~'+((((Math.pow(Math.max(co.fcf[9],.01)/Math.max(co.fcf[0],.01),1/9))-1)*100).toFixed(0))+'%'],['dr','Tasa de descuento',dr,6,20,0.5,'%','#1e3a5f','WACC de '+co.ticker+' ~'+(co.wacc||10)+'%'],['tg','Crecimiento terminal',tg,0,5,0.5,'%','#7c3aed','PIB nominal ~4-5%']].map(p=>`<div>${sld(p[0],p[1],p[2],p[3],p[4],p[5],p[6],p[7],p[8])}</div>`).join('')}
       </div>
       <div style="display:flex;justify-content:space-between;padding:9px 12px;background:${(calcDCF()-price)/price*100>=0?'#f0fdf4':'#fef2f2'};border-radius:8px;margin-top:8px;border:1px solid ${(calcDCF()-price)/price*100>=0?'#bbf7d0':'#fecaca'};">
         <span style="font-size:12px;color:var(--muted);">Valor DCF intrínseco</span>
@@ -4547,7 +4692,7 @@ function rDCF(){
       <div class="ctitle">Parámetros DCF</div>
       <div class="dcf-info-box"><strong>DCF:</strong> Descuenta flujos futuros al presente. Fórmula: Σ [FCF_n/(1+r)^n] + TV/(1+r)^10 donde TV=FCF₁₀×(1+g)/(r−g).</div>
       ${sld('gr','Crecimiento FCF (10 años)',gr,0,30,0.5,'%','#2563eb','CAGR histórico: ~'+((((Math.pow(Math.max(co.fcf[9],.01)/Math.max(co.fcf[0],.01),1/9))-1)*100).toFixed(0))+'%')}
-      ${sld('dr','Tasa de descuento',dr,6,20,0.5,'%','#1e3a5f','WACC ~10%')}
+      ${sld('dr','Tasa de descuento',dr,6,20,0.5,'%','#1e3a5f','WACC de '+co.ticker+' ~'+(co.wacc||10)+'%')}
       ${sld('tg','Crecimiento terminal',tg,0,5,0.5,'%','#7c3aed','PIB nominal ~4-5%')}
       <div style="display:flex;justify-content:space-between;padding:9px 12px;background:${ud>=0?'#f0fdf4':'#fef2f2'};border-radius:8px;margin-top:8px;border:1px solid ${ud>=0?'#bbf7d0':'#fecaca'};"><span style="font-size:12px;color:var(--muted);">Valor DCF intrínseco</span><span style="font-size:18px;font-weight:600;color:${cu(ud)};">${curSymG()}${N(dcf)} <span style="font-size:11px;">(${ud>=0?'+':''}${ud.toFixed(1)}%)</span></span></div>
     </div>
@@ -4602,7 +4747,7 @@ function rAnalisis(){
   const ebMT=co.ebitdaM[9]-co.ebitdaM[4], ebitMT=co.ebitM[9]-co.ebitM[4];
   const lossEbit=cnt(co.ebit,v=>v!=null&&v<0);
   const epsG5=(co.eps[4]>0&&co.eps[9]>0)?cagr(co.eps[9],co.eps[4],5):null;
-  const di=(co.isD&&co.isD.di)?co.isD.di[0]:null;
+  const _dil=dilutionFor(co), di=_dil.pct;
   const negFcf=cnt(co.fcf,v=>v!=null&&v<0), fcfMT=co.fcfM[9]-co.fcfM[4];
   const cx=(co.isD&&co.isD.cx)?co.isD.cx[0]:null;
   const spread=co.roic[9]-co.wacc, roicT=co.roic[9]-co.roic[4], roicBelow=cnt(co.roic,v=>v!=null&&v<co.wacc);
@@ -4616,7 +4761,7 @@ function rAnalisis(){
      {icon:'💼',label:'Margen EBITDA',value:P(co.ebitdaM[9])+' ('+(ebMT>=0?'+':'')+ebMT.toFixed(0)+'pp 5Y)',series:co.ebitdaM,color:'#b45309',status:(co.ebitdaM[9]>=25&&ebMT>=-1)?'pos':(ebMT<-3?'neg':'warn'),why:'Rentabilidad operativa bruta. Alto y estable = poder de fijar precios.',watch:'Márgenes en contracción = presión de costes/competencia. Mira la tendencia, no solo el nivel.',bench:'>25%'},
      {icon:'⚙️',label:'Margen EBIT',value:P(co.ebitM[9])+' ('+(ebitMT>=0?'+':'')+ebitMT.toFixed(0)+'pp 5Y)',series:co.ebitM,color:'#d97706',status:(co.ebitM[9]>=18&&ebitMT>=-1)?'pos':(ebitMT<-3?'neg':'warn'),why:'Margen operativo tras amortizaciones; más exigente que el EBITDA.',watch:'Si el EBIT cae más que el EBITDA, las amortizaciones/capex pesan mucho.',bench:'>15%'},
      {icon:'📈',label:'Beneficio / EPS',value:'EPS '+curSymG()+N(co.eps[9],2)+(epsG5!=null?' · '+(epsG5>=0?'+':'')+epsG5.toFixed(0)+'%/año':''),series:co.eps,color:'#7c3aed',status:lossEbit>0?'neg':(epsG5!=null&&epsG5>=10?'pos':'warn'),why:'Beneficio por acción. Valídalo siempre con el FCF (abajo).',watch:(lossEbit>0?('⚠ '+lossEbit+' año(s) con EBIT en pérdidas → negocio CÍCLICO.'):'Crecimiento sostenido sin años en pérdidas = estable.')+spinCaveat,bench:'sin años en pérdidas'},
-     ...(di!=null?[{icon:'🧾',label:'Dilución de acciones',value:(di>0?'+':'')+di+'%/año',color:di<=0?'#16a34a':'#dc2626',status:di<=0?'pos':di<=1.5?'warn':'neg',why:'Emitir acciones reparte el pastel entre más socios; recomprar lo concentra.',watch:di<=0?'Recompra neta: suma valor por acción ✓':'Emite acciones: parte de tu rentabilidad se diluye.',bench:'≤0% (recompra)'}]:[])
+     ...(di!=null?[{icon:'🧾',label:'Dilución de acciones',value:(di>0?'+':'')+(+di).toFixed(1)+'%/año'+(_dil.real?'':' (est.)'),color:di<=0?'#16a34a':'#dc2626',status:di<=0?'pos':di<=1.5?'warn':'neg',why:'Emitir acciones reparte el pastel entre más socios; recomprar lo concentra.',watch:dilutionLabel(co),bench:'≤0% (recompra)'}]:[])
    ]},
    {title:'💵 Flujo de caja (FCF)',sheet:'2.FCF',items:[
      {icon:'💧',label:'Free Cash Flow',value:''+curSymG()+N0(co.fcf[9])+'M',series:co.fcf,color:'#16a34a',status:negFcf>=2?'neg':(co.fcf[9]>0?'pos':'warn'),why:'La caja real tras operar e invertir. Es lo único que paga dividendos, recompras y deuda.',watch:(negFcf>0?('⚠ '+negFcf+' año(s) de FCF NEGATIVO → quema de caja en partes del ciclo (típico en cíclicas).'):'FCF positivo y creciente = generación sana.')+spinCaveat,bench:'positivo y creciente'},
@@ -4694,7 +4839,7 @@ function rAlertas(){
     {t:quality.ratio>=0.85?"pos":quality.ratio>=0.70?"warn":"neg",icon:"💎",txt:`Calidad FCF/NI 5Y avg: ${(quality.ratio*100).toFixed(0)}% — ${quality.label}. ${quality.why.substring(0,80)}…`},
     {t:rev.diff<2?"pos":rev.diff<10?"warn":"neg",icon:"🔄",txt:`Reverse DCF: implícito ${rev.impliedG}% vs histórico ${rev.historicalFCFCagr}% (${rev.diff>=0?'+':''}${rev.diff}pp). ${rev.label.substring(0,80)}`},
     {t:co.isD.cx[0]<3?"pos":co.isD.cx[0]<8?"warn":"neg",icon:"🔨",txt:`CapEx/Ventas: ${co.isD.cx[0]}% — ${co.isD.cx[0]<3?"Negocio ligero en activos.":co.isD.cx[0]<8?"Moderado.":"Capital intensivo."}`},
-    {t:co.roic[9]>=co.roic[0]-5?"pos":"warn",icon:"📉",txt:`Tendencia ROIC: ${co.roic[0]}% (2016) → ${co.roic[9]}% (2025). ${co.roic[9]>=co.roic[0]?"Estable ✓":co.roic[9]>=co.roic[0]-10?"Bajista moderado.":"Caída significativa."}`},
+    {t:co.roic[9]>=co.roic[0]-5?"pos":"warn",icon:"📉",txt:`Tendencia ROIC: ${co.roic[0]}% (${_y0()}) → ${co.roic[9]}% (${_y9()}). ${co.roic[9]>=co.roic[0]?"Estable ✓":co.roic[9]>=co.roic[0]-10?"Bajista moderado.":"Caída significativa."}`},
   ];
   const pos=als.filter(a=>a.t==="pos").length,warn=als.filter(a=>a.t==="warn").length,neg=als.filter(a=>a.t==="neg").length;
   return`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px;">
@@ -4858,7 +5003,7 @@ const TIPS={
   retorno:{emoji:'📈',title:'Retorno esperado 5 años (CAGR)',color:'#16a34a',tag:'DECISIÓN',def:'Rentabilidad anualizada estimada si la acción alcanza tu precio objetivo PROMEDIO (4 múltiplos) en 5 años. Es el componente principal del veredicto: combina crecimiento + valoración + punto de entrada. Un negocio "caro" hoy pero que compone rápido puede dar gran retorno; uno "barato" que no crece, poco.',formula:'CAGR = (Precio objetivo 5Y / Precio)^(1/5) − 1',example:(c)=>{const v=calcVerdict();return `${c.name}: ~${v.cagr5e>=0?'+':''}${v.cagr5e}%/año esperado (${v.retScore}/35 en el veredicto).`;},bench:[{v:'>15%',c:'#16a34a',bg:'#f0fdf4',label:'Excelente'},{v:'10-15%',c:'#d97706',bg:'#fffbeb',label:'Bueno'},{v:'<8%',c:'#dc2626',bg:'#fef2f2',label:'Flojo'}],ref:'Lynch/Fisher — el retorno viene del crecimiento del valor intrínseco, no solo del descuento de entrada.'},
   mds:{emoji:'🛡️',title:'Margen de Seguridad (MdS)',color:'#16a34a',tag:'DECISIÓN',def:'Distancia entre el precio actual y tu precio justo. Aquí se mide como potencial al alza: (valor−precio)/precio. Cuanto mayor, más colchón ante errores de estimación.',formula:'MdS = (Precio justo − Precio) / Precio',example:(c)=>`${c.name}: MdS ${calcVerdict().msBase>=0?'+':''}${calcVerdict().msBase}% vs precio justo ${curSymG()}${N(calcVerdict().fairBase)}.`,bench:[{v:'>20%',c:'#16a34a',bg:'#f0fdf4',label:'Compra'},{v:'0-20%',c:'#d97706',bg:'#fffbeb',label:'Justo'},{v:'<0%',c:'#dc2626',bg:'#fef2f2',label:'Caro'}],ref:'Graham — "El margen de seguridad es el corazón de invertir." Mayor exigencia cuanto menos predecible es el negocio.'},
   estilo:{emoji:'🎚️',title:'Estilo: Growth / Value / GARP / Calidad',color:'#2563eb',tag:'ENCUADRE',def:'Encuadre del negocio según tres ejes: CRECIMIENTO (ventas/EPS), CALIDAD (ROIC y margen FCF) y VALORACIÓN (barato o caro frente a su propia historia). Growth = crece rápido y caro · Value = barato y lento (reversión) · GARP = crecimiento a precio razonable (Lynch) · Quality/Compounder = ROIC alto que compone valor reinvirtiendo (Buffett/Munger).',formula:'Crecimiento + Calidad + Valoración → estilo',example:(c)=>{const s=classifyStyle();return `${c.name}: ${s.icon} ${s.style}. Crec. ~${s.growth}%/año · ROIC ${s.roic.toFixed(0)}% · EV/FCF ${s.evfcfCur}x (${s.cheapPct>=0?'−':'+'}${Math.abs(s.cheapPct).toFixed(0)}% vs su media).`;},bench:[{v:'Growth',c:'#16a34a',bg:'#f0fdf4',label:'crece y paga prima'},{v:'GARP',c:'#2563eb',bg:'#eff6ff',label:'crece a precio justo'},{v:'Quality',c:'#7c3aed',bg:'#f5f3ff',label:'ROIC alto compone'},{v:'Value',c:'#b45309',bg:'#fffbeb',label:'barato, reversión'}],ref:'Lynch (GARP), Graham (value), Buffett & Munger (quality/compounders), Fisher (growth).'},
-  peg:{emoji:'🧮',title:'PEG — PER ajustado al crecimiento',color:'#7c3aed',tag:'VALORACIÓN',def:'Relaciona lo caro que está el PER con el ritmo de crecimiento. Un PER de 30x es caro si la empresa crece al 10%, pero barato si crece al 40%. PEG normaliza esa relación.',formula:'PEG = PER / Crecimiento EPS (%)',example:(c)=>{const s=classifyStyle();return `${c.name}: PEG ${s.peg!=null?s.peg.toFixed(2):'—'} (PER ${s.per}x ÷ crec. ${s.growth}%). ${s.peg!=null?(s.peg<1?'Barato para su crecimiento.':s.peg<2?'Razonable.':'Caro: pagas mucho por el crecimiento.'):''}`;},bench:[{v:'<1',c:'#16a34a',bg:'#f0fdf4',label:'Barato'},{v:'1-2',c:'#d97706',bg:'#fffbeb',label:'Razonable'},{v:'>2',c:'#dc2626',bg:'#fef2f2',label:'Caro'}],ref:'Peter Lynch — "One Up on Wall Street". Ideal PEG ≤ 1.'},
+  peg:{emoji:'🧮',title:'PEG — PER ajustado al crecimiento',color:'#7c3aed',tag:'VALORACIÓN',def:'Relaciona lo caro que está el PER con el ritmo de crecimiento. Un PER de 30x es caro si la empresa crece al 10%, pero barato si crece al 40%. PEG normaliza esa relación.',formula:'PEG = PER / Crecimiento EPS (%)',example:(c)=>{const s=classifyStyle();return `${c.name}: PEG ${s.peg!=null?s.peg.toFixed(2):'—'} (PER ${s.per}x ÷ crec. BPA ${s.gEps!=null?s.gEps:'—'}%). ${s.peg!=null?(s.peg<1?'Barato para su crecimiento.':s.peg<2?'Razonable.':'Caro: pagas mucho por el crecimiento.'):''}`;},bench:[{v:'<1',c:'#16a34a',bg:'#f0fdf4',label:'Barato'},{v:'1-2',c:'#d97706',bg:'#fffbeb',label:'Razonable'},{v:'>2',c:'#dc2626',bg:'#fef2f2',label:'Caro'}],ref:'Peter Lynch — "One Up on Wall Street". Ideal PEG ≤ 1.'},
   ruleof40:{emoji:'🎯',title:'Rule of 40',color:'#0891b2',tag:'CALIDAD',def:'Regla de oro del software/growth: la suma del crecimiento de ingresos y el margen de flujo de caja debe superar el 40%. Equilibra crecer rápido con ser rentable. Por debajo de 40 = o crece poco o quema demasiado.',formula:'Rule of 40 = Crecimiento ventas (%) + Margen FCF (%)',example:(c)=>{const s=classifyStyle();return `${c.name}: ${s.ruleOf40}% (crec. ${s.growth}% + margen FCF ${s.fcfM.toFixed(0)}%). ${s.ruleOf40>=40?'Supera el listón ✓':'Por debajo de 40.'}`;},bench:[{v:'>40%',c:'#16a34a',bg:'#f0fdf4',label:'Saludable'},{v:'30-40%',c:'#d97706',bg:'#fffbeb',label:'Aceptable'},{v:'<30%',c:'#dc2626',bg:'#fef2f2',label:'Flojo'}],ref:'Estándar de SaaS/venture (Brad Feld) aplicado a calidad operativa.'},
   fcfyield:{emoji:'💸',title:'FCF Yield — Rentabilidad de caja',color:'#16a34a',tag:'VALORACIÓN',def:'El flujo de caja libre que genera la empresa en un año dividido por lo que cuesta comprarla entera (market cap). Es el inverso del múltiplo P/FCF: dice qué "interés" en caja te paga el negocio al precio actual. Compáralo con el bono a 10 años.',formula:'FCF Yield = FCF anual / Market Cap',example:(c)=>{const s=classifyStyle();return `${c.name}: FCF yield ${s.fcfYield}% (vs bono 10Y ~4,5%). ${s.fcfYield>=5?'Genera más caja que el bono sin riesgo.':s.fcfYield>=3?'Razonable para su calidad/crecimiento.':'Bajo: el precio descuenta crecimiento futuro.'}`;},bench:[{v:'>5%',c:'#16a34a',bg:'#f0fdf4',label:'Atractivo'},{v:'3-5%',c:'#d97706',bg:'#fffbeb',label:'Normal'},{v:'<3%',c:'#dc2626',bg:'#fef2f2',label:'Exigente'}],ref:'Inverso del EV/FCF — útil para comparar contra renta fija y entre empresas.'},
   reinversion:{emoji:'🔁',title:'Reinversión y Dilución',color:'#b45309',tag:'CAPITAL',def:'Qué hace la empresa con la caja: reinvertir (CapEx) para crecer y cómo trata al accionista. Dilución = emisión de acciones (stock-based comp): positiva resta valor por acción; negativa = recompra neta, que lo aumenta. Reinvertir a ROIC alto es el motor del compounding.',formula:'Dilución = Δ acciones anual % · Reinversión = CapEx / Ventas %',example:(c)=>{const s=classifyStyle();return `${c.name}: dilución ${s.dilution!=null?(s.dilution>0?'+':'')+s.dilution+'%/año':'—'} ${s.dilution!=null?(s.dilution<=0?'(recompra neta ✓)':'(emite acciones)'):''} · CapEx/Ventas ${s.reinvest!=null?s.reinvest+'%':'—'}.`;},bench:[{v:'Recompra',c:'#16a34a',bg:'#f0fdf4',label:'≤0% dilución'},{v:'Estable',c:'#d97706',bg:'#fffbeb',label:'0-1%'},{v:'Diluye',c:'#dc2626',bg:'#fef2f2',label:'>1%/año'}],ref:'Buffett — recompras a precio < valor crean valor; emitir caro lo destruye.'},
@@ -5293,7 +5438,7 @@ function buildImportFromFinancials(rows,e){
     ticker:e.id, name:e.name||(e.profile&&e.profile.name)||e.id,
     sector:e.sector||(_cat&&_cat.sector)||(e.profile&&e.profile.finnhubIndustry)||'', color:(_cat&&_cat.color)||'#1e3a5f',
     ...(((_cat&&_cat.domain)||_hostOf(e.profile&&e.profile.weburl))?{domain:(_cat&&_cat.domain)||_hostOf(e.profile.weburl)}:{}),...(tvSymbolFor(e.id,e.id)?{tvSymbol:tvSymbolFor(e.id,e.id)}:{}),
-    shares:last(sharesArr)||1, price:(_priceCache[e.id]&&_priceCache[e.id].live)||0,
+    shares:last(sharesArr)||1, sharesHist:pad10(sharesArr,last(sharesArr)||1), price:(_priceCache[e.id]&&_priceCache[e.id].live)||0,
     driveUrl:'', desc:(e.name||e.id)+' — datos automáticos (Finnhub/SEC). Refina importando tu hoja TIKR.',
     importDate:Date.now(), autoSource:'finnhub', estimated:true, yearsAvailable:n,
     years:padY(years),sales:pad10(sales,0),ebit:pad10(ebit,0),ebitda:pad10(ebitda,0),netIncome:pad10(netIncome,0),
@@ -6356,7 +6501,7 @@ function pegColor(peg){return peg==null?'#9a958e':peg<1?'#16a34a':peg<=2?'#eab30
 function pegBar(peg,per,g){
   if(peg==null) return '<span style="color:#9a958e;font-size:11px;" title="Sin BPA o crecimiento ≤ 0">—</span>';
   const col=pegColor(peg), pos=Math.min(100,Math.max(2,peg/2*100)); // PEG 1→50%, 2→100%
-  const tip=(per!=null&&g!=null)?`PEG = PER ${per.toFixed(1)} ÷ crec. BPA 5Y ${g.toFixed(1)}% = ${peg.toFixed(2)}  ·  <1 barato · 1-2 razonable · >2 caro`:`PEG ${peg.toFixed(2)}`;
+  const tip=(per!=null&&g!=null)?`PEG = PER ${per.toFixed(1)} ÷ crec. BPA proyectado 5Y ${g.toFixed(1)}% = ${peg.toFixed(2)}  ·  <1 barato · 1-2 razonable · >2 caro`:`PEG ${peg.toFixed(2)}`;
   return `<div title="${tip}" style="display:flex;flex-direction:column;align-items:center;gap:3px;cursor:help;">
     <span style="font-size:12px;font-weight:600;color:${col};">${peg.toFixed(2)}</span>
     <div style="width:56px;height:6px;border-radius:3px;background:linear-gradient(90deg,#16a34a,#eab308 50%,#dc2626);position:relative;">
@@ -6601,12 +6746,14 @@ function verdictFor(key,px){
   const d=DB[key];
   if(!d||!d.fcf||!d.roic||!d.netDebt||!d.eps) return null;
   const _co=co,_px=price,_evf=tEVF,_per=tPER,_eve=tEVE,_evei=tEVEI,_ps=_projSource,_ed=_isEdited;
+  const _dr=dr,_gr=gr,_tg=tg;      // las tasas también son globales: se prestan y se devuelven
   try{
     co=d; price=px||d.price||0; _projSource='sheet'; _isEdited=false;
-    applyCompanyMults(d);
+    applyCompanyMults(d); loadRatesFor(key);
     return calcVerdict();
   }catch(e){ return null; }
-  finally{ co=_co; price=_px; tEVF=_evf; tPER=_per; tEVE=_eve; tEVEI=_evei; _projSource=_ps; _isEdited=_ed; }
+  finally{ co=_co; price=_px; tEVF=_evf; tPER=_per; tEVE=_eve; tEVEI=_evei; _projSource=_ps; _isEdited=_ed;
+           dr=_dr; gr=_gr; tg=_tg; }
 }
 
 // Nombre de empresa reducido a lo esencial: sin sufijos corporativos, acrónimos largos
@@ -6841,35 +6988,6 @@ function _paintFilterChips(FILTERS,hidden){
 // RESUMEN DE CARTERA — las cifras que un inversor mira antes que nada
 // ══════════════════════════════════════════════════════════════════
 // Sector amplio a partir del texto libre de `sector` (para medir concentración)
-// Buckets concretos (no genéricos): semiconductores, memoria, datacenters, software…
-// El orden importa: gana la primera regla que casa.
-const _SECTOR_RULES=[
-  [/memoria|hdd|ssd|nand|dram|flash|disco|almacenamiento|storage/i,'Memoria / Almacenamiento'],
-  [/semicond|litograf|euv|foundry|wafer|\bgpu\b|\bchip|procesador|fundici/i,'Semiconductores'],
-  [/datacenter|data center|centro de datos|hyperscal|infraestructura de nube/i,'Datacenters'],
-  [/software|saas|\bvms\b|\berp\b|aplicaciones|ofim/i,'Software'],
-  [/nube|cloud|\baws\b|\bazure\b/i,'Nube'],
-  [/publicidad|\bads\b|advertising|buscador|search|social|red social/i,'Publicidad / Internet'],
-  [/ecommerce|e-commerce|comercio electr|retail|minorista|marketplace/i,'E-commerce'],
-  [/hardware|dispositiv|iphone|smartphone|wearable|electrón|consumer tech|consumo tecnol/i,'Hardware / Consumo'],
-  [/salud|health|pharma|farma|biotech|medical|medic/i,'Salud'],
-  [/banco|bank|financ|seguro|insur|asset manage|payment|pago/i,'Financiero'],
-  [/energ|oil|gas|petról|petrol|renovable|solar/i,'Energía'],
-  [/industri|aero|defen|maquinar|construc|transport|logíst|logist/i,'Industrial'],
-  [/telecom|media|entertain|streaming/i,'Telecom / Media'],
-  [/inmobil|reit|real estate/i,'Inmobiliario'],
-  [/utilit|agua|eléctric|electric/i,'Utilities'],
-];
-// Sector definido para las empresas de fábrica (evita etiquetas genéricas)
-const _SECTOR_OVR={MSFT:'Software',ASML:'Semiconductores',AMZN:'E-commerce',CSU:'Software',
-  AAPL:'Hardware / Consumo',GOOGL:'Publicidad / Internet',META:'Publicidad / Internet',
-  NVDA:'Semiconductores',WDC:'Memoria / Almacenamiento'};
-function sectorBucket(key){
-  if(_SECTOR_OVR[key]) return _SECTOR_OVR[key];
-  const t=String(sectorOf(key)||(getImportedData(key)||{}).sector||'');
-  for(const [re,name] of _SECTOR_RULES) if(re.test(t)) return name;
-  return t?'Otros':'Sin clasificar';
-}
 // Queso (donut) en SVG: segmentos [{label,pct,color}] — sin dependencias ni ciclo de vida
 function _donutSVG(segs,size){
   const r=size/2-7, cx=size/2, cy=size/2, C=2*Math.PI*r; let off=0;
@@ -7539,6 +7657,7 @@ function parseExcelData(arrayBuffer,ticker,name,sector,color,driveUrl){
   const eps=nums(epsRow,1,10), pEPS=nums(epsRow,11,5);
   const sharesArr=nums(sharesRow,1,10);
   const shares=sharesArr.filter(v=>v!=null).pop()||null;
+  const sharesHist=sharesArr;   // 10 años de acciones diluidas: dilución/recompra reales
   const pShares=nums(sharesRow,11,5); // acciones diluidas proyectadas (2026e-2030e), como en la hoja
 
   // 2.FCF
@@ -7618,7 +7737,7 @@ function parseExcelData(arrayBuffer,ticker,name,sector,color,driveUrl){
   return{
     ticker,name,sector:sector||'',color:color||'#1e3a5f',driveUrl:driveUrl||'',
     importDate:new Date().toISOString(),
-    price,shares,
+    price,shares,sharesHist,
     years:_years,
     sales,ebitda,ebitdaM,ebit,ebitM,netIncome,eps,fcf,fcfM,fcfps,roic,netDebt,
     pY:_pY,pS,pEB,pF,pEPS,pND,pShares,
@@ -7653,7 +7772,7 @@ function buildDbEntryFromImport(r){
   const entry={
     name:r.name||r.ticker,ticker:r.ticker,finnhubTicker:r.ticker,sector:r.sector||(_cat&&_cat.sector)||'',
     ...(( _cat&&_cat.domain)?{domain:_cat.domain}:{}),...( _tv?{tvSymbol:_tv}:{}),
-    shares:r.shares||1,price:r.price||0,equity:0,color:_color,
+    shares:r.shares||1,sharesHist:r.sharesHist||[],price:r.price||0,equity:0,color:_color,
     wacc:10,sectorAvgEbitdaM:Math.round(ebitdaM9)||25,sectorAvgFcfM:Math.round(last(r.fcfM)||20),sectorAvgROIC:Math.round(last(r.roic)||15),
     earningsDate:'',earningsLabel:'Resultados',driveUrl:r.driveUrl||'',
     desc:r.desc||((r.name||r.ticker)+' — empresa importada desde tu Plantilla de Valoración.'),
