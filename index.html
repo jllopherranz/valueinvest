@@ -2319,11 +2319,19 @@ document.addEventListener('click',e=>{
 // ═══════════════════════════════════════════════════════════════════
 // CALCULATIONS
 // ═══════════════════════════════════════════════════════════════════
+// Crecimiento del año i (1-10): pleno hasta el 5, luego converge a tg
+function _fadeG(g,i){ return i<=5?g:(g+(tg-g)*((i-5)/5)); }
+// Serie de FCF descontada con desvanecimiento. Devuelve {pv, fcf10}
+function _dcfFlows(F,g){
+  let pv=0,f=F;
+  for(let i=1;i<=10;i++){ f=f*(1+_fadeG(g,i)/100); pv+=f/Math.pow(1+dr/100,i); }
+  return {pv,fcf10:f};
+}
 function calcDCF(){
   if(dr<=tg) return 0;
-  let pv=0;
-  for(let i=1;i<=10;i++) pv+=(co.fcf[9]*Math.pow(1+gr/100,i))/Math.pow(1+dr/100,i);
-  const tv=(co.fcf[9]*Math.pow(1+gr/100,10)*(1+tg/100))/(dr/100-tg/100);
+  const F=fcfBase(co);          // último año, o FCF normalizado si lo activas
+  const {pv,fcf10}=_dcfFlows(F,gr);
+  const tv=(fcf10*(1+tg/100))/(dr/100-tg/100);
   return (pv+tv/Math.pow(1+dr/100,10)-co.netDebt[9])/co.shares;
 }
 
@@ -2670,6 +2678,128 @@ function sectorRefFor(c){
   return base;
 }
 
+// ══ MÉTRICAS DE FASE 2 ════════════════════════════════════════════════
+// Todas devuelven {..., ok:false} cuando el dato no está, para que la ficha
+// pueda decir "sin evaluar" en vez de inventarse un valor por defecto.
+
+const _serie=a=>(a||[]).filter(v=>v!=null&&isFinite(v));
+const _medianaN=a=>{const v=_serie(a).slice().sort((x,y)=>x-y);if(!v.length)return null;
+  const m=v.length>>1;return v.length%2?v[m]:(v[m-1]+v[m])/2;};
+
+// ── CapEx / Ventas real (antes: siempre el 3% por defecto del simulador) ──
+function capexIntensity(c){
+  c=c||co;
+  const cap=_serie(c.capex), sal=_serie(c.sales);
+  if(cap.length>=3&&sal.length>=3){
+    const n=Math.min(cap.length,sal.length);
+    const r=_medianaN(Array.from({length:n},(_,i)=>{
+      const s=c.sales[c.sales.length-n+i], k=c.capex[c.capex.length-n+i];
+      return (s>0&&k!=null)?k/s*100:null;}));
+    if(r!=null) return {pct:+r.toFixed(1), ok:true, fuente:'CapEx de tu hoja, mediana '+n+' años'};
+  }
+  const cx=(c.isD&&c.isD.cx&&c.isD.cx.length)?c.isD.cx[0]:null;
+  return {pct:cx, ok:false, fuente:cx!=null?'supuesto del simulador, no medido':'sin dato'};
+}
+
+// ── Circulante / Ventas real ──
+function workingCapIntensity(c){
+  c=c||co;
+  const wc=_serie(c.workingCap), sal=_serie(c.sales);
+  if(wc.length>=3&&sal.length>=3){
+    const n=Math.min(wc.length,sal.length);
+    const last=c.workingCap[c.workingCap.length-1], sl=c.sales[c.sales.length-1];
+    if(sl>0&&last!=null) return {pct:+(last/sl*100).toFixed(1), ok:true, fuente:'circulante de tu hoja'};
+  }
+  const w=(c.isD&&c.isD.wc&&c.isD.wc.length)?c.isD.wc[0]:null;
+  return {pct:w, ok:false, fuente:w!=null?'supuesto del simulador, no medido':'sin dato'};
+}
+
+// ── FCF normalizado: margen FCF mediano aplicado a las ventas del último año ──
+// El DCF y el reverse DCF arrancaban del FCF de UN año. Si ese año fue pico o
+// valle, toda la valoración heredaba la anomalía.
+function normalizedFCF(c){
+  c=c||co;
+  const mgs=_serie(c.fcfM).slice(-7);
+  const ventas=_serie(c.sales).pop();
+  const ultimo=_serie(c.fcf).pop();
+  if(mgs.length<4||!ventas||ultimo==null) return {fcf:ultimo??null, ok:false, desvio:0, margen:null};
+  const mgMed=_medianaN(mgs);
+  const norm=ventas*mgMed/100;
+  const desvio=norm>0?((ultimo-norm)/norm*100):0;
+  return {fcf:Math.round(norm), ok:true, margen:+mgMed.toFixed(1), ultimo:Math.round(ultimo),
+          desvio:+desvio.toFixed(0), años:mgs.length};
+}
+// Base de FCF que usan DCF y reverse DCF (normalizada si el usuario lo pide)
+let _usarFCFNorm=(()=>{try{return localStorage.getItem('vi_fcf_norm')==='1';}catch(e){return false;}})();
+function toggleFCFNorm(){
+  _usarFCFNorm=!_usarFCFNorm;
+  try{localStorage.setItem('vi_fcf_norm',_usarFCFNorm?'1':'0');}catch(e){}
+  if(typeof curTab!=='undefined') showTab(curTab);
+  recalc();
+}
+function fcfBase(c){
+  c=c||co;
+  const n=normalizedFCF(c);
+  return (_usarFCFNorm&&n.ok)?n.fcf:(_serie(c.fcf).pop()??0);
+}
+
+// ── ROIIC: retorno del capital INCREMENTAL ────────────────────────────
+// El ROIC mide lo que rinde el capital ya invertido; el ROIIC, lo que rinde el
+// euro siguiente. Es la prueba real del compounder. Capital invertido se deduce
+// de NOPAT y ROIC, que ya están en la hoja: IC = NOPAT / ROIC.
+function calcROIIC(c,años){
+  c=c||co; años=años||5;
+  const n=(c.ebit||[]).length;
+  if(n<años+1||!c.roic) return {ok:false};
+  const ic=i=>{
+    const ebit=c.ebit[i], r=c.roic[i];
+    if(ebit==null||r==null||r===0) return null;
+    const tax=(c.isD&&c.isD.tr&&c.isD.tr[0]!=null)?c.isD.tr[0]:21;
+    const nopat=ebit*(1-tax/100);
+    return {nopat, ic:nopat/(r/100)};
+  };
+  const a=ic(n-1-años), b=ic(n-1);
+  if(!a||!b) return {ok:false};
+  const dNopat=b.nopat-a.nopat, dIC=b.ic-a.ic;
+  if(!isFinite(dIC)||Math.abs(dIC)<1e-6) return {ok:false};
+  const roiic=dNopat/dIC*100;
+  if(!isFinite(roiic)||Math.abs(roiic)>500) return {ok:false};   // ruido contable
+  return {ok:true, pct:+roiic.toFixed(0), años, dNopat:Math.round(dNopat), dIC:Math.round(dIC),
+          roicActual:c.roic[n-1]};
+}
+
+// ── Coste real de la retribución en acciones ──
+function sbcImpact(c){
+  c=c||co;
+  const sbc=_serie(c.sbc), fcf=_serie(c.fcf), sal=_serie(c.sales);
+  if(!sbc.length||!fcf.length||!sal.length) return {ok:false};
+  const s=sbc[sbc.length-1], f=fcf[fcf.length-1], v=sal[sal.length-1];
+  if(!(v>0)||f==null) return {ok:false};
+  return {ok:true, sbc:Math.round(s), pctVentas:+(s/v*100).toFixed(1),
+          pctFCF:f>0?+(s/f*100).toFixed(0):null, fcfAjustado:Math.round(f-s)};
+}
+
+// ── Nota de fiabilidad: ¿cuánto de este análisis son datos tuyos? ──
+function dataConfidence(c){
+  c=c||co;
+  const key=Object.keys(DB).find(k=>DB[k]===c);
+  const imp=key?getImportedData(key):null;
+  const chk=[
+    {n:'Histórico de 10 años',    ok:_serie(c.sales).length>=8},
+    {n:'Proyecciones de tu hoja', ok:!c.estimated&&_serie(c.pS).length>=5},
+    {n:'Múltiplos históricos',    ok:_serie(c.hEvF).length>=5||_serie(c.hPER).length>=5},
+    {n:'Histórico de acciones',   ok:_serie(c.sharesHist).length>=3},
+    {n:'CapEx',                   ok:_serie(c.capex).length>=3},
+    {n:'Retribución en acciones', ok:_serie(c.sbc).length>=3},
+  ];
+  const n=chk.filter(x=>x.ok).length;
+  const pct=Math.round(n/chk.length*100);
+  const edad=imp&&imp.importDate?Math.floor((Date.now()-new Date(imp.importDate).getTime())/864e5):null;
+  return {pct, n, total:chk.length, items:chk, edadDias:edad,
+    label:pct>=80?'ALTA':pct>=50?'MEDIA':'BAJA',
+    color:pct>=80?'#16a34a':pct>=50?'#d97706':'#dc2626'};
+}
+
 // ── Dilución REAL a partir del histórico de acciones diluidas ──────────
 // La serie ya venía en la hoja y se descartaba: solo se guardaba el último año,
 // y el MOAT puntuaba "sin dilución" leyendo un 0 fijo. Ahora, si hay histórico,
@@ -2702,41 +2832,102 @@ const _y0=c=>((c||co).years||[])[0]||'';
 const _y9=c=>{const y=(c||co).years||[];return y[y.length-1]||y[9]||'';};
 const _yPrev=c=>{const y=(c||co).years||[];return y[y.length-2]||y[8]||'';};
 
+// ── Juicio cualitativo del foso: lo pones tú, no una tabla por ticker ──
+// Antes switching costs y capital allocation se buscaban en una lista de nueve
+// tickers; cualquier otra empresa recibía 60/65 y la descripción de Amazon.
+function moatQual(key){
+  try{ const v=JSON.parse(localStorage.getItem('vi_moatq_'+key)||'null');
+       if(v&&(v.switch!=null||v.capital!=null)) return v; }catch(e){}
+  return MOAT_QUAL_BUILTIN[key]||null;
+}
+function saveMoatQual(key,v){ try{localStorage.setItem('vi_moatq_'+key,JSON.stringify(v));}catch(e){} }
+// Valoración cualitativa de fábrica para las nueve empresas originales
+const MOAT_QUAL_BUILTIN={
+  ASML:{switch:98,switchWhy:'Único fabricante EUV del mundo. Sin sustituto posible.',capital:78,capitalWhy:'Dividendos crecientes + recompras selectivas.'},
+  CSU:{switch:95,switchWhy:'VMS crítico. Cambiar = meses de riesgo operativo.',capital:90,capitalWhy:'81% del FCF en adquisiciones a 3-7x EBITDA desde 1995.'},
+  MSFT:{switch:88,switchWhy:'Azure + M365 + Teams integrados. Costes de cambio altísimos.',capital:82,capitalWhy:'Recompras masivas + dividendos crecientes 15 años.'},
+  AAPL:{switch:85,switchWhy:'Ecosistema cerrado: iPhone+Mac+Watch+AirPods. Lock-in extremo.',capital:88,capitalWhy:'$90B+ anuales en recompras.'},
+  NVDA:{switch:80,switchWhy:'CUDA + arquitectura dominante. Sin alternativa equivalente en IA.',capital:75,capitalWhy:'Inversión en I+D + recompras crecientes.'},
+  GOOGL:{switch:82,switchWhy:'Hábito de uso + red de publicidad. 90%+ cuota en Search.',capital:72,capitalWhy:'Buybacks masivos + inversión en IA/Cloud.'},
+  META:{switch:65,switchWhy:'Efecto red 3.3B usuarios. Instagram+WhatsApp+Facebook.',capital:70,capitalWhy:'Recompras agresivas + inversión en IA (Llama).'},
+  AMZN:{switch:70,switchWhy:'AWS + Prime + Marketplace. Costes de cambio moderados.',capital:65,capitalWhy:'Reinversión en AWS + logística + IA.'},
+  WDC:{switch:60,switchWhy:'Producto en buena parte intercambiable; compite en coste por TB.',capital:55,capitalWhy:'Ciclo de inversión pesado; histórico irregular.'},
+};
+
 function calcMoat(){
   const r9=co.roic[9],rt=co.roic[9]-co.roic[0],sg=cagr(co.sales[9],co.sales[0],9);
-  const fm=co.fcfM[9],dd=co.netDebt[9]/co.ebitda[9],cx=co.isD.cx[0];
-  const t=co.ticker;
-  const switchScore=t==='ASML.AS'?98:t==='CSU.TO'?95:t==='MSFT'?88:t==='AAPL'?85:t==='NVDA'?80:t==='GOOGL'?82:t==='META'?65:t==='AMZN'?70:60;
-  const switchWhy=t==='ASML.AS'?'Único fabricante EUV del mundo. Sin sustituto posible.':t==='CSU.TO'?'VMS crítico. Cambiar = meses de riesgo operativo.':t==='MSFT'?'Azure + M365 + Teams integrados. Costes de cambio altísimos.':t==='AAPL'?'Ecosistema cerrado: iPhone+Mac+Watch+AirPods. Lock-in extremo.':t==='NVDA'?'CUDA + arquitectura dominante. Sin alternativa equivalente en IA.':t==='GOOGL'?'Hábito de uso + red de publicidad. 90%+ cuota en Search.':t==='META'?'Efecto red 3.3B usuarios. Instagram+WhatsApp+Facebook.':'AWS + Prime + Marketplace. Costes de cambio moderados.';
-  const capAlloc=t==='CSU.TO'?90:t==='MSFT'?82:t==='AAPL'?88:t==='ASML.AS'?78:t==='NVDA'?75:t==='GOOGL'?72:t==='META'?70:65;
-  const capWhy=t==='CSU.TO'?'81% FCF en adquisiciones a 3-7x EBITDA desde 1995.':t==='MSFT'?'Recompras masivas + dividendos crecientes 15 años.':t==='AAPL'?'$90B+ anuales en recompras. El mayor programa de buyback de la historia.':t==='ASML.AS'?'Dividendos crecientes + recompras selectivas.':t==='NVDA'?'Inversión en I+D + recompras crecientes.':t==='GOOGL'?'Buybacks masivos + inversión en IA/Cloud.':t==='META'?'Recompras agresivas + inversión en IA (Llama).':'Reinversión en AWS + logística + IA.';
+  const fm=co.fcfM[9],dd=co.netDebt[9]/co.ebitda[9];
+  const key=Object.keys(DB).find(k=>DB[k]===co)||co.ticker;
+  const q=moatQual(key);
+  const cxI=capexIntensity(co), wcI=workingCapIntensity(co), dil=dilutionFor(co);
+
+  // Cada criterio puede quedar "sin evaluar" (s:null): entonces NO puntúa y su
+  // peso se reparte entre los demás, en vez de colar un valor por defecto.
   const items=[
-    {n:"Switching costs / monopolio tecnológico",w:15,s:switchScore,why:switchWhy},
-    {n:"CapEx / Ventas (ligereza de activos)",w:10,s:Math.min(100,Math.max(0,Math.round((1-cx/10)*100))),why:`CapEx/Ventas ${cx}%.`},
-    {n:"Working Capital negativo",w:10,s:co.isD.wc[0]<-15?90:co.isD.wc[0]<-5?70:co.isD.wc[0]<0?50:35,why:`WC/Ventas ${co.isD.wc[0]}%.`},
-    {n:"ROIC vs coste de capital",w:15,s:r9>=50?100:r9>=30?92:r9>=20?82:r9>=15?68:r9>=10?50:25,why:`ROIC ${P(r9)} vs WACC ~${co.wacc}%. Spread ${(r9-co.wacc).toFixed(0)}pp.`},
-    {n:"Tendencia ROIC 10 años",w:8,s:rt>=0?85:rt>=-10?55:rt>=-20?30:15,why:`De ${co.roic[0]}% (${_y0()}) a ${r9}% (${_y9()}).`},
+    {n:"Switching costs / monopolio tecnológico",w:15,
+     s:q&&q.switch!=null?q.switch:null,
+     why:q&&q.switch!=null?(q.switchWhy||'Valoración cualitativa guardada.'):'Sin evaluar — pulsa «Valorar el foso» para puntuarlo tú.'},
+    {n:"CapEx / Ventas (ligereza de activos)",w:10,
+     s:cxI.pct==null?null:Math.min(100,Math.max(0,Math.round((1-cxI.pct/10)*100))),
+     why:cxI.pct==null?'Sin dato de CapEx en tu hoja.':`CapEx/Ventas ${cxI.pct}% · ${cxI.fuente}.`,
+     flojo:!cxI.ok},
+    {n:"Working Capital negativo",w:10,
+     s:wcI.pct==null?null:(wcI.pct<-15?90:wcI.pct<-5?70:wcI.pct<0?50:35),
+     why:wcI.pct==null?'Sin dato de circulante en tu hoja.':`WC/Ventas ${wcI.pct}% · ${wcI.fuente}.`,
+     flojo:!wcI.ok},
+    {n:"ROIC vs coste de capital",w:15,s:r9>=50?100:r9>=30?92:r9>=20?82:r9>=15?68:r9>=10?50:25,
+     why:`ROIC ${P(r9)} vs WACC ~${co.wacc}%. Spread ${(r9-co.wacc).toFixed(0)}pp.`},
+    {n:"Tendencia ROIC 10 años",w:8,s:rt>=0?85:rt>=-10?55:rt>=-20?30:15,
+     why:`De ${co.roic[0]}% (${_y0()}) a ${r9}% (${_y9()}).`},
     {n:"Margen FCF consistente",w:12,s:fm>=35?95:fm>=25?85:fm>=20?75:fm>=15?60:fm>=10?42:25,why:`Margen FCF ${P(fm)}.`},
     {n:"CAGR Ventas 10 años",w:12,s:sg>=40?98:sg>=25?90:sg>=20?82:sg>=15?70:sg>=10?55:35,why:`CAGR ${P(sg)}.`},
-    {n:"Capital allocation / reinversión FCF",w:10,s:capAlloc,why:capWhy},
-    {n:"Sin dilución accionarial",w:8,s:(()=>{const d=dilutionFor().pct;return d<=0?Math.min(100,92+Math.min(8,Math.abs(d)*4)):Math.max(0,100-d*15);})(),why:dilutionLabel()},
+    {n:"Capital allocation / reinversión FCF",w:10,
+     s:q&&q.capital!=null?q.capital:null,
+     why:q&&q.capital!=null?(q.capitalWhy||'Valoración cualitativa guardada.'):'Sin evaluar — pulsa «Valorar el foso» para puntuarlo tú.'},
+    {n:"Sin dilución accionarial",w:8,
+     s:dil.pct==null?null:(dil.pct<=0?Math.min(100,92+Math.min(8,Math.abs(dil.pct)*4)):Math.max(0,100-dil.pct*15)),
+     why:dilutionLabel(co), flojo:!dil.real},
     {n:"Solidez balance (Deuda/EBITDA)",w:10,s:dd<0?100:dd<1?88:dd<2?68:dd<3?42:12,why:`Deuda/EBITDA ${dd.toFixed(1)}x.`},
   ];
-  let tot=0,w=0;items.forEach(it=>{tot+=it.s*it.w;w+=it.w;});
-  const ov=Math.round(tot/w);
-  return{items,overall:ov,label:ov>=85?"MOAT EXCEPCIONAL":ov>=70?"MOAT SÓLIDO":ov>=55?"MOAT MODERADO":"MOAT DÉBIL",color:ov>=85?"#16a34a":ov>=70?"#0891b2":ov>=55?"#d97706":"#dc2626"};
+  // Media ponderada solo sobre lo que SÍ se ha podido evaluar
+  let tot=0,w=0;
+  items.forEach(it=>{ if(it.s==null) return; tot+=it.s*it.w; w+=it.w; });
+  const ov=w>0?Math.round(tot/w):null;
+  const sinEvaluar=items.filter(it=>it.s==null);
+  const pesoEvaluado=Math.round(w/items.reduce((a,it)=>a+it.w,0)*100);
+  return{items,overall:ov,sinEvaluar,pesoEvaluado,
+    label:ov==null?"SIN EVALUAR":ov>=85?"MOAT EXCEPCIONAL":ov>=70?"MOAT SÓLIDO":ov>=55?"MOAT MODERADO":"MOAT DÉBIL",
+    color:ov==null?"#9a958e":ov>=85?"#16a34a":ov>=70?"#0891b2":ov>=55?"#d97706":"#dc2626"};
+}
+
+// Editor del juicio cualitativo del foso
+function editMoatQual(){
+  const key=Object.keys(DB).find(k=>DB[k]===co)||co.ticker;
+  const cur=moatQual(key)||{};
+  const s1=prompt('Costes de cambio / ventaja tecnológica de '+co.name+' (0-100)\n\n¿Cuánto le cuesta a un cliente irse con la competencia?\n90+ = prácticamente imposible · 70 = caro y lento · 40 = molesto · 20 = trivial\n\nDéjalo vacío para no evaluarlo.',
+    cur.switch!=null?String(cur.switch):'');
+  if(s1===null) return;
+  const w1=s1.trim()===''?null:prompt('En una frase, ¿por qué esa nota?',cur.switchWhy||'')||'';
+  const s2=prompt('Asignación de capital de '+co.name+' (0-100)\n\n¿Reinvierte bien el dinero que gana?\n90+ = historial excelente · 70 = razonable · 40 = irregular · 20 = destruye valor\n\nDéjalo vacío para no evaluarlo.',
+    cur.capital!=null?String(cur.capital):'');
+  if(s2===null) return;
+  const w2=s2.trim()===''?null:prompt('En una frase, ¿por qué esa nota?',cur.capitalWhy||'')||'';
+  const num=v=>{const n=parseInt(v,10);return (isFinite(n)&&n>=0&&n<=100)?n:null;};
+  saveMoatQual(key,{switch:s1.trim()===''?null:num(s1),switchWhy:w1,
+                    capital:s2.trim()===''?null:num(s2),capitalWhy:w2});
+  showTab(curTab); recalc();
 }
 
 // ── NUEVA MEJORA 1: REVERSE DCF ──
 // Busca por búsqueda binaria qué tasa de crecimiento del FCF descuenta el precio actual
 function calcReverseDCF(){
   const targetEV=price*co.shares+co.netDebt[9];
+  const F=fcfBase(co);
   let lo=-10,hi=80,mid=0;
   for(let iter=0;iter<60;iter++){
     mid=(lo+hi)/2;
-    let pv=0;
-    for(let i=1;i<=10;i++) pv+=(co.fcf[9]*Math.pow(1+mid/100,i))/Math.pow(1+dr/100,i);
-    const tv=(co.fcf[9]*Math.pow(1+mid/100,10)*(1+tg/100))/(dr/100-tg/100);
+    const {pv,fcf10}=_dcfFlows(F,mid);      // mismo modelo que calcDCF
+    const tv=(fcf10*(1+tg/100))/(dr/100-tg/100);
     const ev=pv+tv/Math.pow(1+dr/100,10);
     if(Math.abs(ev-targetEV)/Math.max(targetEV,1)<0.0001) break;
     if(ev<targetEV) lo=mid; else hi=mid;
@@ -2751,26 +2942,59 @@ function calcReverseDCF(){
   return{impliedG:+impliedG.toFixed(1),historicalFCFCagr:+historicalFCFCagr.toFixed(1),diff:+diff.toFixed(1),label};
 }
 
-// ── NUEVA MEJORA 2: STRESS TEST RECESIÓN ──
-// Simula un escenario de recesión: -20% ventas año1, -5% año2, recovery año3
+// ── STRESS TEST DE RECESIÓN, POR PERFIL DE NEGOCIO ──
+// Antes se aplicaba la MISMA recesión a todas: −20%/−5%/+12%. Un fabricante de
+// memoria cae mucho más que un software de ingresos recurrentes, así que el
+// resultado tranquilizaba justo donde debía alarmar.
+const STRESS_PROFILES={
+  defensivo:{lbl:'Defensivo',  s1:-8, s2:-2, rec:6,  m1:-2, m2:-1, txt:'Ingresos recurrentes, demanda estable'},
+  normal:   {lbl:'Normal',     s1:-20,s2:-5, rec:12, m1:-5, m2:-3, txt:'Empresa cíclica media'},
+  ciclico:  {lbl:'Cíclico',    s1:-40,s2:-12,rec:25, m1:-10,m2:-6, txt:'Semiconductores, memoria, materias primas'},
+};
+// Perfil sugerido según la volatilidad real de ventas y márgenes de la empresa
+function suggestStressProfile(c){
+  c=c||co;
+  const v=_serie(c.sales);
+  if(v.length<5) return 'normal';
+  const yoy=[]; for(let i=1;i<v.length;i++) if(v[i-1]>0) yoy.push((v[i]/v[i-1]-1)*100);
+  if(!yoy.length) return 'normal';
+  const peor=Math.min(...yoy);
+  const media=yoy.reduce((a,b)=>a+b,0)/yoy.length;
+  const desv=Math.sqrt(yoy.reduce((a,b)=>a+(b-media)**2,0)/yoy.length);
+  const mgs=_serie(c.fcfM), rangoMg=mgs.length>=5?(Math.max(...mgs)-Math.min(...mgs)):0;
+  if(peor<=-15||desv>=25||rangoMg>=20) return 'ciclico';
+  if(peor>=-3&&desv<=10&&rangoMg<=8) return 'defensivo';
+  return 'normal';
+}
+function stressProfileKey(c){
+  c=c||co;
+  const k=Object.keys(DB).find(x=>DB[x]===c)||c.ticker;
+  try{const v=localStorage.getItem('vi_stress_'+k); if(v&&STRESS_PROFILES[v]) return v;}catch(e){}
+  return suggestStressProfile(c);
+}
+function setStressProfile(v){
+  const k=Object.keys(DB).find(x=>DB[x]===co)||co.ticker;
+  try{localStorage.setItem('vi_stress_'+k,v);}catch(e){}
+  showTab(curTab); recalc();
+}
 function calcStressDCF(){
-  const baseFCF=co.fcf[9];
+  const P0=STRESS_PROFILES[stressProfileKey(co)]||STRESS_PROFILES.normal;
+  const baseFCF=fcfBase(co);
   const baseMargin=co.fcfM[9]/100;
   const baseSales=co.sales[9];
-  // Año 1: -20% ventas, -5pp margen FCF
-  const s1=baseSales*0.80;const m1=Math.max(0,baseMargin-0.05);const fcf1=s1*m1;
-  // Año 2: -5% adicional, -3pp margen FCF
-  const s2=s1*0.95;const m2=Math.max(0,m1-0.03);const fcf2=s2*m2;
-  // Año 3: recovery +12% ventas, márgenes parcialmente recuperados
-  const s3=s2*1.12;const m3=m2+0.02;const fcf3=s3*m3;
+  const s1=baseSales*(1+P0.s1/100); const m1=Math.max(0,baseMargin+P0.m1/100); const fcf1=s1*m1;
+  const s2=s1*(1+P0.s2/100);        const m2=Math.max(0,m1+P0.m2/100);        const fcf2=s2*m2;
+  const s3=s2*(1+P0.rec/100);       const m3=m2+0.02;                          const fcf3=s3*m3;
   // Años 4-10: crecimiento normal al gr configurado
-  let pv=0;
+  let pv=0, fRec=fcf3;
   const fcfsByYear=[fcf1,fcf2,fcf3];
   for(let i=1;i<=10;i++){
-    const fcfI=i<=3?fcfsByYear[i-1]:fcf3*Math.pow(1+gr/100,i-3);
+    let fcfI;
+    if(i<=3) fcfI=fcfsByYear[i-1];
+    else { fRec=fRec*(1+_fadeG(gr,i)/100); fcfI=fRec; }
     pv+=fcfI/Math.pow(1+dr/100,i);
   }
-  const fcf10=fcf3*Math.pow(1+gr/100,7);
+  const fcf10=fRec;
   const tv=(fcf10*(1+tg/100))/(dr/100-tg/100);
   const stressedDCF=(pv+tv/Math.pow(1+dr/100,10)-co.netDebt[9])/co.shares;
   const baseDCF=calcDCF();
@@ -2778,7 +3002,8 @@ function calcStressDCF(){
   const upsideStress=(stressedDCF-price)/price*100;
   const minFCF=Math.min(fcf1,fcf2,fcf3);
   const fcfDrop=(minFCF-baseFCF)/baseFCF*100;
-  return{stressedDCF:+stressedDCF.toFixed(0),baseDCF:+baseDCF.toFixed(0),impact:+impact.toFixed(1),
+  return{perfil:stressProfileKey(co),perfilLbl:P0.lbl,perfilTxt:P0.txt,sugerido:suggestStressProfile(co),
+    stressedDCF:+stressedDCF.toFixed(0),baseDCF:+baseDCF.toFixed(0),impact:+impact.toFixed(1),
     upsideStress:+upsideStress.toFixed(1),minFCF:+minFCF.toFixed(0),fcfDrop:+fcfDrop.toFixed(1),
     fcf1:+fcf1.toFixed(0),fcf2:+fcf2.toFixed(0),fcf3:+fcf3.toFixed(0)};
 }
@@ -2839,15 +3064,16 @@ function calcVerdict(){
   const fair5=(_avgT5&&_avgT5[4]!=null)?_avgT5[4]:(_evfT&&_evfT[4]!=null?_evfT[4]:fairBase);
   const cagr5e=(fair5&&price>0)?(Math.pow(Math.max(fair5,1)/Math.max(price,1),0.2)-1)*100:0;
   const retScore=Math.round(
-    cagr5e>=20 ? 35 :
-    cagr5e>=12 ? 22+(cagr5e-12)/8*13 :   // 12%→22 ... 20%→35
-    cagr5e>=0  ? cagr5e/12*22 :           // 0%→0 ... 12%→22
+    cagr5e>=20 ? 30 :
+    cagr5e>=12 ? 19+(cagr5e-12)/8*11 :   // 12%→19 ... 20%→30
+    cagr5e>=0  ? cagr5e/12*19 :           // 0%→0 ... 12%→19
     0
   );
   // MdS próximo año (curva continua, escalada a 0-15)
   const _mdsRaw=( msBase>=30?50: msBase>=15?42+(msBase-15)/15*8 : msBase>=0?30+msBase/15*12 : msBase>=-20?30+msBase/20*30 : 0 );
-  const mdsScore=Math.round(_mdsRaw*15/50);
-  const moatScore=Math.round(moat.overall*30/100);
+  const mdsScore=Math.round(_mdsRaw*12/50);
+  // El MOAT puede quedar sin evaluar: entonces no puntúa y su peso se reparte
+  const moatScore=(moat.overall==null)?null:Math.round(moat.overall*25/100);
 
   // ─── ROIC: tendencia 5Y + nivel absoluto + momentum ───
   const roicTrend10=co.roic[9]-co.roic[0];
@@ -2861,16 +3087,36 @@ function calcVerdict(){
   const roicSlope=(n5*sumXY-sumX*sumY)/(n5*sumX2-sumX*sumX);
   const roicMomentum=roicSlope>1.5?'acelerando ↑↑':roicSlope>0.3?'estable o creciendo →':roicSlope>-1.5?'ralentizando ↓':'cayendo ↓↓';
   let roicScore=0;
-  if(roicAbs>=40) roicScore=18;
-  else if(roicAbs>=25) roicScore=15;
-  else if(roicAbs>=18) roicScore=11;
-  else if(roicAbs>=12) roicScore=6;
+  if(roicAbs>=40) roicScore=16;
+  else if(roicAbs>=25) roicScore=13;
+  else if(roicAbs>=18) roicScore=10;
+  else if(roicAbs>=12) roicScore=5;
   else roicScore=2;
-  if(roicTrend5<-15) roicScore=Math.max(0,roicScore-7);
+  if(roicTrend5<-15) roicScore=Math.max(0,roicScore-6);
   else if(roicTrend5<-7) roicScore=Math.max(0,roicScore-3);
-  else if(roicTrend5>=5) roicScore=Math.min(20,roicScore+2);
+  else if(roicTrend5>=5) roicScore=Math.min(18,roicScore+2);
 
-  let totalScore=retScore+mdsScore+moatScore+roicScore;
+  // ─── COHERENCIA ENTRE MÉTODOS (15 pts) ───
+  // El DCF era la única valoración independiente de tus múltiplos y se
+  // calculaba para tirarla: no entraba en la nota. Ahora sí. Si el DCF y el
+  // objetivo por múltiplos apuntan al mismo sitio, la tesis se sostiene por dos
+  // caminos distintos; si divergen mucho, uno de los dos está equivocado.
+  const cohRef=Math.abs(fairBase)>0.01?fairBase:null;
+  let cohGap=null,cohScore=0;
+  if(cohRef&&dcf>0){
+    cohGap=Math.abs(dcf-cohRef)/Math.abs(cohRef)*100;
+    cohScore=Math.round(cohGap<=15?15:cohGap<=30?15-(cohGap-15)/15*5:cohGap<=60?10-(cohGap-30)/30*7:Math.max(0,3-(cohGap-60)/40*3));
+  }
+  const cohLabel=cohGap==null?'DCF no evaluable con estas hipótesis'
+    :cohGap<=15?'DCF y múltiplos coinciden — la tesis se sostiene por dos caminos'
+    :cohGap<=30?'Diferencia moderada entre DCF y múltiplos'
+    :cohGap<=60?'DCF y múltiplos discrepan: revisa cuál de los dos falla'
+    :'Discrepancia grande: uno de los dos métodos está mal calibrado';
+
+  // Si el MOAT no se ha evaluado, sus 25 puntos no cuentan y la nota se
+  // reescala sobre lo evaluado, en vez de dar un cero encubierto.
+  const maxPosible=30+12+18+15+(moatScore==null?0:25);
+  let totalScore=Math.round((retScore+mdsScore+roicScore+cohScore+(moatScore||0))/maxPosible*100);
 
   // ─── PENALIZACIÓN POR EUFORIA: precio por encima del múltiplo más alto razonable ───
   const evfcfActual=Math.round((price*co.shares+co.netDebt[9])/co.fcf[9]);
@@ -2892,9 +3138,10 @@ function calcVerdict(){
     verdict='EVITAR';verdictColor=dark?'#f78166':'#dc2626';verdictBg=dark?'#200a0a':'#fef2f2';
   }
 
-  const reasoning=`Score ${totalScore}/100 — Retorno 5Y(${retScore}/35) + MOAT(${moatScore}/30) + ROIC(${roicScore}/20) + MdS(${mdsScore}/15)${euforiaPenalty>0?` − Euforia(-${euforiaPenalty})`:''}. Retorno esperado ~${cagr5e>=0?'+':''}${cagr5e.toFixed(0)}%/año · Precio justo 1Y ${curSymG()}${N(Math.round(fairBase))} (MdS ${msBase>=0?'+':''}${msBase.toFixed(0)}%)`;
+  const reasoning=`Score ${totalScore}/100 — Retorno 5Y(${retScore}/30) + ${moatScore==null?'MOAT(sin evaluar)':`MOAT(${moatScore}/25)`} + ROIC(${roicScore}/18) + Coherencia(${cohScore}/15) + MdS(${mdsScore}/12)${euforiaPenalty>0?` − Euforia(-${euforiaPenalty})`:''}. Retorno esperado ~${cagr5e>=0?'+':''}${cagr5e.toFixed(0)}%/año · Precio justo 1Y ${curSymG()}${N(Math.round(fairBase))} (MdS ${msBase>=0?'+':''}${msBase.toFixed(0)}%)`;
 
   return{verdict,verdictColor,verdictBg,totalScore,retScore,cagr5e:+cagr5e.toFixed(1),mdsScore,moatScore,roicScore,
+    cohScore,cohGap:cohGap==null?null:+cohGap.toFixed(0),cohLabel,dcfVal:Math.round(dcf),
     ms:+ms.toFixed(1),msBase:+msBase.toFixed(1),fairBase:Math.round(fairBase),
     roicTrend,roicTrend5,roicTrend10,roicSlope:+roicSlope.toFixed(1),roicMomentum,
     euforiaEVF,euforiaPER,euforiaPenalty,
@@ -3825,7 +4072,7 @@ function rResumen(){
     {pos:true,title:'Crecimiento ventas',why:`CAGR 10Y ${P(cagr(co.sales[9],co.sales[0],9))} · Último año ${P(pct(co.sales[9],co.sales[8]))}`},
     {pos:co.roic[9]>=co.wacc,title:co.roic[9]>=co.wacc?'ROIC > WACC':'ROIC < WACC',why:`${P(co.roic[9])} vs WACC ${co.wacc}%. Spread ${(co.roic[9]-co.wacc)>=0?'+':''}${(co.roic[9]-co.wacc).toFixed(0)}pp`},
     {pos:co.fcfM[9]>=10,title:'Margen FCF',why:`${P(co.fcfM[9])} · sector ~${P(sectorRefFor(co).fcfMg)}`},
-    {pos:moat.overall>=70,title:`MOAT ${moat.label}`,why:`${moat.overall}/100 · ${moat.dimensions?Object.entries(moat.dimensions).filter(([,v])=>v>=15).map(([k])=>k).join(', '):''}`},
+    {pos:moat.overall!=null&&moat.overall>=70,title:`MOAT ${moat.label}`,why:`${moat.overall??'—'}/100 · ${moat.dimensions?Object.entries(moat.dimensions).filter(([,v])=>v>=15).map(([k])=>k).join(', '):''}`},
     {pos:co.netDebt[9]/co.ebitda[9]<2,title:co.netDebt[9]<0?'Caja neta':'Deuda controlada',why:`ND/EBITDA ${(co.netDebt[9]/co.ebitda[9]).toFixed(1)}x`},
     {pos:quality.ratio>=0.80,title:`Calidad beneficio: ${quality.label}`,why:`FCF/NI 5Y ${(quality.ratio*100).toFixed(0)}%`},
     {pos:vd.msBase>0,title:vd.msBase>15?'Precio atractivo':'Precio ajustado',why:`MdS ${vd.msBase>=0?'+':''}${vd.msBase}% vs fair ${curSymG()}${N(vd.fairBase)}`},
@@ -3981,7 +4228,7 @@ function rResumen(){
     <!-- ══ BANNER EMPRESA (sobrio, acento en color corporativo) ══ -->
     <div class="card" style="margin-bottom:10px;border-left:3px solid ${co.color};display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:12px 16px;">
       <div style="width:44px;height:44px;border-radius:var(--radius-sm);background:var(--surface2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-        <img src="${logosSrc.src||logosSrc.fb||''}" onerror="this.onerror=null;if('${logosSrc.fb}'&&this.src!=='${logosSrc.fb}'){this.src='${logosSrc.fb}';}else{this.style.display='none';this.parentElement.textContent='${co.ticker.substring(0,2)}';this.parentElement.style.color=this.parentElement.style.color||'${co.color}';this.parentElement.style.fontWeight='700';}" style="width:30px;height:30px;object-fit:contain;" alt="${co.ticker}"/>
+        <img src="${logosSrc.src||logosSrc.fb||''}" onerror="this.onerror=null;if('${logosSrc.fb}'&&this.src!=='${logosSrc.fb}'){this.src='${logosSrc.fb}';}else{this.style.display='none';const _p=this.parentElement;if(_p){_p.textContent='${co.ticker.substring(0,2)}';_p.style.color=_p.style.color||'${co.color}';_p.style.fontWeight='700';}}" style="width:30px;height:30px;object-fit:contain;" alt="${co.ticker}"/>
       </div>
       <div style="flex:1;min-width:160px;">
         <div style="font-size:17px;font-weight:700;color:var(--text);line-height:1.15;">${co.name}</div>
@@ -4179,7 +4426,7 @@ function rResumen(){
           <!-- ROIC mini -->
           <div style="background:rgba(255,255,255,.6);border-radius:8px;padding:8px 10px;">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;flex-wrap:wrap;gap:4px;">
-              <span style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">MOAT ${moat.overall}/100 · ROIC ${P(co.roic[9])}</span>
+              <span style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">MOAT ${moat.overall??'sin evaluar'}${moat.overall!=null?'/100':''} · ROIC ${P(co.roic[9])}</span>
               <div style="display:flex;gap:4px;flex-wrap:wrap;">
                 ${[{l:'Spread',v:(co.roic[9]-co.wacc)>=0?'+'+Math.abs(co.roic[9]-co.wacc):'−'+Math.abs(co.roic[9]-co.wacc)+'pp',ok:co.roic[9]>=co.wacc},
                    {l:'5Y',v:(vd.roicTrend5>=0?'+':'')+vd.roicTrend5+'pp',ok:vd.roicTrend5>=0},
@@ -4615,8 +4862,11 @@ function rProyecciones(){
 }
 function rMoat(){
   const m=calcMoat();
-  return`<div class="card" style="background:${m.color}07;border-color:${m.color}35;margin-bottom:14px;"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px;"><div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:7px;">Puntuación MOAT Global</div><div style="display:flex;align-items:baseline;gap:10px;"><div style="font-size:56px;font-weight:600;color:${m.color};line-height:1">${m.overall}</div><div><div style="font-size:12px;color:var(--muted)">/100</div><div style="font-size:16px;font-weight:700;color:${m.color}">${m.label}</div></div></div></div><div style="min-width:220px;flex:1;max-width:300px;"><div class="moat-bar-wrap"><div class="moat-fill" style="width:${m.overall}%;background:linear-gradient(90deg,#d97706,${m.color});"></div></div><p style="font-size:12px;color:var(--sub);line-height:1.65;margin-top:8px;">Puntuación compuesta de <strong>10 criterios cuantitativos ponderados</strong>.</p></div></div></div>
-  <div class="card"><div class="ctitle">Criterios detallados</div>${m.items.map(it=>{const bc=it.s>=85?'#16a34a':it.s>=65?'#0891b2':it.s>=50?'#d97706':'#dc2626',bg2=it.s>=85?'#f0fdf4':it.s>=65?'#f0fdfa':it.s>=50?'#fffbeb':'#fef2f2',bd2=it.s>=85?'#bbf7d0':it.s>=65?'#99f6e4':it.s>=50?'#fde68a':'#fecaca';return`<div class="crit" style="background:${bg2};border-color:${bd2};"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;"><div style="flex:1;"><div class="crit-name">${it.n} <span style="font-size:10px;color:var(--muted);font-weight:400;">Peso: ${it.w}%</span></div><div class="crit-why">${it.why}</div></div><div style="text-align:center;min-width:46px;"><div style="font-size:26px;font-weight:600;color:${bc};line-height:1">${it.s}</div><div style="font-size:10px;color:var(--muted)">/100</div></div></div><div class="crit-row"><div class="crit-prog"><div class="crit-fill" style="width:${it.s}%;background:${bc};"></div></div><span class="score-badge" style="color:${bc}">${it.s}/100</span></div></div>`;}).join('')}</div>
+  return`<div class="card" style="background:${m.color}07;border-color:${m.color}35;margin-bottom:14px;"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px;"><div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:7px;">Puntuación MOAT Global</div><div style="display:flex;align-items:baseline;gap:10px;"><div style="font-size:56px;font-weight:600;color:${m.color};line-height:1">${m.overall??'—'}</div><div><div style="font-size:12px;color:var(--muted)">/100</div><div style="font-size:16px;font-weight:700;color:${m.color}">${m.label}</div></div></div></div><div style="min-width:220px;flex:1;max-width:300px;"><div class="moat-bar-wrap"><div class="moat-fill" style="width:${m.overall??0}%;background:linear-gradient(90deg,#d97706,${m.color});"></div></div>
+    <p style="font-size:12px;color:var(--sub);line-height:1.65;margin-top:8px;">Media ponderada de los criterios <strong>que se han podido evaluar</strong> (${m.pesoEvaluado}% del peso total).</p>
+    <button class="cart-chip" style="margin-top:6px;" onclick="editMoatQual()">✍️ Valorar el foso a mano</button></div></div>
+    ${m.sinEvaluar.length?`<div style="margin-top:10px;padding:9px 13px;background:color-mix(in srgb,var(--amber) 10%,transparent);border:1px solid color-mix(in srgb,var(--amber) 35%,transparent);border-radius:9px;font-size:11.5px;color:var(--sub);line-height:1.55;"><b>Sin evaluar (${m.sinEvaluar.length}):</b> ${m.sinEvaluar.map(i=>i.n).join(' · ')}. No puntúan y su peso se reparte entre el resto — antes recibían un valor por defecto que inflaba o hundía la nota sin avisar.</div>`:''}</div>
+  <div class="card"><div class="ctitle">Criterios detallados</div>${m.items.map(it=>{const nn=it.s==null;const bc=nn?'#9a958e':it.s>=85?'#16a34a':it.s>=65?'#0891b2':it.s>=50?'#d97706':'#dc2626',bg2=nn?'var(--surface2)':it.s>=85?'#f0fdf4':it.s>=65?'#f0fdfa':it.s>=50?'#fffbeb':'#fef2f2',bd2=nn?'var(--border)':it.s>=85?'#bbf7d0':it.s>=65?'#99f6e4':it.s>=50?'#fde68a':'#fecaca';return`<div class="crit" style="background:${bg2};border-color:${bd2};"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;"><div style="flex:1;"><div class="crit-name">${it.n} <span style="font-size:10px;color:var(--muted);font-weight:400;">Peso: ${it.w}%</span></div><div class="crit-why">${it.why}</div></div><div style="text-align:center;min-width:46px;"><div style="font-size:26px;font-weight:600;color:${bc};line-height:1">${nn?'—':it.s}</div><div style="font-size:10px;color:var(--muted)">${nn?'sin evaluar':'/100'}</div></div></div><div class="crit-row"><div class="crit-prog"><div class="crit-fill" style="width:${it.s??0}%;background:${bc};"></div></div><span class="score-badge" style="color:${bc}">${nn?'no puntúa':it.s+'/100'}</span>${it.flojo?'<span class="score-badge" style="color:var(--amber);" title="Este criterio usa un supuesto, no un dato medido de tu hoja">⚠ supuesto</span>':''}</div></div>`;}).join('')}</div>
   <div style="padding:12px 16px;background:${_dm()?'#0c1832':'#eff6ff'};border:1px solid #bfdbfe;border-radius:12px;font-size:12px;color:#1e40af;">85+ = Excepcional · 70-84 = Sólido · 55-69 = Moderado · &lt;55 = Débil.</div>`;
 }
 
@@ -4637,7 +4887,7 @@ function rDCF(){
         <span data-tip="dcf" style="cursor:pointer;color:#2563eb;font-weight:700;border:1px solid #2563eb55;border-radius:50%;width:14px;height:14px;display:inline-flex;align-items:center;justify-content:center;font-size:9px;margin-left:4px;">i</span>
         <span data-tip="wacc" style="cursor:pointer;font-size:9px;font-weight:700;color:#6b7280;border:1px solid #6b728055;border-radius:10px;padding:1px 7px;margin-left:4px;">WACC ⓘ</span>
       </div>
-      <div class="dcf-info-box">Fórmula: DCF = Σ[FCF×(1+g)ⁿ/(1+r)ⁿ] + TV×/(1+r)¹⁰ donde TV=FCF₁₀×(1+g)/(r−g)</div>
+      <div class="dcf-info-box">DCF = Σ[FCF<sub>n</sub>/(1+r)ⁿ] + TV/(1+r)¹⁰, con TV = FCF₁₀×(1+g<sub>t</sub>)/(r−g<sub>t</sub>).<br>El crecimiento no se mantiene plano: años 1-5 al ${gr}% y años 6-10 desvaneciéndose hasta el terminal (${tg}%). Ninguna empresa crece a su ritmo actual una década entera, y suponerlo dispara la valoración.</div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
         ${[['gr','Crecimiento FCF (10a)',gr,0,30,0.5,'%','#2563eb','CAGR hist: ~'+((((Math.pow(Math.max(co.fcf[9],.01)/Math.max(co.fcf[0],.01),1/9))-1)*100).toFixed(0))+'%'],['dr','Tasa de descuento',dr,6,20,0.5,'%','#1e3a5f','WACC de '+co.ticker+' ~'+(co.wacc||10)+'%'],['tg','Crecimiento terminal',tg,0,5,0.5,'%','#7c3aed','PIB nominal ~4-5%']].map(p=>`<div>${sld(p[0],p[1],p[2],p[3],p[4],p[5],p[6],p[7],p[8])}</div>`).join('')}
       </div>
@@ -4674,12 +4924,42 @@ function rDCF(){
       <div style="margin-top:10px;padding:9px 12px;background:rgba(255,255,255,.6);border-radius:8px;font-size:11px;color:#92400e;">💡 <strong>Cómo leerlo:</strong> Si el implícito &lt; histórico, el mercado descuenta MENOS que lo que la empresa ha demostrado crecer — potencial señal de infravaloración. Si el implícito &gt; histórico, el mercado exige que la empresa mejore su historial.</div>
     </div>
 
+    <!-- Coherencia entre métodos + base de FCF -->
+    ${(()=>{const vd=calcVerdict();const nf=normalizedFCF(co);
+      const cc=vd.cohGap==null?'#9a958e':vd.cohGap<=15?'#16a34a':vd.cohGap<=30?'#d97706':'#dc2626';
+      return`<div class="card" style="margin-bottom:12px;">
+      <div class="ctitle">Coherencia entre métodos <span style="font-size:9px;font-weight:600;color:var(--muted);text-transform:none;letter-spacing:0;">vale ${vd.cohScore}/15 puntos del veredicto</span></div>
+      <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+        <div style="text-align:center;min-width:96px;">
+          <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">DCF</div>
+          <div style="font-size:20px;font-weight:700;color:var(--text);">${curSymG()}${N(vd.dcfVal)}</div>
+        </div>
+        <div style="font-size:18px;color:${cc};font-weight:700;">${vd.cohGap==null?'—':vd.cohGap+'%'}</div>
+        <div style="text-align:center;min-width:96px;">
+          <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">Múltiplos 1Y</div>
+          <div style="font-size:20px;font-weight:700;color:var(--text);">${curSymG()}${N(vd.fairBase)}</div>
+        </div>
+        <div style="flex:1;min-width:220px;font-size:11.5px;color:${cc};font-weight:600;line-height:1.5;">${vd.cohLabel}</div>
+      </div>
+      <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <button class="cart-chip${_usarFCFNorm?' on':''}" onclick="toggleFCFNorm()" ${nf.ok?'':'disabled style="opacity:.5;"'}>FCF normalizado</button>
+        <span style="font-size:11px;color:var(--sub);line-height:1.5;">${nf.ok
+          ? `Margen FCF mediano de ${nf.años} años (${nf.margen}%) sobre las ventas de ${_y9()} → ${curSymG()}${N(nf.fcf)}M, frente a ${curSymG()}${N(nf.ultimo)}M del último año (${nf.desvio>=0?'+':''}${nf.desvio}%). ${Math.abs(nf.desvio)>=25?'<b>El último año se aparta mucho de lo normal: con una cíclica, conviene valorar sobre el normalizado.</b>':'El último año está en línea con su historia.'}`
+          : 'Sin histórico suficiente de margen FCF para normalizar.'}</span>
+      </div>
+    </div>`;})()}
+
     <!-- Stress Test Card -->
     <div class="stress-card" style="margin-bottom:12px;">
-      <div style="font-size:10px;font-weight:700;color:#991b1b;text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px;">🔴 Stress Test Recesión — Escenario adverso 10Y</div>
-      <div style="font-size:11px;color:#991b1b;margin-bottom:10px;">Supuestos: Año 1: ventas −20%, margen FCF −5pp | Año 2: ventas −5%, margen −3pp | Año 3: recovery +12% | Años 4-10: vuelta al crecimiento base (${gr}%)</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
+        <div style="font-size:10px;font-weight:700;color:#991b1b;text-transform:uppercase;letter-spacing:.07em;">🔴 Stress Test Recesión — Escenario adverso 10Y</div>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;">
+          ${Object.entries(STRESS_PROFILES).map(([k,v])=>`<button class="cart-chip${k===stress.perfil?' on':''}" title="${v.txt} · ventas ${v.s1}% el año 1" onclick="setStressProfile('${k}')">${v.lbl}${k===stress.sugerido?' ★':''}</button>`).join('')}
+        </div>
+      </div>
+      <div style="font-size:11px;color:#991b1b;margin-bottom:10px;">Perfil <b>${stress.perfilLbl}</b> (${stress.perfilTxt})${stress.perfil!==stress.sugerido?` — ★ por volatilidad histórica sugeriría <b>${STRESS_PROFILES[stress.sugerido].lbl}</b>`:' — ★ es el que sugiere su volatilidad histórica'}. Año 1: ventas ${STRESS_PROFILES[stress.perfil].s1}%, margen FCF ${STRESS_PROFILES[stress.perfil].m1}pp | Año 2: ${STRESS_PROFILES[stress.perfil].s2}%, ${STRESS_PROFILES[stress.perfil].m2}pp | Año 3: recuperación +${STRESS_PROFILES[stress.perfil].rec}% | Años 4-10: crecimiento base (${gr}%)</div>
       <div class="stress-grid">
-        ${[{l:'DCF Base',v:''+curSymG()+N(stress.baseDCF),c:'#16a34a'},{l:'DCF Estresado',v:''+curSymG()+N(stress.stressedDCF),c:stressColor},{l:'Impacto en DCF',v:stress.impact+'%',c:stressColor},{l:'Upside Estresado',v:(stress.upsideStress>=0?'+':'')+stress.upsideStress+'%',c:stress.upsideStress>=0?'#16a34a':'#dc2626'},{l:'FCF Mínimo (Año1)',v:''+curSymG()+N(stress.fcf1)+'M',c:'#dc2626'},{l:'Caída FCF vs 2025',v:stress.fcfDrop.toFixed(1)+'%',c:'#dc2626'}].map(m=>`<div style="background:rgba(255,255,255,.8);border-radius:8px;padding:10px;text-align:center;border:1px solid rgba(239,68,68,.25);"><div style="font-size:9px;color:#991b1b;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px;font-weight:600;">${m.l}</div><div style="font-size:18px;font-weight:600;color:${m.c};">${m.v}</div></div>`).join('')}
+        ${[{l:'DCF Base',v:''+curSymG()+N(stress.baseDCF),c:'#16a34a'},{l:'DCF Estresado',v:''+curSymG()+N(stress.stressedDCF),c:stressColor},{l:'Impacto en DCF',v:stress.impact+'%',c:stressColor},{l:'Upside Estresado',v:(stress.upsideStress>=0?'+':'')+stress.upsideStress+'%',c:stress.upsideStress>=0?'#16a34a':'#dc2626'},{l:'FCF Mínimo (Año1)',v:''+curSymG()+N(stress.fcf1)+'M',c:'#dc2626'},{l:'Caída FCF vs '+_y9(),v:stress.fcfDrop.toFixed(1)+'%',c:'#dc2626'}].map(m=>`<div style="background:rgba(255,255,255,.8);border-radius:8px;padding:10px;text-align:center;border:1px solid rgba(239,68,68,.25);"><div style="font-size:9px;color:#991b1b;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px;font-weight:600;">${m.l}</div><div style="font-size:18px;font-weight:600;color:${m.c};">${m.v}</div></div>`).join('')}
       </div>
       <div style="margin-top:10px;padding:9px 12px;background:rgba(255,255,255,.6);border-radius:8px;font-size:11px;color:#991b1b;">
         ${stress.upsideStress>20?'🟢 Incluso en recesión severa el precio actual ofrece margen de seguridad sólido. El negocio muestra alta resiliencia.':stress.upsideStress>0?'🟡 En recesión el margen de seguridad se estrecha. Posición de tamaño moderado recomendable.':'🔴 En recesión el precio actual ya no ofrece margen de seguridad. Alta volatilidad potencial si se materializan los riesgos.'}
@@ -4790,12 +5070,29 @@ function rAnalisis(){
      <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:12px;text-align:center;"><div style="font-size:11px;font-weight:700;color:#d97706;">A vigilar</div><div style="font-size:32px;font-weight:600;color:#d97706;">${warn}</div></div>
      <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:12px;padding:12px;text-align:center;"><div style="font-size:11px;font-weight:700;color:#dc2626;">Red flags</div><div style="font-size:32px;font-weight:600;color:#dc2626;">${neg}</div></div>
    </div>
+   ${(()=>{const cf=dataConfidence(co),ri=calcROIIC(co,5),sb=sbcImpact(co);
+     const tile=(lbl,val,sub,col,tip)=>`<div class="card" style="padding:10px 13px;" title="${tip||''}">
+        <div style="font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);">${lbl}</div>
+        <div style="font-size:19px;font-weight:700;color:${col};line-height:1.25;margin-top:2px;">${val}</div>
+        <div style="font-size:9.5px;color:var(--muted);font-weight:600;line-height:1.4;">${sub}</div></div>`;
+     const roiicCol=!ri.ok?'var(--muted)':ri.pct>=25?'var(--green)':ri.pct>=12?'var(--amber)':'var(--red)';
+     return`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:9px;margin-bottom:10px;">
+       ${tile('Fiabilidad del dato',cf.pct+'%',cf.n+' de '+cf.total+' fuentes · '+cf.label+(cf.edadDias!=null?' · importado hace '+cf.edadDias+'d':''),cf.color,
+              cf.items.map(i=>(i.ok?'✓ ':'✗ ')+i.n).join(' · '))}
+       ${tile('ROIIC 5 años',ri.ok?(ri.pct>=0?'+':'')+ri.pct+'%':'sin dato',
+              ri.ok?('retorno del capital nuevo · ROIC actual '+P(ri.roicActual)):'hace falta EBIT y ROIC de 6 años',roiicCol,
+              ri.ok?('Δ NOPAT '+N(ri.dNopat)+'M ÷ Δ capital invertido '+N(ri.dIC)+'M. Mide lo que rinde el euro SIGUIENTE, no el ya invertido.'):'')}
+       ${tile('Coste de la retribución en acciones',sb.ok?sb.pctVentas+'% ventas':'sin dato',
+              sb.ok?('FCF '+curSymG()+N(sb.fcfAjustado)+'M tras restarla ('+sb.pctFCF+'% del FCF)'):'añade la fila SBC a tu hoja 2.FCF',
+              sb.ok?(sb.pctVentas>=8?'var(--red)':sb.pctVentas>=4?'var(--amber)':'var(--green)'):'var(--muted)',
+              sb.ok?'El pago en acciones es coste real para ti aunque no salga del FCF.':'')}
+     </div>`;})()}
    <div style="font-size:10px;color:var(--muted);margin-bottom:10px;line-height:1.5;">Análisis automático de las partidas de TU hoja (IS · FCF · ROIC · Valoración). Cada métrica: dato + tendencia (últimos 6 años, rojo = negativo) + semáforo + qué es y qué vigilar.</div>
-   ${(()=>{const moat=vd.moat;const ds=[...moat.items].sort((a,b)=>b.s-a.s);const strong=ds.slice(0,3),weak=ds.slice(-3).reverse();const dc=s=>s>=75?'#16a34a':s>=55?'#d97706':'#dc2626';return`<div class="card" style="margin-bottom:10px;">
+   ${(()=>{const moat=vd.moat;const ds=[...moat.items].filter(i=>i.s!=null).sort((a,b)=>b.s-a.s);const strong=ds.slice(0,3),weak=ds.slice(-3).reverse();const dc=s=>s>=75?'#16a34a':s>=55?'#d97706':'#dc2626';return`<div class="card" style="margin-bottom:10px;">
      <div class="ctitle" style="display:flex;justify-content:space-between;align-items:center;gap:8px;">Foso competitivo (MOAT) <span data-tip="moat" style="cursor:pointer;font-size:9px;font-weight:600;color:#0891b2;border:1px solid #0891b255;border-radius:10px;padding:2px 8px;">¿qué es? ⓘ</span></div>
      <div style="display:grid;grid-template-columns:96px 1fr;gap:14px;align-items:center;">
        <div style="text-align:center;background:${moat.color}10;border:1.5px solid ${moat.color}40;border-radius:12px;padding:10px 6px;">
-         <div style="font-size:32px;font-weight:600;color:${moat.color};line-height:1;">${moat.overall}</div>
+         <div style="font-size:32px;font-weight:600;color:${moat.color};line-height:1;">${moat.overall??'—'}</div>
          <div style="font-size:8px;color:var(--muted);">/100</div>
          <div style="font-size:10px;font-weight:600;color:${moat.color};margin-top:4px;">${moat.label}</div>
        </div>
@@ -4861,7 +5158,7 @@ function rTesis(){
   const vd=calcVerdict(),rev=calcReverseDCF(),quality=calcFCFQuality(),stress=calcStressDCF();
   return`<div class="card"><div class="ctitle">Tesis de Inversión — Generada por IA (Claude)</div>
   <p style="font-size:12px;color:var(--sub);margin-bottom:11px;line-height:1.65;">Claude analiza todos los datos financieros incluyendo Reverse DCF, Calidad FCF y Stress Test para generar una tesis estructurada.</p>
-  <div class="params-row">${[{l:"Empresa",v:co.name},{l:"Precio",v:curSymG()+N(price)},{l:"Veredicto",v:vd.verdict+" ("+vd.totalScore+"/100)"},{l:"MOAT",v:vd.moat.overall+"/100"},{l:"Implícito",v:rev.impliedG+"% vs hist "+rev.historicalFCFCagr+"%"},{l:"FCF Quality",v:quality.label},{l:"Stress DCF",v:curSymG()+N(stress.stressedDCF)+" ("+stress.impact+"%impact)"}].map(p=>`<span class="ptag">${p.l}: <strong style="color:${_dm()?'#e2e8f0':'#1a1814'}">${p.v}</strong></span>`).join('')}</div>
+  <div class="params-row">${[{l:"Empresa",v:co.name},{l:"Precio",v:curSymG()+N(price)},{l:"Veredicto",v:vd.verdict+" ("+vd.totalScore+"/100)"},{l:"MOAT",v:(vd.moat.overall==null?'sin evaluar':vd.moat.overall+"/100")},{l:"Implícito",v:rev.impliedG+"% vs hist "+rev.historicalFCFCagr+"%"},{l:"FCF Quality",v:quality.label},{l:"Stress DCF",v:curSymG()+N(stress.stressedDCF)+" ("+stress.impact+"%impact)"}].map(p=>`<span class="ptag">${p.l}: <strong style="color:${_dm()?'#e2e8f0':'#1a1814'}">${p.v}</strong></span>`).join('')}</div>
   <button class="aibtn" id="t-btn" onclick="genTesis()">✍️ Generar Tesis de Inversión</button>
   <div id="t-out" class="aiout" style="display:none;"></div>
   <div style="margin-top:9px;padding:9px 13px;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;font-size:11px;color:#92400e;">Esta tesis es generada por IA con carácter exclusivamente informativo. No constituye asesoramiento financiero.</div></div>`;
@@ -4975,7 +5272,7 @@ DATOS COMPLETOS:
 ${co.name} | ${curSymG()}${N(price)} | Score ${vd.totalScore}/100 | ${vd.verdict}
 Ventas: ${curSymG()}${N(co.sales[9])}M CAGR10Y ${P(cagr(co.sales[9],co.sales[0],9))} | FCF: ${curSymG()}${N(co.fcf[9])}M Mg ${P(co.fcfM[9])}
 EBITDA Mg: ${P(co.ebitdaM[9])} | ROIC: ${co.roic[9]}% (2016: ${co.roic[0]}%) | ND/EBITDA: ${(co.netDebt[9]/co.ebitda[9]).toFixed(1)}x
-EV/FCF: ${evfcfAct}x vs med ${co.medEvFcf}x | Calidad FCF: ${quality.label} | MOAT: ${vd.moat.overall}/100 ${vd.moat.label}
+EV/FCF: ${evfcfAct}x vs med ${co.medEvFcf}x | Calidad FCF: ${quality.label} | MOAT: ${vd.moat.overall??'sin evaluar'} ${vd.moat.label}
 Rev DCF implícito: ${rev.impliedG}% vs histórico ${rev.historicalFCFCagr}% (${rev.diff>=0?'+':''}${rev.diff}pp)
 
 MÁX 800 PALABRAS. Sé directo y específico. No uses frases vacías. Usa 🚨 para alertas críticas.`;
@@ -5009,7 +5306,7 @@ const TIPS={
   reinversion:{emoji:'🔁',title:'Reinversión y Dilución',color:'#b45309',tag:'CAPITAL',def:'Qué hace la empresa con la caja: reinvertir (CapEx) para crecer y cómo trata al accionista. Dilución = emisión de acciones (stock-based comp): positiva resta valor por acción; negativa = recompra neta, que lo aumenta. Reinvertir a ROIC alto es el motor del compounding.',formula:'Dilución = Δ acciones anual % · Reinversión = CapEx / Ventas %',example:(c)=>{const s=classifyStyle();return `${c.name}: dilución ${s.dilution!=null?(s.dilution>0?'+':'')+s.dilution+'%/año':'—'} ${s.dilution!=null?(s.dilution<=0?'(recompra neta ✓)':'(emite acciones)'):''} · CapEx/Ventas ${s.reinvest!=null?s.reinvest+'%':'—'}.`;},bench:[{v:'Recompra',c:'#16a34a',bg:'#f0fdf4',label:'≤0% dilución'},{v:'Estable',c:'#d97706',bg:'#fffbeb',label:'0-1%'},{v:'Diluye',c:'#dc2626',bg:'#fef2f2',label:'>1%/año'}],ref:'Buffett — recompras a precio < valor crean valor; emitir caro lo destruye.'},
   dcf:{emoji:'🧾',title:'DCF — Flujo de Caja Descontado',color:'#2563eb',tag:'VALORACIÓN',def:'Valora la empresa como la suma de TODO el flujo de caja que generará en el futuro, traído a dinero de hoy con una tasa de descuento (WACC). Es el valor intrínseco "puro". Muy sensible a los supuestos: pequeños cambios en crecimiento o WACC mueven mucho el resultado.',formula:'Valor = Σ FCFₜ / (1+WACC)ᵗ + Valor terminal',example:(c)=>{const d=calcDCF();const up=((d-price)/price*100);return `${c.name}: DCF ${curSymG()}${N(d)} vs precio ${curSymG()}${N(price)} → ${up>=0?'+':''}${up.toFixed(0)}% de potencial.`;},bench:[{v:'Conservador',c:'#16a34a',bg:'#f0fdf4',label:'usa supuestos prudentes'},{v:'Sensibilidad',c:'#d97706',bg:'#fffbeb',label:'prueba varios WACC/g'}],ref:'Damodaran, Buffett ("owner earnings"). Úsalo como rango, no como número exacto.'},
   wacc:{emoji:'⚖️',title:'WACC — Coste de Capital',color:'#6b7280',tag:'VALORACIÓN',def:'El retorno mínimo que la empresa debe generar para satisfacer a quienes la financian (accionistas + acreedores). Es la tasa con la que se descuentan los flujos en el DCF y el listón que el ROIC debe superar para crear valor.',formula:'WACC = %Equity·Coste equity + %Deuda·Coste deuda·(1−impuesto)',example:(c)=>`${c.name}: WACC ${c.wacc}%. ROIC ${P(c.roic[9])} → spread ${(c.roic[9]-c.wacc)>=0?'+':''}${(c.roic[9]-c.wacc).toFixed(0)}pp. ${c.roic[9]>c.wacc?'Crea valor ✓':'Destruye valor.'}`,bench:[{v:'ROIC > WACC',c:'#16a34a',bg:'#f0fdf4',label:'Crea valor'},{v:'ROIC < WACC',c:'#dc2626',bg:'#fef2f2',label:'Destruye valor'}],ref:'Si una empresa crece pero ROIC<WACC, crecer la empeora (Buffett/Greenwald).'},
-  moat:{emoji:'🏰',title:'MOAT — Ventaja Competitiva',color:'#0891b2',tag:'CALIDAD',def:'El "foso" que protege los beneficios de la competencia y permite mantener ROIC alto durante años. Fuentes: costes de cambio, efecto red, intangibles (marca/patentes), ventajas de coste y escala. Sin foso, los retornos altos atraen competidores y revierten a la media.',formula:'Score ponderado de 10 dimensiones (switching, ROIC, márgenes, escala…)',example:(c)=>{const m=calcMoat();return `${c.name}: MOAT ${m.label} (${m.overall}/100). Cuanto más ancho y duradero, más prima de múltiplo se justifica.`;},bench:[{v:'≥85',c:'#16a34a',bg:'#f0fdf4',label:'Excepcional'},{v:'70-84',c:'#0891b2',bg:'#ecfeff',label:'Sólido'},{v:'<55',c:'#dc2626',bg:'#fef2f2',label:'Débil'}],ref:'Morningstar (Dorsey, "The Little Book that Builds Wealth"), Buffett.'},
+  moat:{emoji:'🏰',title:'MOAT — Ventaja Competitiva',color:'#0891b2',tag:'CALIDAD',def:'El "foso" que protege los beneficios de la competencia y permite mantener ROIC alto durante años. Fuentes: costes de cambio, efecto red, intangibles (marca/patentes), ventajas de coste y escala. Sin foso, los retornos altos atraen competidores y revierten a la media.',formula:'Score ponderado de 10 dimensiones (switching, ROIC, márgenes, escala…)',example:(c)=>{const m=calcMoat();return `${c.name}: MOAT ${m.label} (${m.overall??'sin evaluar'}${m.overall!=null?'/100':''}). Cuanto más ancho y duradero, más prima de múltiplo se justifica.`;},bench:[{v:'≥85',c:'#16a34a',bg:'#f0fdf4',label:'Excepcional'},{v:'70-84',c:'#0891b2',bg:'#ecfeff',label:'Sólido'},{v:'<55',c:'#dc2626',bg:'#fef2f2',label:'Débil'}],ref:'Morningstar (Dorsey, "The Little Book that Builds Wealth"), Buffett.'},
   zonas:{emoji:'🚦',title:'Zonas de precio y Euforia',color:'#d97706',tag:'DECISIÓN',def:'Bandas derivadas del precio justo para saber dónde compras: COMPRAR (MdS ≥ +20%), JUSTO (0–20%), VIGILAR (−15–0%) y CARO (< −15%). La penalización por EUFORIA recorta la puntuación cuando el múltiplo actual supera claramente su mediana histórica — señal de que el precio descuenta demasiado optimismo.',formula:'Zonas sobre precio justo · Euforia si múltiplo actual > mediana 5Y × 1,10',example:(c)=>{const v=calcVerdict();return `${c.name}: precio justo ${curSymG()}${N(v.fairBase)}, MdS ${v.msBase>=0?'+':''}${v.msBase}%${v.euforiaPenalty>0?` · ⚠ Euforia −${v.euforiaPenalty} (múltiplo sobre su media).`:'.'}`;},bench:[{v:'≥+20%',c:'#16a34a',bg:'#f0fdf4',label:'Comprar'},{v:'0-20%',c:'#2563eb',bg:'#eff6ff',label:'Justo'},{v:'<−15%',c:'#dc2626',bg:'#fef2f2',label:'Caro'}],ref:'Graham (margen de seguridad) + control de euforia para no pagar de más.'},
 };
 function showTip(id,el,extra){
@@ -5490,7 +5787,7 @@ function renderWatchlist(){
     return `<tr style="border-bottom:1px solid ${_dm()?'#2a3a52':'#f0ede8'};">
       <td>
         <div style="display:flex;align-items:center;gap:8px;">
-          ${logoUrl?`<img src="${logoUrl}" class="cartera-logo" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';"/>`:''}
+          ${logoUrl?`<img src="${logoUrl}" class="cartera-logo" loading="lazy" onerror="this.style.display='none';if(this.nextElementSibling)this.nextElementSibling.style.display='flex';"/>`:''}
           <div class="cartera-logo-fallback" style="background:#1e3a5f;display:${logoUrl?'none':'flex'};">${e.id.substring(0,2)}</div>
           <div>
             <div class="cartera-co-name">${e.name}${isYoung?` <span class="joven-badge" style="vertical-align:middle;">JOVEN</span>`:''}</div>
@@ -6853,7 +7150,7 @@ function renderCartera(){
     return`<tr id="crow-${k}" class="cart-r cart-r-${gid}"${open?'':' style="display:none;"'}>
   <td style="cursor:pointer;" onclick="setView('analysis');setTimeout(()=>{if(DB['${k}'])switchCo('${k}');},80);" title="Abrir análisis de ${co.name}">
     <div style="display:flex;align-items:center;gap:8px;">
-      ${logoUrl?`<img src="${logoUrl}" class="cartera-logo" loading="lazy" onerror="this.onerror=null;if(!this.dataset.fb){this.dataset.fb=1;this.src='${logoFallback(k)}';}else{this.style.display='none';this.nextElementSibling.style.display='flex';}"/>`:''}
+      ${logoUrl?`<img src="${logoUrl}" class="cartera-logo" loading="lazy" onerror="this.onerror=null;if(!this.dataset.fb){this.dataset.fb=1;this.src='${logoFallback(k)}';}else{this.style.display='none';if(this.nextElementSibling)this.nextElementSibling.style.display='flex';}"/>`:''}
       <div class="cartera-logo-fallback" style="background:${co.color};display:none;">${k.substring(0,2)}</div>
       <div>
         <div class="cartera-co-name" title="${co.name}">${shortCoName(co.name)}</div>
@@ -7667,6 +7964,24 @@ function parseExcelData(arrayBuffer,ticker,name,sector,color,driveUrl){
   const fcf=nums(fcfRow,1,10), pF=nums(fcfRow,11,5);
   const fcfM=pct(nums(fcfMRow,1,10));
   const fcfps=nums(fcfpsRow,1,10);
+  // ── Filas OPCIONALES (si tu hoja las trae, dejan de ser supuestos) ──
+  // CapEx, flujo de caja de operaciones, retribución en acciones y circulante.
+  // Se buscan por varias etiquetas habituales; si no están, quedan a null y el
+  // análisis lo dice en vez de rellenar con un valor por defecto.
+  const _firstRow=(sheet,labels)=>{ for(const l of labels){ const r=findRow(sheet,l); if(r) return r; } return null; };
+  const CAPEX_LBL=['Capital Expenditure','Capital Expenditures','CapEx','Capex','Inversiones en capital','Inversión en capital'];
+  const CFO_LBL=['Cash from Operations','Cash Flow from Operations','Operating Cash Flow','Flujo de caja operativo','Caja de operaciones'];
+  const SBC_LBL=['Stock-Based Compensation','Stock Based Compensation','Share-Based Compensation','SBC','Retribución en acciones','Remuneración en acciones'];
+  const WC_LBL=['Working Capital','Capital circulante','Fondo de maniobra'];
+  const capexRow=_firstRow(fcfS,CAPEX_LBL)||_firstRow(is,CAPEX_LBL);
+  const cfoRow  =_firstRow(fcfS,CFO_LBL);
+  const sbcRow  =_firstRow(fcfS,SBC_LBL)||_firstRow(is,SBC_LBL);
+  const wcRow   =_firstRow(valS,WC_LBL)||_firstRow(fcfS,WC_LBL);
+  // CapEx suele venir en negativo (salida de caja): se guarda en positivo
+  const capex=nums(capexRow,1,10).map(v=>v==null?null:Math.abs(v));
+  const cfo=nums(cfoRow,1,10);
+  const sbc=nums(sbcRow,1,10).map(v=>v==null?null:Math.abs(v));
+  const workingCap=nums(wcRow,1,10);
 
   // 3.ROIC
   const roicRow=findRow(roicS,'ROIC');
@@ -7738,6 +8053,7 @@ function parseExcelData(arrayBuffer,ticker,name,sector,color,driveUrl){
     ticker,name,sector:sector||'',color:color||'#1e3a5f',driveUrl:driveUrl||'',
     importDate:new Date().toISOString(),
     price,shares,sharesHist,
+    capex,cfo,sbc,workingCap,
     years:_years,
     sales,ebitda,ebitdaM,ebit,ebitM,netIncome,eps,fcf,fcfM,fcfps,roic,netDebt,
     pY:_pY,pS,pEB,pF,pEPS,pND,pShares,
@@ -7773,6 +8089,7 @@ function buildDbEntryFromImport(r){
     name:r.name||r.ticker,ticker:r.ticker,finnhubTicker:r.ticker,sector:r.sector||(_cat&&_cat.sector)||'',
     ...(( _cat&&_cat.domain)?{domain:_cat.domain}:{}),...( _tv?{tvSymbol:_tv}:{}),
     shares:r.shares||1,sharesHist:r.sharesHist||[],price:r.price||0,equity:0,color:_color,
+    capex:r.capex||[],cfo:r.cfo||[],sbc:r.sbc||[],workingCap:r.workingCap||[],
     wacc:10,sectorAvgEbitdaM:Math.round(ebitdaM9)||25,sectorAvgFcfM:Math.round(last(r.fcfM)||20),sectorAvgROIC:Math.round(last(r.roic)||15),
     earningsDate:'',earningsLabel:'Resultados',driveUrl:r.driveUrl||'',
     desc:r.desc||((r.name||r.ticker)+' — empresa importada desde tu Plantilla de Valoración.'),
