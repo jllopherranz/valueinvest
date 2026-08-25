@@ -870,6 +870,9 @@ input[type=range]{width:100%;height:4px;cursor:pointer;accent-color:var(--navy);
   </div>
   <div id="cartera-mult-grid" style="display:none;"></div>
 
+  <!-- ── Comparativa cruzada: ¿cuál es la mejor de las que puedo comprar hoy? ── -->
+  <div id="dash-cross" style="margin-bottom:12px;"></div>
+
   <!-- ── Comparador Growth vs Value de la cartera ── -->
   <div id="dash-style-compare" style="margin-bottom:12px;"></div>
 
@@ -2751,11 +2754,16 @@ function calcROIIC(c,años){
   c=c||co; años=años||5;
   const n=(c.ebit||[]).length;
   if(n<años+1||!c.roic) return {ok:false};
+  const icReal=_serie(c.investedCap).length>=años+1;   // ¿lo trae tu hoja?
   const ic=i=>{
     const ebit=c.ebit[i], r=c.roic[i];
-    if(ebit==null||r==null||r===0) return null;
-    const tax=(c.isD&&c.isD.tr&&c.isD.tr[0]!=null)?c.isD.tr[0]:21;
+    if(ebit==null) return null;
+    // Tipo impositivo: el de TU hoja para ese año si está, y si no el supuesto
+    const tax=(c.taxRate&&c.taxRate[i]!=null)?c.taxRate[i]
+             :((c.isD&&c.isD.tr&&c.isD.tr[0]!=null)?c.isD.tr[0]:21);
     const nopat=ebit*(1-tax/100);
+    if(icReal&&c.investedCap[i]>0) return {nopat, ic:c.investedCap[i]};
+    if(r==null||r===0) return null;
     return {nopat, ic:nopat/(r/100)};
   };
   const a=ic(n-1-años), b=ic(n-1);
@@ -2765,7 +2773,7 @@ function calcROIIC(c,años){
   const roiic=dNopat/dIC*100;
   if(!isFinite(roiic)||Math.abs(roiic)>500) return {ok:false};   // ruido contable
   return {ok:true, pct:+roiic.toFixed(0), años, dNopat:Math.round(dNopat), dIC:Math.round(dIC),
-          roicActual:c.roic[n-1]};
+          roicActual:c.roic[n-1], fuenteIC:icReal?'capital invertido de tu hoja':'capital invertido deducido de NOPAT y ROIC'};
 }
 
 // ── Coste real de la retribución en acciones ──
@@ -2779,18 +2787,169 @@ function sbcImpact(c){
           pctFCF:f>0?+(s/f*100).toFixed(0):null, fcfAjustado:Math.round(f-s)};
 }
 
+// ── Rentabilidad por dividendo y retorno total al accionista ──
+// El dividendo y la recompra son parte del retorno y no entraban en el cálculo.
+function shareholderYield(c,px){
+  c=c||co; px=px||price;
+  const div=_serie(c.dividends), sh=c.shares;
+  const dy=(div.length&&sh>0&&px>0)?(div[div.length-1]/sh)/px*100:null;
+  // Recompra en positivo, dilución en negativo: si emite acciones, RESTA retorno
+  const buyback=-dilutionFor(c).pct;
+  const total=(dy!=null?dy:0)+buyback;
+  return {ok:dy!=null||dilutionFor(c).real, dividendo:dy!=null?+dy.toFixed(2):null,
+          recompra:+buyback.toFixed(2), total:+total.toFixed(2)};
+}
+
+// ══ FASE 3 · ESCENARIOS, SENSIBILIDAD Y SEGUIMIENTO ═══════════════════
+
+// ── Escenarios con probabilidad ────────────────────────────────────────
+// El objetivo era un punto: el promedio de cuatro múltiplos. Un punto no dice
+// cuánto se pierde si la tesis falla. Tres escenarios con peso dan valor
+// esperado y, sobre todo, el tamaño del error cuando te equivocas.
+const ESC_DEF={bajista:{mult:0.70,crec:0.5,p:25},base:{mult:1,crec:1,p:50},alcista:{mult:1.20,crec:1.15,p:25}};
+function escenariosFor(key){
+  key=key||coKeyOf(co);
+  try{const v=JSON.parse(localStorage.getItem('vi_esc_'+key)||'null');
+      if(v&&v.bajista&&v.base&&v.alcista) return v;}catch(e){}
+  return JSON.parse(JSON.stringify(ESC_DEF));
+}
+function saveEscenarios(key,v){ try{localStorage.setItem('vi_esc_'+key,JSON.stringify(v));}catch(e){} }
+// Valor esperado a 5 años ponderando los tres escenarios
+function calcEscenarios(c,px){
+  c=c||co; px=px||price;
+  const key=Object.keys(DB).find(k=>DB[k]===c)||c.ticker;
+  const esc=escenariosFor(key);
+  const t=avgTargetsFor(key);
+  const base5=(t&&t[4]!=null)?t[4]:null, base1=(t&&t[0]!=null)?t[0]:null;
+  if(base5==null||!(px>0)) return {ok:false};
+  const suma=esc.bajista.p+esc.base.p+esc.alcista.p;
+  const filas=['bajista','base','alcista'].map(k=>{
+    const e=esc[k];
+    // El escenario mueve el múltiplo y el crecimiento acumulado a 5 años
+    const objetivo=base5*e.mult*Math.pow(e.crec,1);
+    const cagr=(Math.pow(Math.max(objetivo,0.01)/px,0.2)-1)*100;
+    const peso=suma>0?e.p/suma:0;
+    return {k,lbl:k==='bajista'?'Bajista':k==='base'?'Base':'Alcista',
+            objetivo:Math.round(objetivo), cagr:+cagr.toFixed(1), p:e.p, peso,
+            retTotal:+((objetivo/px-1)*100).toFixed(0)};
+  });
+  const evPrecio=filas.reduce((a,f)=>a+f.objetivo*f.peso,0);
+  const evCagr=(Math.pow(Math.max(evPrecio,0.01)/px,0.2)-1)*100;
+  const perdida=filas[0].retTotal;                       // cuánto pierdes si falla
+  const ganancia=filas[2].retTotal;
+  const asimetria=(perdida<0&&ganancia>0)?+(ganancia/Math.abs(perdida)).toFixed(1):null;
+  return {ok:true, filas, base1, base5, evPrecio:Math.round(evPrecio), evCagr:+evCagr.toFixed(1),
+          perdida, ganancia, asimetria, suma};
+}
+
+// ── Sensibilidad: qué supuesto mueve más el objetivo ───────────────────
+// Concentra la investigación donde importa en vez de repartirla.
+function calcSensibilidad(c,px){
+  c=c||co; px=px||price;
+  const key=Object.keys(DB).find(k=>DB[k]===c)||c.ticker;
+  const t=avgTargetsFor(key);
+  const base=(t&&t[4]!=null)?t[4]:null;
+  if(base==null||!(px>0)) return {ok:false};
+  const gm=getCompanyMults(key);
+  const nd=_serie(c.pND).pop()??_serie(c.netDebt).pop()??0;
+  const sh=c.shares||1;
+  const fcf5=_serie(c.pF)[4]??_serie(c.pF).pop()??_serie(c.fcf).pop()??0;
+  // Efecto de mover cada palanca ±20% sobre el objetivo a 5 años
+  const palancas=[
+    {n:'Múltiplo objetivo (EV/FCF)', f:d=>(fcf5*(gm.evf*(1+d))-nd)/sh},
+    {n:'FCF proyectado a 5 años',    f:d=>(fcf5*(1+d)*gm.evf-nd)/sh},
+    {n:'Deuda neta',                 f:d=>(fcf5*gm.evf-nd*(1+d))/sh},
+    {n:'Nº de acciones',             f:d=>(fcf5*gm.evf-nd)/(sh*(1+d))},
+  ];
+  const ref=(fcf5*gm.evf-nd)/sh;
+  if(!(ref>0)) return {ok:false};
+  const filas=palancas.map(p=>{
+    const alto=p.f(0.20), bajo=p.f(-0.20);
+    const rango=Math.abs(alto-bajo)/ref*100;
+    return {n:p.n, alto:Math.round(alto), bajo:Math.round(bajo), rango:+rango.toFixed(0)};
+  }).sort((a,b)=>b.rango-a.rango);
+  return {ok:true, ref:Math.round(ref), filas, max:filas[0]?filas[0].rango:0};
+}
+
+// ── Registro de tus objetivos frente a lo que pasó de verdad ───────────
+// La única forma de saber si tus múltiplos son optimistas de forma sistemática.
+function targetLog(key){
+  try{ return JSON.parse(localStorage.getItem('vi_tlog_'+key)||'[]'); }catch(e){ return []; }
+}
+function snapshotTarget(key,silencioso){
+  key=key||coKeyOf(co);
+  const d=DB[key]; if(!d) return null;
+  const t=avgTargetsFor(key);
+  const px=(_carteraPrices[key]&&_carteraPrices[key].c)||_lastKnownPrice(key)||d.price;
+  if(!t||t[0]==null||!(px>0)) return null;
+  const log=targetLog(key);
+  const hoy=new Date().toISOString().slice(0,10);
+  if(log.some(e=>e.fecha===hoy)) return log;            // uno por día basta
+  log.push({fecha:hoy, precio:+px.toFixed(2), obj1:Math.round(t[0]),
+            obj5:t[4]!=null?Math.round(t[4]):null, evf:getCompanyMults(key).evf});
+  try{ localStorage.setItem('vi_tlog_'+key,JSON.stringify(log.slice(-60))); }catch(e){}
+  if(!silencioso&&typeof curTab!=='undefined') showTab(curTab);
+  return log;
+}
+// Compara los objetivos a 1 año que ya han vencido con el precio real de hoy
+function targetTrack(key,pxActual){
+  key=key||coKeyOf(co);
+  const log=targetLog(key);
+  const px=pxActual||(_carteraPrices[key]&&_carteraPrices[key].c)||_lastKnownPrice(key)||DB[key]?.price;
+  const hoy=Date.now();
+  const vencidos=log.filter(e=>hoy-new Date(e.fecha).getTime()>=330*864e5);
+  if(!vencidos.length||!(px>0)) return {ok:false, registros:log.length,
+    proximo:log.length?Math.ceil((330*864e5-(hoy-new Date(log[0].fecha).getTime()))/864e5):null};
+  const errores=vencidos.map(e=>({fecha:e.fecha, obj:e.obj1, real:+px.toFixed(2),
+    err:+((px-e.obj1)/e.obj1*100).toFixed(0)}));
+  const medio=errores.reduce((a,e)=>a+e.err,0)/errores.length;
+  return {ok:true, errores, sesgoMedio:+medio.toFixed(0), n:errores.length,
+    veredicto:medio<-15?'Tus objetivos han sido optimistas: el precio se quedó por debajo'
+             :medio>15?'Tus objetivos se han quedado cortos: el precio los superó'
+             :'Tus objetivos han acertado el rango'};
+}
+
+// ── Tesis con hitos verificables ───────────────────────────────────────
+function tesisHitos(key){
+  try{ return JSON.parse(localStorage.getItem('vi_hitos_'+(key||coKeyOf(co)))||'[]'); }catch(e){ return []; }
+}
+function saveHitos(key,v){ try{localStorage.setItem('vi_hitos_'+key,JSON.stringify(v));}catch(e){} }
+function addHito(){
+  const key=coKeyOf(co);
+  const txt=prompt('¿Qué tiene que pasar para que esta inversión funcione?\n\nEscribe UN hito comprobable, con número y plazo.\nEj: «Margen FCF por encima del 25% en 2027» o «Ventas de Cloud creciendo >20% cuatro trimestres seguidos».');
+  if(!txt||!txt.trim()) return;
+  const h=tesisHitos(key); h.push({t:txt.trim(), estado:'pendiente', fecha:new Date().toISOString().slice(0,10)});
+  saveHitos(key,h); showTab(curTab);
+}
+function cycleHito(i){
+  const key=coKeyOf(co), h=tesisHitos(key);
+  if(!h[i]) return;
+  h[i].estado=h[i].estado==='pendiente'?'cumpliendo':h[i].estado==='cumpliendo'?'roto':'pendiente';
+  h[i].rev=new Date().toISOString().slice(0,10);
+  saveHitos(key,h); showTab(curTab);
+}
+function delHito(i){
+  const key=coKeyOf(co), h=tesisHitos(key);
+  if(!h[i]||!confirm('¿Borrar el hito «'+h[i].t.slice(0,60)+'»?')) return;
+  h.splice(i,1); saveHitos(key,h); showTab(curTab);
+}
+
 // ── Nota de fiabilidad: ¿cuánto de este análisis son datos tuyos? ──
 function dataConfidence(c){
   c=c||co;
   const key=Object.keys(DB).find(k=>DB[k]===c);
   const imp=key?getImportedData(key):null;
   const chk=[
-    {n:'Histórico de 10 años',    ok:_serie(c.sales).length>=8},
-    {n:'Proyecciones de tu hoja', ok:!c.estimated&&_serie(c.pS).length>=5},
-    {n:'Múltiplos históricos',    ok:_serie(c.hEvF).length>=5||_serie(c.hPER).length>=5},
+    {n:'Histórico de 10 años',    ok:_serie(c.sales).length>=8,  clave:true},
+    {n:'Proyecciones de tu hoja', ok:!c.estimated&&_serie(c.pS).length>=5, clave:true},
+    {n:'Múltiplos históricos',    ok:_serie(c.hEvF).length>=5||_serie(c.hPER).length>=5, clave:true},
     {n:'Histórico de acciones',   ok:_serie(c.sharesHist).length>=3},
     {n:'CapEx',                   ok:_serie(c.capex).length>=3},
     {n:'Retribución en acciones', ok:_serie(c.sbc).length>=3},
+    {n:'Tipo impositivo',         ok:_serie(c.taxRate).length>=3},
+    {n:'Capital invertido',       ok:_serie(c.investedCap).length>=3},
+    {n:'Dividendos',              ok:_serie(c.dividends).length>=3},
+    {n:'Circulante',              ok:_serie(c.workingCap).length>=3},
   ];
   const n=chk.filter(x=>x.ok).length;
   const pct=Math.round(n/chk.length*100);
@@ -4599,6 +4758,73 @@ function buildMultHistChart(){
   _multChartInst=new Chart(c,{type:'line',data:{labels,datasets},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:true,position:'top',labels:{font:{size:9},boxWidth:10,padding:8,usePointStyle:true,filter:item=>!item.text.startsWith('Med.')}},tooltip:{backgroundColor:'rgba(255,255,255,.97)',borderColor:'#e4e0d8',borderWidth:1,titleColor:'#1a1814',bodyColor:'#5a5650',padding:10,callbacks:{title:items=>'Año '+items[0].label,label:ctx=>ctx.raw!=null?` ${ctx.dataset.label}: ${Math.round(ctx.raw)}x`:null}}},scales:{x:{grid:{color:gc},ticks:{color:tc,font:{size:9}}},y:{grid:{color:gc},ticks:{color:tc,font:{size:9},callback:v=>Math.round(v)+'x'},suggestedMin:0}}}});
 }
 
+// ── Escenarios con probabilidad · sensibilidad · registro de objetivos ──
+function rEscenarios(){
+  const key=coKeyOf(co);
+  const e=calcEscenarios(co,price), sn=calcSensibilidad(co,price), tk=targetTrack(key,price);
+  const esc=escenariosFor(key);
+  if(!e.ok) return '<div class="card" style="margin-bottom:12px;"><div class="ctitle">Escenarios</div><div style="font-size:11.5px;color:var(--sub);">Hace falta un precio objetivo a 5 años para construir los escenarios.</div></div>';
+  const col=v=>v>=15?'var(--green)':v>=8?'var(--amber)':'var(--red)';
+  const filaHtml=f=>`<tr>
+    <td style="padding:6px 8px;font-weight:600;color:var(--text);">${f.lbl}</td>
+    <td style="padding:6px 8px;text-align:center;">
+      <input type="number" min="0" max="100" value="${f.p}" class="numinp" style="width:56px;text-align:center;"
+             onchange="setEscProb('${f.k}',this.value)"/><span style="font-size:10px;color:var(--muted);">%</span></td>
+    <td style="padding:6px 8px;text-align:right;font-weight:700;color:var(--text);">${curSymG()}${N(f.objetivo)}</td>
+    <td style="padding:6px 8px;text-align:right;font-weight:700;color:${f.retTotal>=0?'var(--green)':'var(--red)'};">${f.retTotal>=0?'+':''}${f.retTotal}%</td>
+    <td style="padding:6px 8px;text-align:right;font-weight:700;color:${col(f.cagr)};">${f.cagr>=0?'+':''}${f.cagr}%/año</td>
+  </tr>`;
+  return `<div class="card" style="margin-bottom:12px;">
+    <div class="ctitle">Escenarios con probabilidad
+      <span style="font-size:9px;font-weight:600;color:var(--muted);text-transform:none;letter-spacing:0;">el objetivo es un punto; esto es la distribución</span></div>
+    <div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:460px;">
+      <thead><tr style="color:var(--muted);font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;">
+        <th style="text-align:left;padding:5px 8px;">Escenario</th><th style="padding:5px 8px;">Probabilidad</th>
+        <th style="text-align:right;padding:5px 8px;">Objetivo 5Y</th><th style="text-align:right;padding:5px 8px;">Retorno total</th>
+        <th style="text-align:right;padding:5px 8px;">Anualizado</th></tr></thead>
+      <tbody>${e.filas.map(filaHtml).join('')}</tbody>
+    </table></div>
+    ${e.suma!==100?`<div style="font-size:10.5px;color:var(--amber);font-weight:600;margin-top:6px;">Las probabilidades suman ${e.suma}%: se normalizan para el valor esperado.</div>`:''}
+    <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:11px;padding-top:11px;border-top:1px solid var(--border);">
+      <div><div style="font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);">Valor esperado 5Y</div>
+        <div style="font-size:22px;font-weight:700;color:var(--text);">${curSymG()}${N(e.evPrecio)}</div>
+        <div style="font-size:10px;color:${col(e.evCagr)};font-weight:700;">${e.evCagr>=0?'+':''}${e.evCagr}%/año ponderado</div></div>
+      <div><div style="font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);">Si la tesis falla</div>
+        <div style="font-size:22px;font-weight:700;color:var(--red)">${e.perdida>=0?'+':''}${e.perdida}%</div>
+        <div style="font-size:10px;color:var(--muted);font-weight:600;">escenario bajista</div></div>
+      <div><div style="font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);">Asimetría</div>
+        <div style="font-size:22px;font-weight:700;color:${e.asimetria==null?'var(--muted)':e.asimetria>=2?'var(--green)':e.asimetria>=1?'var(--amber)':'var(--red)'};">${e.asimetria==null?'—':e.asimetria+'x'}</div>
+        <div style="font-size:10px;color:var(--muted);font-weight:600;">ganas ${e.asimetria==null?'—':e.asimetria} por cada 1 que arriesgas</div></div>
+    </div>
+    <div style="margin-top:9px;font-size:10.5px;color:var(--sub);line-height:1.5;">El bajista aplica múltiplos un ${Math.round((1-esc.bajista.mult)*100)}% por debajo y el alcista un ${Math.round((esc.alcista.mult-1)*100)}% por encima de tu objetivo. Ajusta las probabilidades según lo convencido que estés.</div>
+  </div>
+  ${sn.ok?`<div class="card" style="margin-bottom:12px;">
+    <div class="ctitle">Sensibilidad — qué supuesto manda
+      <span style="font-size:9px;font-weight:600;color:var(--muted);text-transform:none;letter-spacing:0;">moviendo cada palanca ±20%</span></div>
+    ${sn.filas.map(f=>`<div style="display:flex;align-items:center;gap:10px;margin-bottom:7px;">
+      <div style="width:190px;flex-shrink:0;font-size:11.5px;color:var(--text);font-weight:600;">${f.n}</div>
+      <div style="flex:1;height:14px;background:var(--surface2);border-radius:4px;position:relative;overflow:hidden;min-width:80px;">
+        <div style="position:absolute;left:0;top:0;bottom:0;width:${Math.min(100,f.rango/Math.max(sn.max,1)*100)}%;background:linear-gradient(90deg,var(--navy),var(--blue));"></div></div>
+      <div style="width:120px;text-align:right;font-size:11px;color:var(--sub);font-weight:600;font-variant-numeric:tabular-nums;">${curSymG()}${N(f.bajo)}–${curSymG()}${N(f.alto)}</div>
+      <div style="width:46px;text-align:right;font-size:12px;font-weight:700;color:var(--text);">${f.rango}%</div>
+    </div>`).join('')}
+    <div style="margin-top:8px;font-size:10.5px;color:var(--sub);line-height:1.5;">Lo que más mueve tu objetivo es <b>${sn.filas[0].n.toLowerCase()}</b>: ahí es donde conviene afinar la investigación, no repartiéndola por igual.</div>
+  </div>`:''}
+  <div class="card" style="margin-bottom:12px;">
+    <div class="ctitle" style="display:flex;justify-content:space-between;align-items:center;gap:8px;">Registro de tus objetivos
+      <button class="cart-chip" onclick="snapshotTarget()">📌 Guardar el de hoy</button></div>
+    ${tk.ok
+      ? `<div style="font-size:12px;color:var(--text);font-weight:600;margin-bottom:6px;">${tk.veredicto} — desviación media ${tk.sesgoMedio>=0?'+':''}${tk.sesgoMedio}% en ${tk.n} objetivo(s) vencido(s).</div>
+         ${tk.errores.slice(-5).map(x=>`<div style="font-size:11px;color:var(--sub);">${x.fecha}: objetivo ${curSymG()}${N(x.obj)} → precio real ${curSymG()}${N(x.real)} (<b style="color:${x.err>=0?'var(--green)':'var(--red)'};">${x.err>=0?'+':''}${x.err}%</b>)</div>`).join('')}`
+      : `<div style="font-size:11.5px;color:var(--sub);line-height:1.55;">${tk.registros?`${tk.registros} objetivo(s) guardado(s). El primero se podrá contrastar dentro de ${tk.proximo} días: hace falta un año para saber si acertaste.`:'Aún no has guardado ninguno. Guarda el objetivo de hoy y dentro de un año sabrás si tus múltiplos son sistemáticamente optimistas — es la única forma de calibrarlos.'}</div>`}
+  </div>`;
+}
+function setEscProb(k,v){
+  const key=coKeyOf(co), e=escenariosFor(key);
+  e[k].p=Math.max(0,Math.min(100,parseInt(v,10)||0));
+  saveEscenarios(key,e); showTab(curTab);
+}
+
 function rValoracion(){
   const vd=calcVerdict(),vc=vd.verdictColor;
   const dcf=calcDCF(),ud=(dcf-price)/price*100;
@@ -4631,6 +4857,7 @@ function rValoracion(){
 
   return`<div>
   ${estimatedBanner()}
+  ${rEscenarios()}
 
   <!-- SIM BANNER -->
   <div class="sim-banner${isSimulating?' visible':''}" id="sim-banner">
@@ -5156,7 +5383,25 @@ function rAlertas(){
 // ═══════════════════════════════════════════════════════════════════
 function rTesis(){
   const vd=calcVerdict(),rev=calcReverseDCF(),quality=calcFCFQuality(),stress=calcStressDCF();
-  return`<div class="card"><div class="ctitle">Tesis de Inversión — Generada por IA (Claude)</div>
+  const hitos=tesisHitos(coKeyOf(co));
+  const EST={pendiente:{c:'var(--muted)',i:'○',t:'Pendiente'},cumpliendo:{c:'var(--green)',i:'●',t:'Cumpliéndose'},roto:{c:'var(--red)',i:'✕',t:'Roto'}};
+  const rotos=hitos.filter(h=>h.estado==='roto').length;
+  return`<div class="card" style="margin-bottom:12px;">
+    <div class="ctitle" style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+      Qué tiene que pasar para que esto funcione
+      <button class="cart-chip" onclick="addHito()">+ Añadir hito</button></div>
+    ${hitos.length?hitos.map((h,i)=>`<div style="display:flex;align-items:flex-start;gap:9px;padding:7px 0;border-top:${i?'1px solid var(--border)':'none'};">
+        <span style="cursor:pointer;color:${EST[h.estado].c};font-size:14px;line-height:1.3;flex-shrink:0;" title="Pulsa para cambiar de estado" onclick="cycleHito(${i})">${EST[h.estado].i}</span>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:12px;color:var(--text);line-height:1.45;">${h.t}</div>
+          <div style="font-size:9.5px;color:var(--muted);font-weight:600;">${EST[h.estado].t} · anotado ${h.fecha}${h.rev?' · revisado '+h.rev:''}</div>
+        </div>
+        <span style="cursor:pointer;color:var(--muted);font-size:11px;flex-shrink:0;" onclick="delHito(${i})" title="Borrar">✕</span>
+      </div>`).join('')
+      :`<div style="font-size:11.5px;color:var(--sub);line-height:1.55;">Escribe dos o tres condiciones comprobables, con número y plazo. Al revisarlas cada trimestre sabrás si la tesis sigue viva o si ya se rompió — que es lo que de verdad decide cuándo vender.</div>`}
+    ${rotos?`<div style="margin-top:9px;padding:8px 12px;background:color-mix(in srgb,var(--red) 10%,transparent);border:1px solid color-mix(in srgb,var(--red) 35%,transparent);border-radius:9px;font-size:11.5px;color:var(--red);font-weight:600;">${rotos} hito(s) roto(s): la tesis original ya no se sostiene tal como la escribiste. Revísala antes de añadir más capital.</div>`:''}
+  </div>
+  <div class="card"><div class="ctitle">Tesis de Inversión — Generada por IA (Claude)</div>
   <p style="font-size:12px;color:var(--sub);margin-bottom:11px;line-height:1.65;">Claude analiza todos los datos financieros incluyendo Reverse DCF, Calidad FCF y Stress Test para generar una tesis estructurada.</p>
   <div class="params-row">${[{l:"Empresa",v:co.name},{l:"Precio",v:curSymG()+N(price)},{l:"Veredicto",v:vd.verdict+" ("+vd.totalScore+"/100)"},{l:"MOAT",v:(vd.moat.overall==null?'sin evaluar':vd.moat.overall+"/100")},{l:"Implícito",v:rev.impliedG+"% vs hist "+rev.historicalFCFCagr+"%"},{l:"FCF Quality",v:quality.label},{l:"Stress DCF",v:curSymG()+N(stress.stressedDCF)+" ("+stress.impact+"%impact)"}].map(p=>`<span class="ptag">${p.l}: <strong style="color:${_dm()?'#e2e8f0':'#1a1814'}">${p.v}</strong></span>`).join('')}</div>
   <button class="aibtn" id="t-btn" onclick="genTesis()">✍️ Generar Tesis de Inversión</button>
@@ -6152,6 +6397,7 @@ function renderDashboard(){
       </div>`;
     }).join('');
   }
+  renderCrossCompare();   // comparativa cruzada entre tus empresas
   renderStyleCompare();   // comparador Growth vs Value de la cartera
   fetchAllEarnings();     // afina las fechas de resultados con datos reales (Finnhub)
 }
@@ -6804,6 +7050,97 @@ function pegBar(peg,per,g){
     <div style="width:56px;height:6px;border-radius:3px;background:linear-gradient(90deg,#16a34a,#eab308 50%,#dc2626);position:relative;">
       <div style="position:absolute;top:-2px;left:calc(${pos}% - 1.5px);width:3px;height:10px;background:#1a1814;border-radius:1px;box-shadow:0 0 0 1px #fff;"></div>
     </div></div>`;
+}
+
+// ── COMPARATIVA CRUZADA ────────────────────────────────────────────────
+// El capital es escaso: la pregunta no es «¿está barata?» sino «¿es la mejor
+// de las que puedo comprar hoy?». Enfrenta todas tus empresas en las mismas
+// métricas y ordena por la que elijas.
+let _crossSort=(()=>{try{return JSON.parse(localStorage.getItem('vi_cross_sort')||'null')||{col:'score',dir:-1};}catch(e){return{col:'score',dir:-1};}})();
+function sortCross(c){
+  if(_crossSort.col===c) _crossSort.dir=-_crossSort.dir; else _crossSort={col:c,dir:-1};
+  try{localStorage.setItem('vi_cross_sort',JSON.stringify(_crossSort));}catch(e){}
+  renderCrossCompare();
+}
+function crossRows(){
+  return getAllPortfolioCompanies().map(s0=>{
+    const c=DB[s0.key]; if(!c||!c.sales||!c.roic) return null;
+    const px=(_carteraPrices[s0.key]&&_carteraPrices[s0.key].c)||_lastKnownPrice(s0.key)||c.price;
+    const v=verdictFor(s0.key,px);
+    const ri=calcROIIC(c,5), st=(()=>{try{return computeStyleFor(c,px);}catch(e){return null;}})();
+    const med=c.med5EvFcf||c.medEvFcf;
+    const fcfCur=(c.pF&&c.pF[0]>0)?c.pF[0]:_serie(c.fcf).pop();
+    const evfcf=(fcfCur>0)?(px*c.shares+(_serie(c.netDebt).pop()??0))/fcfCur:null;
+    const prima=(med&&evfcf)?((evfcf-med)/med*100):null;
+    const cf=dataConfidence(c);
+    return {key:s0.key, name:c.name, color:c.color,
+      score:v?v.totalScore:null, verdict:v?v.verdict:null, vcolor:v?v.verdictColor:null,
+      cagr5:v?v.cagr5e:null, roic:_serie(c.roic).pop(), roiic:ri.ok?ri.pct:null,
+      crec:st?+st.growth.toFixed(0):null, fcfM:_serie(c.fcfM).pop(),
+      evfcf:evfcf!=null?+evfcf.toFixed(0):null, prima:prima!=null?+prima.toFixed(0):null,
+      peg:st?st.peg:null, moat:v&&v.moat?v.moat.overall:null, fiab:cf.pct};
+  }).filter(Boolean);
+}
+function renderCrossCompare(){
+  const el=document.getElementById('dash-cross'); if(!el) return;
+  let rows=crossRows(); if(!rows.length){el.innerHTML='';return;}
+  const nz=v=>v==null?-1e9:v;
+  rows.sort((a,b)=>{
+    if(_crossSort.col==='name') return _crossSort.dir*String(a.name).localeCompare(String(b.name),'es');
+    if(_crossSort.col==='evfcf'||_crossSort.col==='prima'||_crossSort.col==='peg')
+      return _crossSort.dir*((a[_crossSort.col]==null?1e9:a[_crossSort.col])-(b[_crossSort.col]==null?1e9:b[_crossSort.col]))*-1;
+    return _crossSort.dir*(nz(a[_crossSort.col])-nz(b[_crossSort.col]));
+  });
+  const open=_secOpen('cross');
+  // Mejor y peor de cada columna, para que la comparación se lea de un vistazo
+  const best={}, worst={};
+  [['score',1],['cagr5',1],['roic',1],['roiic',1],['crec',1],['fcfM',1],['prima',-1],['peg',-1],['moat',1]].forEach(([k,dir])=>{
+    const vals=rows.map(r=>r[k]).filter(v=>v!=null);
+    if(vals.length<2) return;
+    best[k]=dir>0?Math.max(...vals):Math.min(...vals);
+    worst[k]=dir>0?Math.min(...vals):Math.max(...vals);
+  });
+  const cell=(r,k,txt)=>{
+    const v=r[k];
+    const c=v==null?'var(--muted)':(v===best[k]?'var(--green)':v===worst[k]?'var(--red)':'var(--text)');
+    const w=v!=null&&v===best[k]?'700':'600';
+    return `<td style="text-align:right;padding:5px 8px;color:${c};font-weight:${w};">${v==null?'—':txt}</td>`;
+  };
+  const th=(k,l,tip)=>`<th style="text-align:${k==='name'?'left':'right'};padding:6px 8px;cursor:pointer;white-space:nowrap;${_crossSort.col===k?'color:var(--blue);':''}" onclick="sortCross('${k}')" title="${tip||''}">${l}${_crossSort.col===k?(_crossSort.dir>0?' ▲':' ▼'):''}</th>`;
+  el.innerHTML=`<div class="card">
+    <div class="sec-fold" onclick="toggleSec('cross')">
+      <div class="dash-sec-title" style="margin:0;">Comparativa entre tus empresas <span style="font-weight:600;color:var(--muted);font-size:10px;">¿cuál es la mejor que puedo comprar hoy?</span></div>
+      <span class="sec-chev" id="chev-cross">${open?'▲ ocultar':'▼ mostrar'}</span>
+    </div>
+    <div id="body-cross" style="display:${open?'block':'none'};margin-top:${open?'10px':'0'};">
+      <div style="overflow-x:auto;"><table class="cartera-tbl" style="min-width:860px;">
+        <thead><tr>
+          ${th('name','Empresa')}${th('score','Score','Veredicto sobre 100')}${th('cagr5','Ret. 5Y','Retorno anualizado esperado')}
+          ${th('roic','ROIC')}${th('roiic','ROIIC','Retorno del capital incremental: lo que rinde el euro siguiente')}
+          ${th('crec','Crec.','Crecimiento representativo')}${th('fcfM','Mg FCF')}
+          ${th('evfcf','EV/FCF')}${th('prima','vs mediana','Prima o descuento sobre su propia mediana 5Y')}
+          ${th('peg','PEG')}${th('moat','MOAT')}${th('fiab','Fiab.','Qué parte del análisis sale de tu Excel')}
+        </tr></thead>
+        <tbody>${rows.map(r=>`<tr style="cursor:pointer;" onclick="setView('analysis');setTimeout(()=>{if(DB['${r.key}'])switchCo('${r.key}');},60);">
+          <td style="padding:5px 8px;"><span style="font-weight:700;color:${r.color};">${r.key}</span>
+            <span style="font-size:10px;color:var(--muted);margin-left:5px;">${shortCoName(r.name)}</span>
+            ${r.verdict?`<span class="verd-pill-sm" style="background:${r.vcolor}15;color:${r.vcolor};margin-left:5px;">${r.verdict}</span>`:''}</td>
+          ${cell(r,'score',r.score)}
+          ${cell(r,'cagr5',(r.cagr5>=0?'+':'')+r.cagr5+'%')}
+          ${cell(r,'roic',Math.round(r.roic)+'%')}
+          ${cell(r,'roiic',(r.roiic>=0?'+':'')+r.roiic+'%')}
+          ${cell(r,'crec',r.crec+'%')}
+          ${cell(r,'fcfM',Math.round(r.fcfM)+'%')}
+          ${cell(r,'evfcf',r.evfcf+'x')}
+          ${cell(r,'prima',(r.prima>=0?'+':'')+r.prima+'%')}
+          ${cell(r,'peg',r.peg!=null?r.peg.toFixed(2):'—')}
+          ${cell(r,'moat',r.moat)}
+          <td style="text-align:right;padding:5px 8px;font-size:10.5px;color:${r.fiab>=80?'var(--green)':r.fiab>=50?'var(--amber)':'var(--red)'};font-weight:700;">${r.fiab}%</td>
+        </tr>`).join('')}</tbody>
+      </table></div>
+      <div style="font-size:10px;color:var(--muted);margin-top:7px;line-height:1.5;">Verde = mejor de tu cartera en esa columna · rojo = peor. Pulsa una cabecera para reordenar y una fila para abrir su análisis. <b>Fiab.</b> es cuánto de cada análisis sale de tu Excel de TIKR: por debajo del 60% el resto son supuestos.</div>
+    </div>
+  </div>`;
 }
 
 // ── Comparador Growth vs Value de la cartera (cuadrante + tabla) ──
@@ -7970,6 +8307,13 @@ function parseExcelData(arrayBuffer,ticker,name,sector,color,driveUrl){
   // análisis lo dice en vez de rellenar con un valor por defecto.
   const _firstRow=(sheet,labels)=>{ for(const l of labels){ const r=findRow(sheet,l); if(r) return r; } return null; };
   const CAPEX_LBL=['Capital Expenditure','Capital Expenditures','CapEx','Capex','Inversiones en capital','Inversión en capital'];
+  const TAX_LBL=['Effective Tax Rate','Tax Rate','Tipo impositivo','Tasa impositiva','Impuestos %'];
+  const DIV_LBL=['Dividends Paid','Dividends','Dividendos','Dividendos pagados','Dividend per share','Dividendo por acción'];
+  const GP_LBL=['Gross Profit','Beneficio bruto','Margen bruto','Gross Margin'];
+  const IC_LBL=['Invested Capital','Capital Invertido','Capital invertido'];
+  const DEBT_LBL=['Total Debt','Deuda total','Deuda Total'];
+  const CASH_LBL=['Cash and Equivalents','Cash & Equivalents','Cash','Caja','Efectivo','Tesorería'];
+  const RD_LBL=['R&D','Research and Development','I+D','Investigación y desarrollo'];
   const CFO_LBL=['Cash from Operations','Cash Flow from Operations','Operating Cash Flow','Flujo de caja operativo','Caja de operaciones'];
   const SBC_LBL=['Stock-Based Compensation','Stock Based Compensation','Share-Based Compensation','SBC','Retribución en acciones','Remuneración en acciones'];
   const WC_LBL=['Working Capital','Capital circulante','Fondo de maniobra'];
@@ -7982,6 +8326,21 @@ function parseExcelData(arrayBuffer,ticker,name,sector,color,driveUrl){
   const cfo=nums(cfoRow,1,10);
   const sbc=nums(sbcRow,1,10).map(v=>v==null?null:Math.abs(v));
   const workingCap=nums(wcRow,1,10);
+  // Impuestos: pueden venir como 0.21 o como 21 → se normaliza a porcentaje
+  const _taxRaw=nums(_firstRow(is,TAX_LBL)||_firstRow(valS,TAX_LBL),1,10);
+  const taxRate=_taxRaw.map(v=>v==null?null:(Math.abs(v)<=1?+(v*100).toFixed(1):+v.toFixed(1)));
+  const dividends=nums(_firstRow(fcfS,DIV_LBL)||_firstRow(is,DIV_LBL),1,10).map(v=>v==null?null:Math.abs(v));
+  const grossProfit=nums(_firstRow(is,GP_LBL),1,10);
+  const investedCap=nums(_firstRow(roicS,IC_LBL)||_firstRow(valS,IC_LBL),1,10);
+  const totalDebt=nums(_firstRow(valS,DEBT_LBL)||_firstRow(roicS,DEBT_LBL),1,10);
+  const cashEq=nums(_firstRow(valS,CASH_LBL)||_firstRow(roicS,CASH_LBL),1,10);
+  const rnd=nums(_firstRow(is,RD_LBL),1,10).map(v=>v==null?null:Math.abs(v));
+  // Inventario de lo que TU hoja aporta de verdad (para poder enseñarlo y no suponer de más)
+  const _hay=a=>(a||[]).filter(v=>v!=null).length>=3;
+  const camposHoja={capex:_hay(capex),cfo:_hay(cfo),sbc:_hay(sbc),workingCap:_hay(workingCap),
+    taxRate:_hay(taxRate),dividends:_hay(dividends),grossProfit:_hay(grossProfit),
+    investedCap:_hay(investedCap),totalDebt:_hay(totalDebt),cashEq:_hay(cashEq),rnd:_hay(rnd),
+    sharesHist:_hay(sharesHist)};
 
   // 3.ROIC
   const roicRow=findRow(roicS,'ROIC');
@@ -8053,7 +8412,8 @@ function parseExcelData(arrayBuffer,ticker,name,sector,color,driveUrl){
     ticker,name,sector:sector||'',color:color||'#1e3a5f',driveUrl:driveUrl||'',
     importDate:new Date().toISOString(),
     price,shares,sharesHist,
-    capex,cfo,sbc,workingCap,
+    capex,cfo,sbc,workingCap,taxRate,dividends,grossProfit,investedCap,totalDebt,cashEq,rnd,
+    camposHoja,
     years:_years,
     sales,ebitda,ebitdaM,ebit,ebitM,netIncome,eps,fcf,fcfM,fcfps,roic,netDebt,
     pY:_pY,pS,pEB,pF,pEPS,pND,pShares,
@@ -8080,7 +8440,17 @@ function buildDbEntryFromImport(r){
   const pS=r.pS||[]; let prev=last(r.sales)||pS[0]||0;
   const sg=[]; for(let i=0;i<5;i++){const s=pS[i];sg.push((prev&&s!=null)?+(((s/prev)-1)*100).toFixed(1):10);if(s!=null)prev=s;}
   const ebitM9=last(r.ebitM)??20, ebitdaM9=last(r.ebitdaM)??(ebitM9*1.2);
-  const isD={sg,em:Array(5).fill(+(+ebitM9).toFixed(1)),tr:Array(5).fill(21),di:Array(5).fill(0),cx:Array(5).fill(3),wc:Array(5).fill(0)};
+  // Los supuestos del simulador parten de TU hoja siempre que la hoja lo diga
+  const _lastOf=a=>{const v=(a||[]).filter(x=>x!=null&&isFinite(x));return v.length?v[v.length-1]:null;};
+  const _trReal=_lastOf(r.taxRate), _cxReal=(()=>{const k=_lastOf(r.capex),s0=_lastOf(r.sales);return (k!=null&&s0>0)?+(k/s0*100).toFixed(1):null;})();
+  const _wcReal=(()=>{const w=_lastOf(r.workingCap),s0=_lastOf(r.sales);return (w!=null&&s0>0)?+(w/s0*100).toFixed(1):null;})();
+  const _diReal=(()=>{const h=(r.sharesHist||[]).filter(x=>x!=null&&x>0);
+    return h.length>=3?+((Math.pow(h[h.length-1]/h[0],1/(h.length-1))-1)*100).toFixed(2):null;})();
+  const isD={sg,em:Array(5).fill(+(+ebitM9).toFixed(1)),
+    tr:Array(5).fill(_trReal!=null?_trReal:21),
+    di:Array(5).fill(_diReal!=null?_diReal:0),
+    cx:Array(5).fill(_cxReal!=null?_cxReal:3),
+    wc:Array(5).fill(_wcReal!=null?_wcReal:0)};
   // Enriquecer con el catálogo (color corporativo, dominio del logo, símbolo TradingView) por ticker/alias
   const _cat=catalogFor(r.ticker);
   const _color=(r.color&&r.color!=='#1e3a5f')?r.color:((_cat&&_cat.color)||r.color||'#1e3a5f');
@@ -8090,6 +8460,9 @@ function buildDbEntryFromImport(r){
     ...(( _cat&&_cat.domain)?{domain:_cat.domain}:{}),...( _tv?{tvSymbol:_tv}:{}),
     shares:r.shares||1,sharesHist:r.sharesHist||[],price:r.price||0,equity:0,color:_color,
     capex:r.capex||[],cfo:r.cfo||[],sbc:r.sbc||[],workingCap:r.workingCap||[],
+    taxRate:r.taxRate||[],dividends:r.dividends||[],grossProfit:r.grossProfit||[],
+    investedCap:r.investedCap||[],totalDebt:r.totalDebt||[],cashEq:r.cashEq||[],rnd:r.rnd||[],
+    camposHoja:r.camposHoja||{},
     wacc:10,sectorAvgEbitdaM:Math.round(ebitdaM9)||25,sectorAvgFcfM:Math.round(last(r.fcfM)||20),sectorAvgROIC:Math.round(last(r.roic)||15),
     earningsDate:'',earningsLabel:'Resultados',driveUrl:r.driveUrl||'',
     desc:r.desc||((r.name||r.ticker)+' — empresa importada desde tu Plantilla de Valoración.'),
@@ -8398,11 +8771,15 @@ async function refreshAllImports(auto){
         const res=parseExcelData(buf,key,prev?.name||DB[key]?.name||key,prev?.sector||DB[key]?.sector||'',prev?.color||DB[key]?.color||'#1e3a5f',url);
         if(!importLooksValid(res)) throw new Error('la hoja se leyó pero vino sin datos (¿plantilla cambiada o no es pública?)');
         const cambios=importDiff(prev,res);
+        const CH=res.camposHoja||{};
+        const ETQ={capex:'CapEx',cfo:'flujo operativo',sbc:'retribución en acciones',workingCap:'circulante',
+          taxRate:'impuestos',dividends:'dividendos',investedCap:'capital invertido',sharesHist:'histórico de acciones'};
+        const faltan=Object.keys(ETQ).filter(k=>!CH[k]).map(k=>ETQ[k]);
         const habiaMults=!!localStorage.getItem('vi_mults_'+key);
         localStorage.setItem('vi_import_'+key,JSON.stringify(res));  // datos + proyecciones + múltiplos/precios objetivo
         localStorage.removeItem('vi_mults_'+key);                     // la hoja manda sobre ediciones previas
         _applyImportToDB(key,res);
-        results.push({key,state:'ok',cambios,habiaMults});
+        results.push({key,state:'ok',cambios,habiaMults,faltan});
       }catch(e){
         results.push({key,state:'err',msg:(e&&e.message)||'error'});  // se conservan los datos anteriores
       }
@@ -8433,6 +8810,18 @@ async function refreshAllImports(auto){
       +(r.habiaMults?' <span style="color:var(--amber);">· se descartaron tus múltiplos editados a mano (manda la hoja)</span>':'')+'</div>').join('');
   } else if(ok.length){
     html+='<div class="sync-line">Sin cambios respecto a la última vez: tus hojas y la app dicen lo mismo.</div>';
+  }
+  // Filas que TIKR suele dar y que tu plantilla aún no expone: con ellas el
+  // análisis deja de suponer (impuestos, CapEx, SBC, capital invertido…)
+  const conFaltas=ok.filter(r=>r.faltan&&r.faltan.length);
+  if(conFaltas.length){
+    const cuenta={};
+    conFaltas.forEach(r=>r.faltan.forEach(f=>{cuenta[f]=(cuenta[f]||0)+1;}));
+    const lista=Object.entries(cuenta).sort((a,b)=>b[1]-a[1])
+      .map(([f,n])=>f+(n<ok.length?' ('+n+')':'')).join(' · ');
+    html+='<div class="sync-line" style="color:var(--sub);border-top:1px solid var(--border);margin-top:6px;padding-top:6px;">'
+      +'<b>Filas que tu plantilla aún no trae:</b> '+lista
+      +'. Añadirlas en TIKR hace que el análisis las mida en vez de suponerlas.</div>';
   }
   if(err.length) html+='<div class="sync-line err">⚠ No se pudieron actualizar (se conservan sus datos anteriores): '
     +err.map(r=>'<b>'+r.key+'</b> ('+r.msg+')').join(' · ')+'</div>';
