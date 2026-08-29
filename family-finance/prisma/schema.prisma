@@ -1,0 +1,441 @@
+// ---------------------------------------------------------------------------
+// Family Finance — Modelo de datos (PostgreSQL)
+// Importes monetarios en céntimos (Int / BigInt) para evitar errores de coma
+// flotante. Los porcentajes se almacenan en puntos básicos (1% = 100 bps).
+// ---------------------------------------------------------------------------
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// --- Identidad y hogar -----------------------------------------------------
+
+enum Role {
+  ADMIN
+  GUEST
+}
+
+/// Usuario de la aplicación. El `id` coincide con `auth.users.id` de Supabase.
+model User {
+  id        String   @id @db.Uuid
+  email     String   @unique
+  name      String?
+  avatarUrl String?
+  role      Role     @default(GUEST)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberships Membership[]
+
+  @@map("users")
+}
+
+/// Hogar: unidad que agrupa a los miembros de la pareja y sus finanzas.
+model Household {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  currency  String   @default("EUR")
+  locale    String   @default("es-ES")
+  // Localización de la vivienda principal.
+  location  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members     Member[]
+  memberships Membership[]
+  accounts    Account[]
+  incomes     Income[]
+  expenses    Expense[]
+  categories  Category[]
+  tags        Tag[]
+  goals       Goal[]
+  budgets     Budget[]
+  mortgages   Mortgage[]
+  recurring   RecurringRule[]
+  alerts      Alert[]
+  snapshots   NetWorthSnapshot[]
+
+  @@map("households")
+}
+
+/// Relación usuario <-> hogar con su rol efectivo dentro del hogar.
+model Membership {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @db.Uuid
+  householdId String    @db.Uuid
+  role        Role      @default(GUEST)
+  createdAt   DateTime  @default(now())
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  household Household  @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, householdId])
+  @@map("memberships")
+}
+
+/// Miembro de la pareja. Modela a la persona financiera (pagador, perceptor),
+/// con su cuota de reparto proporcional sobre los ingresos.
+model Member {
+  id          String   @id @default(uuid()) @db.Uuid
+  householdId String   @db.Uuid
+  name        String
+  color       String   @default("#2563eb")
+  /// Cuota de reparto proporcional en puntos básicos (68,7% = 6870 bps).
+  shareBps    Int      @default(5000)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  household     Household        @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  incomes       Income[]
+  paidExpenses  Expense[]        @relation("ExpensePayer")
+  allocations   ExpenseAllocation[]
+  goals         Goal[]
+
+  @@index([householdId])
+  @@map("members")
+}
+
+// --- Cuentas y patrimonio --------------------------------------------------
+
+enum AccountType {
+  CHECKING
+  SAVINGS
+  CASH
+  INVESTMENT
+  PROPERTY
+  LOAN
+}
+
+/// Cuenta o activo/pasivo que compone el patrimonio neto.
+model Account {
+  id            String      @id @default(uuid()) @db.Uuid
+  householdId   String      @db.Uuid
+  name          String
+  type          AccountType
+  /// Saldo actual en céntimos. Negativo para pasivos (préstamos).
+  balanceCents  BigInt      @default(0)
+  currency      String      @default("EUR")
+  isLiability   Boolean     @default(false)
+  archived      Boolean     @default(false)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  incomes   Income[]
+  expenses  Expense[]
+
+  @@index([householdId])
+  @@map("accounts")
+}
+
+// --- Categorías y etiquetas ------------------------------------------------
+
+model Category {
+  id          String   @id @default(uuid()) @db.Uuid
+  householdId String   @db.Uuid
+  name        String
+  slug        String
+  icon        String?
+  color       String   @default("#64748b")
+  isSystem    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  expenses  Expense[]
+  budgets   Budget[]
+
+  @@unique([householdId, slug])
+  @@index([householdId])
+  @@map("categories")
+}
+
+model Tag {
+  id          String   @id @default(uuid()) @db.Uuid
+  householdId String   @db.Uuid
+  name        String
+  createdAt   DateTime @default(now())
+
+  household Household    @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  expenses  ExpenseTag[]
+
+  @@unique([householdId, name])
+  @@map("tags")
+}
+
+model ExpenseTag {
+  expenseId String  @db.Uuid
+  tagId     String  @db.Uuid
+
+  expense Expense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  tag     Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([expenseId, tagId])
+  @@map("expense_tags")
+}
+
+// --- Ingresos --------------------------------------------------------------
+
+enum IncomeKind {
+  RECURRING
+  EXTRA
+  ONE_OFF
+}
+
+model Income {
+  id          String     @id @default(uuid()) @db.Uuid
+  householdId String     @db.Uuid
+  memberId    String?    @db.Uuid
+  accountId   String?    @db.Uuid
+  description String
+  amountCents BigInt
+  kind        IncomeKind @default(RECURRING)
+  date        DateTime
+  /// Nº de pagas extra al año (para ingresos recurrentes de tipo salario).
+  extraPayments Int      @default(0)
+  recurringId String?    @db.Uuid
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  household Household      @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  member    Member?        @relation(fields: [memberId], references: [id], onDelete: SetNull)
+  account   Account?       @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  recurring RecurringRule? @relation(fields: [recurringId], references: [id], onDelete: SetNull)
+
+  @@index([householdId, date])
+  @@map("incomes")
+}
+
+// --- Gastos ----------------------------------------------------------------
+
+enum SplitMode {
+  PROPORTIONAL
+  EQUAL
+  CUSTOM
+  PAYER_ONLY
+}
+
+model Expense {
+  id          String    @id @default(uuid()) @db.Uuid
+  householdId String    @db.Uuid
+  categoryId  String?   @db.Uuid
+  payerId     String?   @db.Uuid
+  accountId   String?   @db.Uuid
+  description String
+  amountCents BigInt
+  date        DateTime
+  splitMode   SplitMode @default(PROPORTIONAL)
+  notes       String?
+  /// Origen del movimiento: MANUAL o import (banco).
+  source      String    @default("MANUAL")
+  externalRef String?
+  recurringId String?   @db.Uuid
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  household   Household           @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  category    Category?           @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  payer       Member?             @relation("ExpensePayer", fields: [payerId], references: [id], onDelete: SetNull)
+  account     Account?            @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  recurring   RecurringRule?      @relation(fields: [recurringId], references: [id], onDelete: SetNull)
+  allocations ExpenseAllocation[]
+  tags        ExpenseTag[]
+
+  @@index([householdId, date])
+  @@index([categoryId])
+  @@map("expenses")
+}
+
+/// Reparto de un gasto entre miembros (proporcional, igualitario o custom).
+model ExpenseAllocation {
+  id         String @id @default(uuid()) @db.Uuid
+  expenseId  String @db.Uuid
+  memberId   String @db.Uuid
+  /// Importe imputado a este miembro en céntimos.
+  amountCents BigInt
+  /// Porcentaje aplicado en puntos básicos (para trazabilidad).
+  shareBps   Int
+
+  expense Expense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  member  Member  @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([expenseId, memberId])
+  @@map("expense_allocations")
+}
+
+// --- Reglas recurrentes ----------------------------------------------------
+
+enum Frequency {
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+model RecurringRule {
+  id          String    @id @default(uuid()) @db.Uuid
+  householdId String    @db.Uuid
+  description String
+  amountCents BigInt
+  frequency   Frequency @default(MONTHLY)
+  /// Día del mes (1-31) o del periodo en que se devenga.
+  dayOfMonth  Int       @default(1)
+  isIncome    Boolean   @default(false)
+  active      Boolean   @default(true)
+  startDate   DateTime
+  endDate     DateTime?
+  createdAt   DateTime  @default(now())
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  expenses  Expense[]
+  incomes   Income[]
+
+  @@index([householdId])
+  @@map("recurring_rules")
+}
+
+// --- Objetivos -------------------------------------------------------------
+
+enum GoalType {
+  EMERGENCY_FUND
+  HOME_RENOVATION
+  VACATION
+  MORTGAGE_PREPAYMENT
+  INVESTMENT
+  VEHICLE
+  CUSTOM
+}
+
+model Goal {
+  id            String   @id @default(uuid()) @db.Uuid
+  householdId   String   @db.Uuid
+  memberId      String?  @db.Uuid
+  name          String
+  type          GoalType @default(CUSTOM)
+  targetCents   BigInt
+  currentCents  BigInt   @default(0)
+  /// Aportación mensual planificada en céntimos.
+  monthlyContributionCents BigInt @default(0)
+  targetDate    DateTime?
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  member    Member?   @relation(fields: [memberId], references: [id], onDelete: SetNull)
+
+  @@index([householdId])
+  @@map("goals")
+}
+
+// --- Presupuestos ----------------------------------------------------------
+
+enum BudgetPeriod {
+  MONTHLY
+  YEARLY
+}
+
+model Budget {
+  id          String       @id @default(uuid()) @db.Uuid
+  householdId String       @db.Uuid
+  categoryId  String       @db.Uuid
+  period      BudgetPeriod @default(MONTHLY)
+  /// Importe presupuestado en céntimos para el periodo.
+  amountCents BigInt
+  /// Año y mes a los que aplica (mes = 0 para presupuestos anuales).
+  year        Int
+  month       Int          @default(0)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  category  Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([householdId, categoryId, period, year, month])
+  @@index([householdId])
+  @@map("budgets")
+}
+
+// --- Hipoteca --------------------------------------------------------------
+
+model Mortgage {
+  id              String   @id @default(uuid()) @db.Uuid
+  householdId     String   @db.Uuid
+  name            String   @default("Hipoteca vivienda")
+  /// Capital inicial concedido (céntimos).
+  principalCents  BigInt
+  /// Capital pendiente actual (céntimos).
+  outstandingCents BigInt
+  /// Tipo de interés nominal anual en puntos básicos (3% = 300 bps).
+  annualRateBps   Int
+  /// Plazo total en meses.
+  termMonths      Int
+  /// Meses ya pagados.
+  monthsPaid      Int      @default(0)
+  startDate       DateTime
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@index([householdId])
+  @@map("mortgages")
+}
+
+// --- Alertas ---------------------------------------------------------------
+
+enum AlertType {
+  BUDGET_EXCEEDED
+  LOW_SAVINGS_RATE
+  HIGH_HOUSING_RATIO
+  LOW_EMERGENCY_FUND
+  UNDERUSED_SUBSCRIPTION
+}
+
+enum AlertSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+model Alert {
+  id          String        @id @default(uuid()) @db.Uuid
+  householdId String        @db.Uuid
+  type        AlertType
+  severity    AlertSeverity @default(WARNING)
+  title       String
+  message     String
+  /// Datos contextuales en JSON (valor actual, umbral, etc.).
+  context     Json?
+  resolved    Boolean       @default(false)
+  createdAt   DateTime      @default(now())
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@index([householdId, resolved])
+  @@map("alerts")
+}
+
+// --- Snapshots de patrimonio ----------------------------------------------
+
+/// Foto mensual del patrimonio neto para series temporales.
+model NetWorthSnapshot {
+  id            String   @id @default(uuid()) @db.Uuid
+  householdId   String   @db.Uuid
+  date          DateTime
+  assetsCents   BigInt
+  liabilitiesCents BigInt
+  netWorthCents BigInt
+  createdAt     DateTime @default(now())
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@unique([householdId, date])
+  @@index([householdId])
+  @@map("net_worth_snapshots")
+}
